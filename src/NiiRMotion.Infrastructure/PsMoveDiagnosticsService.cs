@@ -16,10 +16,61 @@ public sealed record PsMoveHidProbe(
     public bool SensorReportsPossible => Opened && InputReportBytes > 0;
 }
 
+public sealed record PsMoveRawCapture(
+    PsMoveDeviceDescriptor Device,
+    int ReportCount,
+    int DistinctReportCount,
+    byte ReportId,
+    int ReportBytes,
+    string FirstReportHex);
+
 public sealed class PsMoveDiagnosticsService
 {
     public IReadOnlyList<PsMoveHidProbe> Discover()
         => HidDeviceEnumerator.FindPsMoves().Select(ProbeReadOnly).ToArray();
+
+    public async Task<PsMoveRawCapture?> CaptureInputReportsAsync(TimeSpan duration, CancellationToken cancellationToken = default)
+    {
+        var probe = Discover().FirstOrDefault(x => x.SensorReportsPossible);
+        if (probe is null) return null;
+
+        await using var stream = new FileStream(
+            probe.Device.DevicePath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.ReadWrite,
+            probe.InputReportBytes,
+            FileOptions.Asynchronous);
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(duration);
+        var buffer = new byte[probe.InputReportBytes];
+        byte[]? first = null;
+        var reports = 0;
+        var distinct = new HashSet<string>(StringComparer.Ordinal);
+
+        try
+        {
+            while (!timeout.IsCancellationRequested)
+            {
+                var read = await stream.ReadAsync(buffer, timeout.Token);
+                if (read <= 0) continue;
+                reports++;
+                var report = buffer.AsSpan(0, read).ToArray();
+                first ??= report;
+                distinct.Add(Convert.ToHexString(report));
+            }
+        }
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested) { }
+
+        return new(
+            probe.Device,
+            reports,
+            distinct.Count,
+            first is { Length: > 0 } ? first[0] : (byte)0,
+            first?.Length ?? 0,
+            first is null ? string.Empty : Convert.ToHexString(first));
+    }
 
     private static PsMoveHidProbe ProbeReadOnly(PsMoveDeviceDescriptor device)
     {

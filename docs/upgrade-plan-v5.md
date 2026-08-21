@@ -63,15 +63,15 @@ Bu plan `NiiMotion_Codex_Master_Prompt_V5_FINAL.txt` gereksinimlerini mevcut ça
 
 ### Faz 1 — PS Move bağlantı araştırması ve tek cihaz keşfi
 
-**SOFTWARE GROUNDWORK COMPLETE / HARDWARE VERIFICATION PENDING**
+**IMPLEMENTED / SINGLE CONTROLLER HARDWARE TESTED**
 
 1. CECH-ZCM1E Windows HID/Bluetooth davranışı birincil PS Move API kaynaklarından araştırıldı.
 2. `VID_054C/PID_03D5` için strict descriptor ve Windows HID discovery eklendi.
 3. Read-only HID capability probe ve `--psmove-discovery` tanı komutu eklendi.
-4. Bilgisayarda bağlı Move olmadığı için gerçek report length/identity ölçümü donanım kapısında bekliyor.
+4. Bir gerçek Move ile USB ve Bluetooth koleksiyonları ölçüldü; `0x01` kimlikli canlı 49 baytlık giriş raporları kaydedildi.
 5. Pairing, controller write, locomotion ve mevcut profiller değiştirilmedi.
 
-Kabul: yazılım regresyonu 49/49 geçti; gerçek donanım görünürlüğü henüz doğrulanmadığı için Faz 1 tamamlandı sayılmıyor. Ayrıntı: `phase-1-psmove-status.md`.
+Kabul: tek gerçek kontrolcü USB/Bluetooth görünürlüğü ve canlı input ile doğrulandı; regresyon 50/50 geçti. Ayrıntı: `phase-1-psmove-status.md`.
 
 ### Faz 2 — Move diagnostics, L/R ve reconnect
 
@@ -138,4 +138,4 @@ Kabul: yazılım regresyonu 49/49 geçti; gerçek donanım görünürlüğü hen
 
 ## Bir sonraki somut çalışma
 
-Faz 1 yazılım altyapısı hazırdır. Bir sonraki kapı gerçek donanım doğrulamasıdır: bir adet CECH-ZCM1E PS Move'u veri destekli Mini-USB kabloyla bilgisayara bağlamak. Read-only USB ölçümünden sonra aynı cihaz Bluetooth üzerinden ölçülmeden pairing veya IMU parser fazına geçilmez.
+Faz 1 tamamlandı. Bir sonraki kapı Faz 2 için iki cihazın aynı anda Bluetooth üzerinden görülmesi, kalıcı kimliklerinin alınması ve kullanıcı kontrollü sol/sağ atamadır. İkinci Move bağlanmadan enumeration sırasına dayalı geçici L/R uygulanmaz.

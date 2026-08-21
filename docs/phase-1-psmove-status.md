@@ -31,11 +31,13 @@ Primary references:
 ## Verification result
 
 - Release build: passed, 0 warnings, 0 errors.
-- Automated tests: 49/49 passed.
-- Hardware discovery on this PC: 0 PS Move devices detected.
-- Hardware status: **not yet verified** because neither controller was connected during this phase.
+- Automated tests: 50/50 passed after the first parser contract was added.
+- USB: one physical CECH-ZCM1E produced three Windows HID collections. Collection 1 exposed 49/49/49-byte input/output/feature reports; collections 2 and 3 exposed 23-byte and 35-byte feature reports.
+- Bluetooth: the same collection layout was observed through the Bluetooth HID path.
+- Live Bluetooth input: 247 reports were read in the first three-second capture and 255 reports in the verification capture. Reports were live, distinct, 49 bytes long, and used report ID `0x01`.
+- The first real report was decoded into sequence, battery, trigger, two accel frames, two gyro frames, and ZCM1 magnetometer values without writing to the controller.
+- Hardware status: **single-controller USB and Bluetooth discovery/input verified**.
 
 ## Exact next hardware gate
 
-Connect one CECH-ZCM1E to the PC with a data-capable Mini-USB cable. Run the read-only discovery diagnostic and record its HID report lengths. Then disconnect USB, connect the same controller over Bluetooth, repeat the diagnostic, and compare the two paths. Do not implement pairing or IMU parsing until these real reports are captured.
-
+Connect the second CECH-ZCM1E over Bluetooth while leaving the first one connected. Verify two independent collection-1 paths and two simultaneous live report streams. Then capture stable Bluetooth identities and add explicit left/right assignment; do not rely on enumeration order.
