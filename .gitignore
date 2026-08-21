@@ -16,5 +16,6 @@ recordings/
 /calibration/
 /config/personal-*.json
 /config/system-mode.json
+/config/psmove-assignments.json
 # Local portable build toolchains/SDKs
 .tools/

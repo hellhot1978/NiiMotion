@@ -65,7 +65,8 @@ public sealed record PsMoveDeviceDescriptor(
     ushort VendorId,
     ushort ProductId,
     PsMoveTransport Transport,
-    string Model)
+    string Model,
+    string? StableId)
 {
     public const ushort SonyVendorId = 0x054C;
     public const ushort Zcm1ProductId = 0x03D5;
@@ -74,7 +75,8 @@ public sealed record PsMoveDeviceDescriptor(
         string devicePath,
         ushort vendorId,
         ushort productId,
-        out PsMoveDeviceDescriptor? descriptor)
+        out PsMoveDeviceDescriptor? descriptor,
+        string? stableId = null)
     {
         descriptor = null;
         if (string.IsNullOrWhiteSpace(devicePath) || vendorId != SonyVendorId || productId != Zcm1ProductId)
@@ -85,7 +87,8 @@ public sealed record PsMoveDeviceDescriptor(
             vendorId,
             productId,
             InferTransport(devicePath),
-            "PS Move CECH-ZCM1");
+            "PS Move CECH-ZCM1",
+            stableId);
         return true;
     }
 

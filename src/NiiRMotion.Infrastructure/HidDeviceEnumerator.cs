@@ -13,6 +13,8 @@ public static partial class HidDeviceEnumerator
     private const uint DigcfDeviceInterface = 0x10;
     private static readonly nint InvalidHandleValue = new(-1);
 
+    private sealed record HidInterface(string Path, string? ParentInstanceId);
+
     public static IReadOnlyList<JoyConDeviceDescriptor> FindJoyCons()
     {
         var results = new List<JoyConDeviceDescriptor>();
@@ -32,10 +34,11 @@ public static partial class HidDeviceEnumerator
     public static IReadOnlyList<PsMoveDeviceDescriptor> FindPsMoves()
     {
         var results = new List<PsMoveDeviceDescriptor>();
-        foreach (var path in FindAllHidPaths())
+        foreach (var hid in FindAllHidInterfaces())
         {
-            if (TryReadVidPid(path, out var vid, out var pid)
-                && PsMoveDeviceDescriptor.TryCreate(path, vid, pid, out var descriptor))
+            var stableId = TryReadBluetoothAddress(hid.ParentInstanceId);
+            if (TryReadVidPid(hid.Path, out var vid, out var pid)
+                && PsMoveDeviceDescriptor.TryCreate(hid.Path, vid, pid, out var descriptor, stableId))
                 results.Add(descriptor!);
         }
 
@@ -52,11 +55,14 @@ public static partial class HidDeviceEnumerator
     }
 
     public static IReadOnlyList<string> FindAllHidPaths()
+        => FindAllHidInterfaces().Select(x => x.Path).ToArray();
+
+    private static IReadOnlyList<HidInterface> FindAllHidInterfaces()
     {
         HidD_GetHidGuid(out var hidGuid);
         var set = SetupDiGetClassDevs(ref hidGuid, null, 0, DigcfPresent | DigcfDeviceInterface);
         if (set == InvalidHandleValue) throw new Win32Exception(Marshal.GetLastWin32Error());
-        var results = new List<string>();
+        var results = new List<HidInterface>();
         try
         {
             for (uint index = 0; ; index++)
@@ -67,27 +73,47 @@ public static partial class HidDeviceEnumerator
                     if (Marshal.GetLastWin32Error() == 259) break;
                     continue;
                 }
-                SetupDiGetDeviceInterfaceDetail(set, ref data, 0, 0, out var required, 0);
+                SetupDiGetDeviceInterfaceDetailSize(set, ref data, 0, 0, out var required, 0);
                 var buffer = Marshal.AllocHGlobal((int)required);
                 try
                 {
                     Marshal.WriteInt32(buffer, IntPtr.Size == 8 ? 8 : 6);
-                    if (!SetupDiGetDeviceInterfaceDetail(set, ref data, buffer, required, out _, 0)) continue;
+                    var deviceInfo = new DeviceInfoData { Size = Marshal.SizeOf<DeviceInfoData>() };
+                    if (!SetupDiGetDeviceInterfaceDetail(set, ref data, buffer, required, out _, ref deviceInfo)) continue;
                     var path = Marshal.PtrToStringUni(buffer + 4) ?? string.Empty;
-                    if (!string.IsNullOrWhiteSpace(path)) results.Add(path);
+                    if (!string.IsNullOrWhiteSpace(path)) results.Add(new(path, GetParentInstanceId(deviceInfo.DevInst)));
                 }
                 finally { Marshal.FreeHGlobal(buffer); }
             }
         }
         finally { SetupDiDestroyDeviceInfoList(set); }
-        return results.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        return results.DistinctBy(x => x.Path, StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
+    private static string? GetParentInstanceId(uint deviceInstance)
+    {
+        if (CM_Get_Parent(out var parent, deviceInstance, 0) != 0) return null;
+        var buffer = new System.Text.StringBuilder(512);
+        return CM_Get_Device_ID(parent, buffer, buffer.Capacity, 0) == 0 ? buffer.ToString() : null;
+    }
+
+    private static string? TryReadBluetoothAddress(string? parentInstanceId)
+    {
+        if (string.IsNullOrWhiteSpace(parentInstanceId)) return null;
+        var match = BluetoothAddressRegex().Match(parentInstanceId);
+        return match.Success ? match.Groups[1].Value.ToUpperInvariant() : null;
     }
 
     [GeneratedRegex("(?:vid_|vid&0002)([0-9a-f]{4}).*(?:pid_|pid&)([0-9a-f]{4})", RegexOptions.IgnoreCase)] private static partial Regex VidPidRegex();
+    [GeneratedRegex("&0&([0-9a-f]{12})(?:_C[0-9a-f]+)?$", RegexOptions.IgnoreCase)] private static partial Regex BluetoothAddressRegex();
     [StructLayout(LayoutKind.Sequential)] private struct DeviceInterfaceData { public int Size; public Guid InterfaceClassGuid; public uint Flags; public nint Reserved; }
+    [StructLayout(LayoutKind.Sequential)] private struct DeviceInfoData { public int Size; public Guid ClassGuid; public uint DevInst; public nint Reserved; }
     [DllImport("hid.dll")] private static extern void HidD_GetHidGuid(out Guid hidGuid);
     [DllImport("setupapi.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern nint SetupDiGetClassDevs(ref Guid classGuid, string? enumerator, nint hwndParent, uint flags);
     [DllImport("setupapi.dll", SetLastError = true)] private static extern bool SetupDiEnumDeviceInterfaces(nint deviceInfoSet, nint deviceInfoData, ref Guid interfaceClassGuid, uint memberIndex, ref DeviceInterfaceData deviceInterfaceData);
-    [DllImport("setupapi.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern bool SetupDiGetDeviceInterfaceDetail(nint deviceInfoSet, ref DeviceInterfaceData deviceInterfaceData, nint detailData, uint detailDataSize, out uint requiredSize, nint deviceInfoData);
+    [DllImport("setupapi.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern bool SetupDiGetDeviceInterfaceDetail(nint deviceInfoSet, ref DeviceInterfaceData deviceInterfaceData, nint detailData, uint detailDataSize, out uint requiredSize, ref DeviceInfoData deviceInfoData);
+    [DllImport("setupapi.dll", EntryPoint = "SetupDiGetDeviceInterfaceDetailW", CharSet = CharSet.Unicode, SetLastError = true)] private static extern bool SetupDiGetDeviceInterfaceDetailSize(nint deviceInfoSet, ref DeviceInterfaceData deviceInterfaceData, nint detailData, uint detailDataSize, out uint requiredSize, nint deviceInfoData);
     [DllImport("setupapi.dll")] private static extern bool SetupDiDestroyDeviceInfoList(nint deviceInfoSet);
+    [DllImport("cfgmgr32.dll")] private static extern int CM_Get_Parent(out uint parentDeviceInstance, uint deviceInstance, uint flags);
+    [DllImport("cfgmgr32.dll", CharSet = CharSet.Unicode)] private static extern int CM_Get_Device_ID(uint deviceInstance, System.Text.StringBuilder buffer, int bufferLength, uint flags);
 }

@@ -75,12 +75,14 @@ Kabul: tek gerçek kontrolcü USB/Bluetooth görünürlüğü ve canlı input il
 
 ### Faz 2 — Move diagnostics, L/R ve reconnect
 
-**NOT IMPLEMENTED**
+**PARTIAL / DUAL HARDWARE TESTED**
 
-- İki gerçek cihazı ayırt et; kullanıcı kontrollü L/R atama sakla.
-- Accel/gyro ve destekleniyorsa magnetometer/battery/buttons/timing diagnostics.
-- USB, Bluetooth, disconnect/reconnect ve iki eşzamanlı cihaz testi.
+- İki gerçek cihaz kalıcı Bluetooth kimliğiyle ayırt edildi; kullanıcı kontrollü L/R ataması saklandı.
+- Ham accel/gyro/magnetometer/battery/buttons/timing parser ve çift canlı akış tanısı eklendi.
+- USB/Bluetooth ve iki eşzamanlı cihaz doğrulandı; disconnect/reconnect testi bekliyor.
 - Ana UI sade; ham XYZ/jitter gelişmiş görünümde.
+
+Ayrıntı: `phase-2-psmove-status.md`.
 
 ### Faz 3–4 — Move Only kalibrasyon, eğitim ve locomotion
 

@@ -10,10 +10,42 @@ if (args.Contains("--psmove-discovery", StringComparer.OrdinalIgnoreCase))
     Console.WriteLine($"Detected PS Move CECH-ZCM1 controllers: {probes.Count}");
     foreach (var probe in probes)
     {
-        Console.WriteLine($"{probe.Device.Model} | {probe.Device.Transport} | HID open: {probe.Opened} | reports in/out/feature: {probe.InputReportBytes}/{probe.OutputReportBytes}/{probe.FeatureReportBytes}");
+        Console.WriteLine($"{probe.Device.Model} | {probe.Device.Transport} | ID: {probe.Device.StableId ?? "unknown"} | HID open: {probe.Opened} | reports in/out/feature: {probe.InputReportBytes}/{probe.OutputReportBytes}/{probe.FeatureReportBytes}");
         Console.WriteLine(probe.Device.DevicePath);
         if (!probe.Opened) Console.WriteLine(probe.Detail);
     }
+    return 0;
+}
+if (args.Contains("--psmove-dual", StringComparer.OrdinalIgnoreCase))
+{
+    var captures = await new PsMoveDiagnosticsService().CaptureAllInputReportsAsync(TimeSpan.FromSeconds(3));
+    Console.WriteLine($"PS Move live streams: {captures.Count}");
+    foreach (var capture in captures)
+        Console.WriteLine($"{capture.Device.StableId ?? "unknown"} | {capture.Device.Transport} | {capture.ReportCount} reports | {capture.DistinctReportCount} distinct | ID 0x{capture.ReportId:X2}");
+    return captures.Count >= 2 && captures.All(x => x.ReportCount > 0) ? 0 : 2;
+}
+if (args.Contains("--psmove-identify", StringComparer.OrdinalIgnoreCase))
+{
+    const uint moveButton = 1u << 19;
+    Console.WriteLine("Waiting 20 seconds for the large Move button...");
+    var device = await new PsMoveDiagnosticsService().WaitForButtonAsync(moveButton, TimeSpan.FromSeconds(20));
+    if (device is null)
+    {
+        Console.WriteLine("No Move button press detected.");
+        return 2;
+    }
+    Console.WriteLine($"Move button controller: {device.StableId ?? device.DevicePath}");
+    return 0;
+}
+var moveAssignmentArg = args.FirstOrDefault(x => x.StartsWith("--psmove-assign=", StringComparison.OrdinalIgnoreCase));
+if (moveAssignmentArg is not null)
+{
+    var ids = moveAssignmentArg[(moveAssignmentArg.IndexOf('=') + 1)..].Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+    if (ids.Length != 2) return 2;
+    var path = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "config", "psmove-assignments.json"));
+    var store = new PsMoveAssignmentStore(path);
+    await store.SaveAsync(ids[0], ids[1]);
+    Console.WriteLine($"PS Move assignment saved: LEFT {ids[0]} | RIGHT {ids[1]}");
     return 0;
 }
 if (args.Contains("--psmove-raw", StringComparer.OrdinalIgnoreCase))
@@ -67,7 +99,7 @@ if (args.Contains("--vr-output-forward-test", StringComparer.OrdinalIgnoreCase))
 if (args.Contains("--vr-pace-simulation", StringComparer.OrdinalIgnoreCase)) return await VrPaceSimulationAsync();
 if (args.Contains("--vr-pace-simulation-short", StringComparer.OrdinalIgnoreCase)) return await VrPaceSimulationAsync(200);
 if (args.Contains("--vr-straight-drift-test", StringComparer.OrdinalIgnoreCase)) return await VrStraightDriftTestAsync();
-var tests = new (string Name, Func<Task> Run)[] { Sync("Required device missing blocks session", RequiredMissingBlocks), Sync("Optional device missing degrades session", OptionalMissingDegrades), Sync("All devices ready", AllReady), Sync("Classic VR disables locomotion", ClassicVrIsNonInvasive), Sync("Joy-Con identity rejects clones", JoyConIdentity), Sync("PS Move identity accepts only ZCM1", PsMoveIdentity), Sync("PS Move ZCM1 input report parses", PsMoveInputReport), Sync("Joy-Con report parses three IMU samples", ParseImu), Sync("Invalid report is rejected", InvalidReport), Sync("Factory calibration parses", ParseCalibration), Sync("Factory calibration scales IMU", ScaleCalibration), Sync("Phone sequence loss is measured", PhoneLoss), Sync("owoTrack big-endian rotation parses", OwoRotation), Sync("Balance Board derives load and CoP", BalanceBoardDerivesCop), Sync("Balance Board protocol parses and calibrates", BalanceBoardProtocol), Sync("Board hold gesture turns without walking", BoardHoldGestureTurns), Sync("Board walking does not become a turn", BoardWalkingDoesNotTurn), Sync("Torso motion alone never starts locomotion", TorsoCannotStart), Sync("Experimental phone-only requires sustained motion", ExperimentalPhoneOnlyIsExplicitlyGated), Sync("Bilateral crouch motion resets gait confidence", BilateralMotionRejected), Sync("Single leg movement does not become walking", SingleLegRejected), Sync("Alternating leg evidence starts gait", AlternatingLegsStart), Sync("Natural cadence stays continuous and stops promptly", NaturalCadenceContinuity), Sync("Threshold hysteresis rejects sensor chatter", ThresholdHysteresisRejectsChatter), Sync("Stronger thigh swings produce a faster natural pace", SwingAmplitudeControlsPace), ("Learned DeepGait pace prior loads and scales", LearnedPacePrior), Sync("Gait stops after stale leg data", GaitStops), Sync("Optional fusion evidence cannot create gait", OptionalFusionCannotStart), Sync("Stale optional sensors degrade without blocking gait", StaleOptionalSensorsDoNotBlock), Sync("Analog output is smoothed", SpeedIsSmoothed), ("VR session starts promptly, stays straight and stops promptly", VrSessionResponseContract), Sync("Calibration rejects incomplete capture", CalibrationRejectsIncomplete), ("Calibration is versioned and round-trips", CalibrationRoundTrip), ("Personal gait records analyze and apply", PersonalGaitAnalysisRoundTrip), ("Recording round-trips through replay", RecordingRoundTrip), ("Balance Board recording round-trips", BalanceBoardRecordingRoundTrip), ("Phone UDP listener validates token", PhoneUdpRoundTrip), ("Live log retention enforces its disk budget", LogRetentionEnforcesBudget), Sync("Alyx physical forward override preserves controller buttons", AlyxPhysicalForwardOverride), Sync("Arizona 2 movement override preserves controller buttons", Arizona2PhysicalMovementOverride), ("VR output starts at zero and clamps analog values", VrOutputLifecycle), ("VR output refuses movement while off", VrOutputOffRejects), ("VR output failure detaches safely", VrOutputFailureDetaches), ("Fused gait drives analog output and stops safely", FusedGaitDrivesOutput), ("Board turn drives horizontal output only", BoardTurnDrivesHorizontalOutput), ("Named-pipe output packet matches native protocol", NamedPipeOutputProtocol), Sync("Native OpenVR DLL exports driver factory", NativeDriverExportsFactory), Sync("Native treadmill publishes an active stationary pose", NativeDriverPoseContract), Sync("Alyx binding includes treadmill vector and walk activation", AlyxBindingContract), Sync("Arizona Sunshine 2 binding includes movement vector", Arizona2BindingContract) };
+var tests = new (string Name, Func<Task> Run)[] { Sync("Required device missing blocks session", RequiredMissingBlocks), Sync("Optional device missing degrades session", OptionalMissingDegrades), Sync("All devices ready", AllReady), Sync("Classic VR disables locomotion", ClassicVrIsNonInvasive), Sync("Joy-Con identity rejects clones", JoyConIdentity), Sync("PS Move identity accepts only ZCM1", PsMoveIdentity), Sync("PS Move ZCM1 input report parses", PsMoveInputReport), ("PS Move assignments persist by stable identity", PsMoveAssignmentsRoundTrip), Sync("Joy-Con report parses three IMU samples", ParseImu), Sync("Invalid report is rejected", InvalidReport), Sync("Factory calibration parses", ParseCalibration), Sync("Factory calibration scales IMU", ScaleCalibration), Sync("Phone sequence loss is measured", PhoneLoss), Sync("owoTrack big-endian rotation parses", OwoRotation), Sync("Balance Board derives load and CoP", BalanceBoardDerivesCop), Sync("Balance Board protocol parses and calibrates", BalanceBoardProtocol), Sync("Board hold gesture turns without walking", BoardHoldGestureTurns), Sync("Board walking does not become a turn", BoardWalkingDoesNotTurn), Sync("Torso motion alone never starts locomotion", TorsoCannotStart), Sync("Experimental phone-only requires sustained motion", ExperimentalPhoneOnlyIsExplicitlyGated), Sync("Bilateral crouch motion resets gait confidence", BilateralMotionRejected), Sync("Single leg movement does not become walking", SingleLegRejected), Sync("Alternating leg evidence starts gait", AlternatingLegsStart), Sync("Natural cadence stays continuous and stops promptly", NaturalCadenceContinuity), Sync("Threshold hysteresis rejects sensor chatter", ThresholdHysteresisRejectsChatter), Sync("Stronger thigh swings produce a faster natural pace", SwingAmplitudeControlsPace), ("Learned DeepGait pace prior loads and scales", LearnedPacePrior), Sync("Gait stops after stale leg data", GaitStops), Sync("Optional fusion evidence cannot create gait", OptionalFusionCannotStart), Sync("Stale optional sensors degrade without blocking gait", StaleOptionalSensorsDoNotBlock), Sync("Analog output is smoothed", SpeedIsSmoothed), ("VR session starts promptly, stays straight and stops promptly", VrSessionResponseContract), Sync("Calibration rejects incomplete capture", CalibrationRejectsIncomplete), ("Calibration is versioned and round-trips", CalibrationRoundTrip), ("Personal gait records analyze and apply", PersonalGaitAnalysisRoundTrip), ("Recording round-trips through replay", RecordingRoundTrip), ("Balance Board recording round-trips", BalanceBoardRecordingRoundTrip), ("Phone UDP listener validates token", PhoneUdpRoundTrip), ("Live log retention enforces its disk budget", LogRetentionEnforcesBudget), Sync("Alyx physical forward override preserves controller buttons", AlyxPhysicalForwardOverride), Sync("Arizona 2 movement override preserves controller buttons", Arizona2PhysicalMovementOverride), ("VR output starts at zero and clamps analog values", VrOutputLifecycle), ("VR output refuses movement while off", VrOutputOffRejects), ("VR output failure detaches safely", VrOutputFailureDetaches), ("Fused gait drives analog output and stops safely", FusedGaitDrivesOutput), ("Board turn drives horizontal output only", BoardTurnDrivesHorizontalOutput), ("Named-pipe output packet matches native protocol", NamedPipeOutputProtocol), Sync("Native OpenVR DLL exports driver factory", NativeDriverExportsFactory), Sync("Native treadmill publishes an active stationary pose", NativeDriverPoseContract), Sync("Alyx binding includes treadmill vector and walk activation", AlyxBindingContract), Sync("Arizona Sunshine 2 binding includes movement vector", Arizona2BindingContract) };
 var failures = new List<string>();
 foreach (var test in tests) { try { await test.Run(); Console.WriteLine($"PASS  {test.Name}"); } catch (Exception ex) { failures.Add($"FAIL  {test.Name}: {ex.Message}"); } }
 foreach (var failure in failures) Console.Error.WriteLine(failure); Console.WriteLine($"{tests.Length - failures.Count}/{tests.Length} tests passed."); return failures.Count == 0 ? 0 : 1;
@@ -111,14 +143,27 @@ static void PsMoveIdentity()
 static void PsMoveInputReport()
 {
     var report = new byte[49];
-    report[0] = 0x01; report[4] = 0x0B; report[5] = 10; report[6] = 14; report[11] = 0x12; report[12] = 0x05; report[43] = 0x34;
+    report[0] = 0x01; report[4] = 0x4B; report[5] = 10; report[6] = 14; report[11] = 0x12; report[12] = 0x05; report[43] = 0x34;
     report[13] = 0x00; report[14] = 0x90; // +4096 after ZCM1 center offset
     report[19] = 0x00; report[20] = 0x70; // -4096 after ZCM1 center offset
     report[38] = 0x08; report[39] = 0x00; // signed 12-bit -2048
     var parsed = PsMoveZcm1ReportParser.Parse(report);
     Assert(parsed.Sequence == 11 && parsed.Trigger == 12 && parsed.Battery == 5 && parsed.Timestamp == 0x1234, "ZCM1 status fields mismatch.");
+    Assert((parsed.Buttons & (1u << 19)) != 0, "ZCM1 Move button bit mismatch.");
     Assert(parsed.OlderSample.Acceleration.X == 4096 && parsed.LatestSample.Acceleration.X == -4096, "ZCM1 dual accelerometer frames mismatch.");
     Assert(parsed.Magnetometer.X == -2048, "ZCM1 signed magnetometer value mismatch.");
+}
+static async Task PsMoveAssignmentsRoundTrip()
+{
+    var root = Path.Combine(Path.GetTempPath(), "niirmotion-move-assign-" + Guid.NewGuid().ToString("N"));
+    try
+    {
+        var store = new PsMoveAssignmentStore(Path.Combine(root, "assignments.json"));
+        await store.SaveAsync("00:07:04:1e:fc:1e", "00-06-f7-17-3e-9c");
+        var loaded = await store.LoadAsync();
+        Assert(loaded is { IsComplete: true, LeftStableId: "0007041EFC1E", RightStableId: "0006F7173E9C" }, "Stable PS Move assignments did not round-trip.");
+    }
+    finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
 }
 static void ParseImu() { var report = new byte[49]; report[0] = 0x30; report[13] = 0x00; report[14] = 0x10; var samples = JoyConReportParser.ParseStandardFullReport(report, "joycon-left", 7, System.Diagnostics.Stopwatch.GetTimestamp(), DateTimeOffset.UtcNow); Assert(samples.Count == 3, "Expected 3 sub-samples."); Assert(Math.Abs(samples[0].AccelerationG.X - 1f) < 0.001f, "Expected 1g X."); Assert(samples[2].Sequence == 9, "Sequence must increment."); }
 static void InvalidReport() { try { JoyConReportParser.ParseStandardFullReport(new byte[49], "x", 0, 0, DateTimeOffset.UtcNow); throw new InvalidOperationException("Expected rejection."); } catch (ArgumentException) { } }

@@ -34,6 +34,65 @@ public sealed class PsMoveDiagnosticsService
         var probe = Discover().FirstOrDefault(x => x.SensorReportsPossible);
         if (probe is null) return null;
 
+        return await CaptureProbeAsync(probe, duration, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<PsMoveRawCapture>> CaptureAllInputReportsAsync(TimeSpan duration, CancellationToken cancellationToken = default)
+    {
+        var probes = Discover()
+            .Where(x => x.SensorReportsPossible)
+            .DistinctBy(x => x.Device.StableId ?? x.Device.DevicePath, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        return await Task.WhenAll(probes.Select(x => CaptureProbeAsync(x, duration, cancellationToken)));
+    }
+
+    public async Task<PsMoveDeviceDescriptor?> WaitForButtonAsync(uint buttonMask, TimeSpan timeoutDuration, CancellationToken cancellationToken = default)
+    {
+        var probes = Discover()
+            .Where(x => x.SensorReportsPossible)
+            .DistinctBy(x => x.Device.StableId ?? x.Device.DevicePath, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (probes.Length == 0) return null;
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(timeoutDuration);
+        var found = new TaskCompletionSource<PsMoveDeviceDescriptor>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var readers = probes.Select(x => WatchButtonAsync(x, buttonMask, found, timeout.Token)).ToArray();
+        try
+        {
+            return await found.Task.WaitAsync(timeout.Token);
+        }
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+        {
+            return null;
+        }
+        finally
+        {
+            timeout.Cancel();
+            try { await Task.WhenAll(readers); } catch (OperationCanceledException) { }
+        }
+    }
+
+    private static async Task WatchButtonAsync(PsMoveHidProbe probe, uint buttonMask, TaskCompletionSource<PsMoveDeviceDescriptor> found, CancellationToken cancellationToken)
+    {
+        await using var stream = new FileStream(probe.Device.DevicePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, probe.InputReportBytes, FileOptions.Asynchronous);
+        var buffer = new byte[probe.InputReportBytes];
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            var read = await stream.ReadAsync(buffer, cancellationToken);
+            if (read != PsMoveZcm1ReportParser.InputReportBytes) continue;
+            var report = PsMoveZcm1ReportParser.Parse(buffer);
+            if ((report.Buttons & buttonMask) != 0)
+            {
+                found.TrySetResult(probe.Device);
+                return;
+            }
+        }
+    }
+
+    private static async Task<PsMoveRawCapture> CaptureProbeAsync(PsMoveHidProbe probe, TimeSpan duration, CancellationToken cancellationToken)
+    {
+
         await using var stream = new FileStream(
             probe.Device.DevicePath,
             FileMode.Open,
