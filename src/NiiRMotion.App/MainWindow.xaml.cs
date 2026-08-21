@@ -27,6 +27,10 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        var profilePanel = (StackPanel)((Border)ProfilePopup.Child).Child;
+        var moveProfileButton = new Button { Content = "Sadece PS Move", Style = (Style)FindResource("ProfileOption") };
+        moveProfileButton.Click += PsMoveProfileClick;
+        profilePanel.Children.Insert(5, moveProfileButton);
         DevicesList.PreviewMouseLeftButtonUp += DeviceCardClick;
         DevicesList.Cursor = System.Windows.Input.Cursors.Hand;
         TelemetryMode.TextAlignment = TextAlignment.Right;
@@ -448,6 +452,7 @@ public partial class MainWindow : Window
         await SwitchSystemModeAsync(SystemMode.Original);
     }
     private async void JoyConProfileClick(object sender, RoutedEventArgs e) { SelectProfile(MotionProfile.JoyConOnly); await ScanAsync(); }
+    private async void PsMoveProfileClick(object sender, RoutedEventArgs e) { SelectProfile(MotionProfile.PsMoveOnly); await ScanAsync(); }
     private async void JoyConPhoneProfileClick(object sender, RoutedEventArgs e) { SelectProfile(MotionProfile.JoyConPhone); await ScanAsync(); }
     private async void FullProfileClick(object sender, RoutedEventArgs e) { SelectProfile(MotionProfile.FullFusion); await ScanAsync(); }
     private async void PhoneProfileClick(object sender, RoutedEventArgs e) { SelectProfile(MotionProfile.PhoneOnly); await ScanAsync(); }
@@ -471,6 +476,10 @@ public partial class MainWindow : Window
             e.Handled = true;
             if (!device.IsConnected) await BeginPhonePairingAsync();
         }
+        else if (device.Kind is DeviceKind.PsMoveLeft or DeviceKind.PsMoveRight)
+        {
+            e.Handled = true; new PsMoveLabWindow { Owner = this }.ShowDialog(); await ScanAsync();
+        }
     }
     private IReadOnlyList<DeviceStatus> PreflightBlockingDevices(IReadOnlyCollection<DeviceStatus> devices)
     {
@@ -491,12 +500,12 @@ public partial class MainWindow : Window
         var tiles = new[] { NativeModeTile, JoyConModeTile, JoyConPhoneModeTile, FullModeTile, PhoneModeTile, BoardOnlyModeTile, BoardJoyConModeTile, BoardPhoneModeTile };
         foreach (var tile in tiles) { tile.BorderBrush = Brush("#22303B"); tile.Opacity = 1; }
         foreach (var badge in new[] { NativeSelectionBadge, JoyConSelectionBadge, JoyConPhoneSelectionBadge, FullSelectionBadge, PhoneSelectionBadge, BoardOnlySelectionBadge, BoardJoyConSelectionBadge, BoardPhoneSelectionBadge }) badge.Visibility = Visibility.Collapsed;
-        var selected = profile == MotionProfile.ClassicVr ? NativeModeTile : profile == MotionProfile.JoyConOnly ? JoyConModeTile : profile == MotionProfile.PhoneOnly ? PhoneModeTile : profile == MotionProfile.FullFusion ? FullModeTile : profile == MotionProfile.BoardOnly ? BoardOnlyModeTile : profile == MotionProfile.BoardJoyCon ? BoardJoyConModeTile : profile == MotionProfile.BoardPhone ? BoardPhoneModeTile : JoyConPhoneModeTile;
+        var selected = profile == MotionProfile.ClassicVr ? NativeModeTile : profile == MotionProfile.JoyConOnly || profile == MotionProfile.PsMoveOnly ? JoyConModeTile : profile == MotionProfile.PhoneOnly ? PhoneModeTile : profile == MotionProfile.FullFusion ? FullModeTile : profile == MotionProfile.BoardOnly ? BoardOnlyModeTile : profile == MotionProfile.BoardJoyCon ? BoardJoyConModeTile : profile == MotionProfile.BoardPhone ? BoardPhoneModeTile : JoyConPhoneModeTile;
         var selectedBadge = profile == MotionProfile.ClassicVr ? NativeSelectionBadge : profile == MotionProfile.JoyConOnly ? JoyConSelectionBadge : profile == MotionProfile.PhoneOnly ? PhoneSelectionBadge : profile == MotionProfile.FullFusion ? FullSelectionBadge : profile == MotionProfile.BoardOnly ? BoardOnlySelectionBadge : profile == MotionProfile.BoardJoyCon ? BoardJoyConSelectionBadge : profile == MotionProfile.BoardPhone ? BoardPhoneSelectionBadge : JoyConPhoneSelectionBadge;
         selected.Background = Brush("#12283A"); selected.BorderBrush = Brush("#38A8F3"); selected.BorderThickness = new Thickness(2); selected.Opacity = 1;
         selectedBadge.Visibility = Visibility.Visible;
         foreach (var tile in tiles.Where(x => x != selected)) tile.BorderThickness = new Thickness(1);
-        var profileName = profile == MotionProfile.ClassicVr ? "Normal VR" : profile == MotionProfile.JoyConOnly ? "Sadece Joy-Con" : profile == MotionProfile.JoyConPhone ? "Joy-Con + Telefon" : profile == MotionProfile.PhoneOnly ? "Sadece Telefon" : profile == MotionProfile.BoardOnly ? "Balance Board" : profile == MotionProfile.BoardJoyCon ? "Board + Joy-Con" : profile == MotionProfile.BoardPhone ? "Board + Telefon" : "Tüm Cihazlar";
+        var profileName = profile == MotionProfile.ClassicVr ? "Normal VR" : profile == MotionProfile.JoyConOnly ? "Sadece Joy-Con" : profile == MotionProfile.PsMoveOnly ? "Sadece PS Move" : profile == MotionProfile.JoyConPhone ? "Joy-Con + Telefon" : profile == MotionProfile.PhoneOnly ? "Sadece Telefon" : profile == MotionProfile.BoardOnly ? "Balance Board" : profile == MotionProfile.BoardJoyCon ? "Board + Joy-Con" : profile == MotionProfile.BoardPhone ? "Board + Telefon" : "Tüm Cihazlar";
         SidebarProfileName.Text = ActiveProfileName.Text = profileName;
         ActiveProfileDetail.Text = profile.LocomotionAllowed ? "Yerinde yürüyüş çıkışı" : "Özgün kontrolcü hareketi";
         UpdateProfileInformation(profile);
@@ -508,6 +517,7 @@ public partial class MainWindow : Window
         {
             "classic-vr" => ("✓  NORMAL VR", "  ·  NiiMotion hareket üretmez", "Quest ve kontrolcüler özgün VR davranışıyla çalışır; sensör verileri oyun girişine aktarılmaz."),
             "joycon-only" => ("✓  JOY-CON YÜRÜYÜŞÜ", "  ·  Telefon veya board gerekmez", "Bacaklardaki iki Joy-Con yerinde adımlarını algılar. Bağlantı kesilirse hareket anında sıfırlanır."),
+            "psmove-only" => ("✓  PS MOVE YÜRÜYÜŞÜ", "  ·  Kişisel baldır profili", "Baldırlardaki iki PS Move kişisel kalibrasyonunu kullanır. HMD dönüş kilidi yanlış ileri hareketi sürücü seviyesinde bastırır."),
             "joycon-phone" => ("✓  JOY-CON + TELEFON", "  ·  Dengeli ve önerilen profil", "Joy-Con'lar adımları, göğüsteki telefon gövde hareketini izler. Telefon kesilirse sistem güvenli biçimde durur."),
             "phone-only" => ("◇  SADECE TELEFON", "  ·  Deneysel hareket algılama", "Göğüsteki telefon yerinde yürüyüşü tahmin eder. Joy-Con gerekmez; kararlılık birleşik profillerden düşüktür."),
             "board-only" => ("◇  BALANCE BOARD", "  ·  Basınçla yürüyüş ve dönüş", "Ağırlık aktarımı hareket ve dönüşe çevrilir. Karttan inildiğinde ya da bağlantı kesildiğinde çıkış sıfırlanır."),
@@ -524,6 +534,11 @@ public partial class MainWindow : Window
     }
     private async void LaunchSteamVrClick(object sender, RoutedEventArgs e)
     {
+        if (_profile == MotionProfile.PsMoveOnly)
+        {
+            var onboarding = await new PsMoveOnboardingService().GetStatusAsync();
+            if (!onboarding.IsReady) { ReadinessTitle.Text = "PS MOVE KURULUMU GEREKİYOR"; ReadinessMessage.Text = onboarding.Instruction; new PsMoveLabWindow { Owner = this }.ShowDialog(); await ScanAsync(); return; }
+        }
         await ScanAsync();
         var latestDevices = (DevicesList.ItemsSource as IEnumerable<DeviceStatus>)?.ToArray() ?? [];
         var preflightBlocking = PreflightBlockingDevices(latestDevices);
@@ -629,6 +644,7 @@ public partial class MainWindow : Window
             if (!File.Exists(calibration)) calibration = Path.Combine(Environment.CurrentDirectory, "calibration", "gait-v1.json");
             if (_systemMode.CurrentMode != SystemMode.NiiMotion) await _systemMode.ApplyAsync(SystemMode.NiiMotion);
             else _systemMode.EnsureGameOverrides(SystemMode.NiiMotion);
+            if (_profile == MotionProfile.PsMoveOnly) { await _locomotion.StartPsMoveOnlyAsync(); SetStopControl(true); SetRunningVisuals(_locomotion.ModeDescription); ReadinessMessage.Text = "Hazır. PS Move sensörleriyle yerinde yürüyebilirsin."; return; }
             var includePhone = _profile is var p && (p == MotionProfile.JoyConPhone || p == MotionProfile.FullFusion || p == MotionProfile.PhoneOnly || p == MotionProfile.BoardPhone);
             var includeBoard = _profile == MotionProfile.FullFusion || _profile == MotionProfile.BoardOnly || _profile == MotionProfile.BoardJoyCon || _profile == MotionProfile.BoardPhone;
             if (includePhone) await StopPhoneMonitorAsync();
