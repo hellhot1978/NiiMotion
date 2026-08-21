@@ -265,9 +265,13 @@ public partial class MainWindow : Window
             var assignments = await new PsMoveAssignmentStore(@"C:\NiirMotion\config\psmove-assignments.json").LoadAsync();
             if (assignments is not { IsComplete: true }) throw new InvalidOperationException("Önce PS Move sol/sağ atamasını tamamla.");
             await new PsMoveDiagnosticsService().ShowAssignmentColorsAsync(assignments, TimeSpan.FromSeconds(8));
-            CalibrationPsMoveStatus.Text = "✓ Sol kırmızı · sağ mavi";
+            CalibrationPsMoveStatus.Text = "Sensörler ölçülüyor…";
+            var stored = await new PsMoveCalibrationStore(@"C:\NiirMotion\config\psmove-calibrations.json").LoadAsync();
+            var health = await new PsMoveDiagnosticsService().CaptureCalibratedHealthAsync(stored, TimeSpan.FromSeconds(3));
+            if (health.Count != 2) throw new InvalidOperationException("İki kalibre edilmiş PS Move akışı bulunamadı.");
+            CalibrationPsMoveStatus.Text = "✓ İki Move bağlı · sensörler sağlıklı";
             CalibrationPsMoveStatus.Foreground = Brush("#54D4A8");
-            CalibrationLiveResult.Text = "✓ PS Move kimlikleri doğrulandı · sol kırmızı · sağ mavi.";
+            CalibrationLiveResult.Text = "✓ PS Move doğrulandı · " + string.Join("   •   ", health.OrderBy(x => x.StableId).Select(x => $"{(x.StableId == assignments.LeftStableId ? "Sol" : "Sağ")}: {x.ReportRateHz:0.0} Hz · jitter {x.JitterMs:0.00} ms · kayıp {x.MissingReports} · ivme {x.MinimumAccelerationG:0.00}–{x.MaximumAccelerationG:0.00} g · batarya {BatteryText(x.Battery)}"));
             CalibrationLiveResult.Foreground = Brush("#63DFBB");
         }
         catch (Exception ex)
@@ -279,6 +283,11 @@ public partial class MainWindow : Window
         }
         finally { PsMoveIdentifyButton.IsEnabled = true; }
     }
+
+    private static string BatteryText(byte value) => value switch
+    {
+        0x00 => "<%20", 0x01 => "%20+", 0x02 => "%40+", 0x03 => "%60+", 0x04 => "%80+", 0x05 => "tam", 0xEE => "şarj", 0xEF => "şarj tamam", _ => $"0x{value:X2}"
+    };
     private async Task BeginPhonePairingAsync()
     {
         if (_phonePairing) return;

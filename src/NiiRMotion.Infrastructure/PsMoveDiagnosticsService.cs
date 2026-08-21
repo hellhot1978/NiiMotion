@@ -26,6 +26,18 @@ public sealed record PsMoveRawCapture(
 
 public sealed record PsMoveFactoryCalibrationCapture(PsMoveDeviceDescriptor Device, byte[] Blob);
 
+public sealed record PsMoveCalibratedHealth(
+    string StableId,
+    int ReportCount,
+    int MissingReports,
+    double ReportRateHz,
+    double JitterMs,
+    byte Battery,
+    uint ObservedButtons,
+    float MinimumAccelerationG,
+    float MaximumAccelerationG,
+    float MaximumAngularVelocityRadPerSecond);
+
 public sealed class PsMoveDiagnosticsService
 {
     public IReadOnlyList<PsMoveHidProbe> Discover()
@@ -130,6 +142,69 @@ public sealed class PsMoveDiagnosticsService
             await leftStream.WriteAsync(offLeft, CancellationToken.None);
             await rightStream.WriteAsync(offRight, CancellationToken.None);
         }
+    }
+
+    public async Task<IReadOnlyList<PsMoveCalibratedHealth>> CaptureCalibratedHealthAsync(
+        IReadOnlyList<StoredPsMoveCalibration> storedCalibrations,
+        TimeSpan duration,
+        CancellationToken cancellationToken = default)
+    {
+        var calibrations = storedCalibrations.ToDictionary(x => x.StableId, x => x.Parse(), StringComparer.OrdinalIgnoreCase);
+        var probes = Discover().Where(x => x.SensorReportsPossible && x.Device.StableId is not null && calibrations.ContainsKey(x.Device.StableId)).ToArray();
+        return await Task.WhenAll(probes.Select(x => CaptureHealthProbeAsync(x, calibrations[x.Device.StableId!], duration, cancellationToken)));
+    }
+
+    private static async Task<PsMoveCalibratedHealth> CaptureHealthProbeAsync(PsMoveHidProbe probe, PsMoveZcm1FactoryCalibration calibration, TimeSpan duration, CancellationToken cancellationToken)
+    {
+        await using var stream = new FileStream(probe.Device.DevicePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, probe.InputReportBytes, FileOptions.Asynchronous);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(duration);
+        var buffer = new byte[probe.InputReportBytes];
+        var intervals = new List<double>();
+        long previousTicks = 0;
+        int? previousSequence = null;
+        var reports = 0;
+        var missing = 0;
+        byte battery = 0;
+        uint buttons = 0;
+        var minAccel = float.MaxValue;
+        var maxAccel = 0f;
+        var maxGyro = 0f;
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+        try
+        {
+            while (!timeout.IsCancellationRequested)
+            {
+                var read = await stream.ReadAsync(buffer, timeout.Token);
+                if (read != PsMoveZcm1ReportParser.InputReportBytes) continue;
+                var now = System.Diagnostics.Stopwatch.GetTimestamp();
+                if (previousTicks > 0) intervals.Add((now - previousTicks) * 1000d / System.Diagnostics.Stopwatch.Frequency);
+                previousTicks = now;
+                var report = PsMoveZcm1ReportParser.Parse(buffer);
+                if (previousSequence.HasValue)
+                {
+                    var delta = (report.Sequence - previousSequence.Value + 16) % 16;
+                    if (delta > 1) missing += delta - 1;
+                }
+                previousSequence = report.Sequence;
+                reports++;
+                battery = report.Battery;
+                buttons |= report.Buttons;
+                foreach (var sample in new[] { report.OlderSample, report.LatestSample })
+                {
+                    var accel = calibration.CalibrateAcceleration(sample.Acceleration).Length();
+                    var gyro = calibration.CalibrateGyroscope(sample.AngularVelocity).Length();
+                    minAccel = Math.Min(minAccel, accel);
+                    maxAccel = Math.Max(maxAccel, accel);
+                    maxGyro = Math.Max(maxGyro, gyro);
+                }
+            }
+        }
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested) { }
+        var elapsed = Math.Max(.001, (System.Diagnostics.Stopwatch.GetTimestamp() - started) / (double)System.Diagnostics.Stopwatch.Frequency);
+        var mean = intervals.Count == 0 ? 0 : intervals.Average();
+        var jitter = intervals.Count == 0 ? 0 : Math.Sqrt(intervals.Sum(x => (x - mean) * (x - mean)) / intervals.Count);
+        return new(probe.Device.StableId!, reports, missing, reports / elapsed, jitter, battery, buttons, minAccel == float.MaxValue ? 0 : minAccel, maxAccel, maxGyro);
     }
 
     private static FileStream OpenOutput(PsMoveHidProbe probe)

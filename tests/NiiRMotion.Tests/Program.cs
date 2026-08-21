@@ -86,6 +86,16 @@ if (saveMoveCalibrationArg is not null)
     Console.WriteLine($"Saved {side} PS Move calibration for {stableId}: accel low {parsed.AccelerationLow}, high {parsed.AccelerationHigh}, gyro scale {parsed.GyroscopeRadiansPerSecondPerUnit}");
     return 0;
 }
+if (args.Contains("--psmove-health", StringComparer.OrdinalIgnoreCase))
+{
+    var path = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "config", "psmove-calibrations.json"));
+    var stored = await new PsMoveCalibrationStore(path).LoadAsync();
+    var health = await new PsMoveDiagnosticsService().CaptureCalibratedHealthAsync(stored, TimeSpan.FromSeconds(5));
+    Console.WriteLine($"Calibrated PS Move streams: {health.Count}");
+    foreach (var item in health)
+        Console.WriteLine($"{item.StableId} | {item.ReportRateHz:F1} Hz | jitter {item.JitterMs:F2} ms | loss {item.MissingReports} | battery 0x{item.Battery:X2} | accel {item.MinimumAccelerationG:F2}-{item.MaximumAccelerationG:F2} g | gyro max {item.MaximumAngularVelocityRadPerSecond:F2} rad/s");
+    return health.Count == 2 && health.All(x => x.ReportCount > 0) ? 0 : 2;
+}
 if (args.Contains("--psmove-raw", StringComparer.OrdinalIgnoreCase))
 {
     var capture = await new PsMoveDiagnosticsService().CaptureInputReportsAsync(TimeSpan.FromSeconds(3));
