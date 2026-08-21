@@ -73,6 +73,40 @@ public sealed class PsMoveDiagnosticsService
         }
     }
 
+    public async Task ShowAssignmentColorsAsync(PsMoveAssignments assignments, TimeSpan duration, CancellationToken cancellationToken = default)
+    {
+        if (!assignments.IsComplete) throw new ArgumentException("Complete left/right assignments are required.", nameof(assignments));
+        var probes = Discover().Where(x => x.SensorReportsPossible).ToArray();
+        var left = probes.SingleOrDefault(x => string.Equals(x.Device.StableId, assignments.LeftStableId, StringComparison.OrdinalIgnoreCase));
+        var right = probes.SingleOrDefault(x => string.Equals(x.Device.StableId, assignments.RightStableId, StringComparison.OrdinalIgnoreCase));
+        if (left is null || right is null) throw new InvalidOperationException("Both assigned PS Move controllers must be connected.");
+
+        await using var leftStream = OpenOutput(left);
+        await using var rightStream = OpenOutput(right);
+        var leftRed = PsMoveZcm1OutputReport.CreateLed(255, 0, 0, left.OutputReportBytes);
+        var rightBlue = PsMoveZcm1OutputReport.CreateLed(0, 80, 255, right.OutputReportBytes);
+        var offLeft = PsMoveZcm1OutputReport.CreateLed(0, 0, 0, left.OutputReportBytes);
+        var offRight = PsMoveZcm1OutputReport.CreateLed(0, 0, 0, right.OutputReportBytes);
+        var until = DateTimeOffset.UtcNow + duration;
+        try
+        {
+            while (DateTimeOffset.UtcNow < until)
+            {
+                await leftStream.WriteAsync(leftRed, cancellationToken);
+                await rightStream.WriteAsync(rightBlue, cancellationToken);
+                await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+            }
+        }
+        finally
+        {
+            await leftStream.WriteAsync(offLeft, CancellationToken.None);
+            await rightStream.WriteAsync(offRight, CancellationToken.None);
+        }
+    }
+
+    private static FileStream OpenOutput(PsMoveHidProbe probe)
+        => new(probe.Device.DevicePath, FileMode.Open, FileAccess.Write, FileShare.ReadWrite, probe.OutputReportBytes, FileOptions.Asynchronous);
+
     private static async Task WatchButtonAsync(PsMoveHidProbe probe, uint buttonMask, TaskCompletionSource<PsMoveDeviceDescriptor> found, CancellationToken cancellationToken)
     {
         await using var stream = new FileStream(probe.Device.DevicePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, probe.InputReportBytes, FileOptions.Asynchronous);

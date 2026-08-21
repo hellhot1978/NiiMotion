@@ -13,6 +13,8 @@ Date: 2026-08-21
   - Right: `0006F7173E9C`
 - Assignment storage is schema-versioned, atomic, personal-data excluded from Git, and independent of enumeration order.
 - Parser exposes sequence, buttons, trigger, battery, dual accel frames, dual gyro frames, timestamp, and ZCM1 magnetometer raw values.
+- Real LED identification was verified: assigned left displays red, assigned right displays blue, with rumble forced to zero.
+- Test and Calibration now contains a focused PS Move card and an eight-second `Kontrolcüleri Tanıt` action; the primary Overview page is unchanged.
 
 ## Safety boundary
 
@@ -25,6 +27,5 @@ Date: 2026-08-21
 
 - Disconnect/reconnect both controllers and prove the same stable identities return.
 - Add calibrated sensor conversion after reading the real factory calibration feature reports.
-- Add owner-facing Move diagnostics and explicit L/R reassignment to Test and Calibration, not the primary overview.
+- Add explicit L/R reassignment flow and detailed live sensor health to Test and Calibration.
 - Verify battery and button state changes live.
-

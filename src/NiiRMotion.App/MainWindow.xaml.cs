@@ -88,6 +88,7 @@ public partial class MainWindow : Window
         RefreshHandTrackingVisual();
         RefreshPhoneVisual(devices);
         RefreshCalibrationStatus(devices);
+        await RefreshPsMoveStatusAsync();
         var visibleKinds = _profile.Required.Concat(_profile.Optional)
             .Where(x => x != DeviceKind.SteamVr).ToHashSet();
         DevicesList.ItemsSource = devices.Where(x => visibleKinds.Contains(x.Kind)).ToList();
@@ -253,6 +254,31 @@ public partial class MainWindow : Window
         finally { JoyConTestButton.IsEnabled = true; }
     }
     private async void PhoneTestClick(object sender, RoutedEventArgs e) => await BeginPhonePairingAsync();
+    private async void PsMoveIdentifyClick(object sender, RoutedEventArgs e)
+    {
+        PsMoveIdentifyButton.IsEnabled = false;
+        CalibrationPsMoveStatus.Text = "Tanıtılıyor… sol kırmızı · sağ mavi";
+        CalibrationPsMoveStatus.Foreground = Brush("#F6C86B");
+        CalibrationLiveResult.Text = "PS Move renkleri 8 saniye gösteriliyor. Titreşim kapalıdır.";
+        try
+        {
+            var assignments = await new PsMoveAssignmentStore(@"C:\NiirMotion\config\psmove-assignments.json").LoadAsync();
+            if (assignments is not { IsComplete: true }) throw new InvalidOperationException("Önce PS Move sol/sağ atamasını tamamla.");
+            await new PsMoveDiagnosticsService().ShowAssignmentColorsAsync(assignments, TimeSpan.FromSeconds(8));
+            CalibrationPsMoveStatus.Text = "✓ Sol kırmızı · sağ mavi";
+            CalibrationPsMoveStatus.Foreground = Brush("#54D4A8");
+            CalibrationLiveResult.Text = "✓ PS Move kimlikleri doğrulandı · sol kırmızı · sağ mavi.";
+            CalibrationLiveResult.Foreground = Brush("#63DFBB");
+        }
+        catch (Exception ex)
+        {
+            CalibrationPsMoveStatus.Text = "✕ İki PS Move bağlı değil";
+            CalibrationPsMoveStatus.Foreground = Brush("#FF7F9B");
+            CalibrationLiveResult.Text = $"PS Move tanıtılamadı: {ex.Message}";
+            CalibrationLiveResult.Foreground = Brush("#FF9BA8");
+        }
+        finally { PsMoveIdentifyButton.IsEnabled = true; }
+    }
     private async Task BeginPhonePairingAsync()
     {
         if (_phonePairing) return;
@@ -305,6 +331,24 @@ public partial class MainWindow : Window
         {
             CalibrationJoyConStatus.Text = "✓ İki Joy-Con bağlı · sensör testine hazır";
             CalibrationJoyConStatus.Foreground = Brush("#54D4A8");
+        }
+    }
+
+    private async Task RefreshPsMoveStatusAsync()
+    {
+        try
+        {
+            var assignments = await new PsMoveAssignmentStore(@"C:\NiirMotion\config\psmove-assignments.json").LoadAsync();
+            var probes = new PsMoveDiagnosticsService().Discover().Where(x => x.SensorReportsPossible).ToArray();
+            var left = assignments is { IsComplete: true } && probes.Any(x => x.Device.StableId == assignments.LeftStableId);
+            var right = assignments is { IsComplete: true } && probes.Any(x => x.Device.StableId == assignments.RightStableId);
+            CalibrationPsMoveStatus.Text = left && right ? "✓ İki Move bağlı · renklerle tanıt" : $"{(left ? "Sol ✓" : "Sol eksik")} · {(right ? "Sağ ✓" : "Sağ eksik")}";
+            CalibrationPsMoveStatus.Foreground = Brush(left && right ? "#54D4A8" : "#94A1AD");
+        }
+        catch
+        {
+            CalibrationPsMoveStatus.Text = "PS Move durumu okunamadı";
+            CalibrationPsMoveStatus.Foreground = Brush("#FF7F9B");
         }
     }
 

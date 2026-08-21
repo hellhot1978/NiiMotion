@@ -60,6 +60,23 @@ public static class PsMoveZcm1ReportParser
         => (value & 0x800) != 0 ? -(((~value) & 0xFFF) + 1) : value;
 }
 
+public static class PsMoveZcm1OutputReport
+{
+    public const byte LedReportId = 0x06;
+
+    public static byte[] CreateLed(byte red, byte green, byte blue, int reportBytes = 49)
+    {
+        if (reportBytes < 7) throw new ArgumentOutOfRangeException(nameof(reportBytes));
+        var report = new byte[reportBytes];
+        report[0] = LedReportId;
+        report[2] = red;
+        report[3] = green;
+        report[4] = blue;
+        report[6] = 0; // Rumble always remains off during identification.
+        return report;
+    }
+}
+
 public sealed record PsMoveDeviceDescriptor(
     string DevicePath,
     ushort VendorId,
