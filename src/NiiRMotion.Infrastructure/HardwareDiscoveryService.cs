@@ -22,6 +22,11 @@ public sealed class HardwareDiscoveryService : IHardwareDiscoveryService
         try { joyCons = HidDeviceEnumerator.FindJoyCons(); } catch { joyCons = Array.Empty<JoyConDeviceDescriptor>(); }
         var leftJoyCon = joyCons.Any(x => x.Side == JoyConSide.Left);
         var rightJoyCon = joyCons.Any(x => x.Side == JoyConSide.Right);
+        var moveIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try { foreach (var probe in new PsMoveDiagnosticsService().Discover().Where(x => x.SensorReportsPossible && x.Device.StableId is not null)) moveIds.Add(probe.Device.StableId!); } catch { }
+        var moveAssignments = new PsMoveAssignmentStore(NiiMotionPaths.PsMoveAssignments).LoadAsync(cancellationToken).GetAwaiter().GetResult();
+        var leftMove = moveAssignments is { IsComplete: true } && moveIds.Contains(moveAssignments.LeftStableId);
+        var rightMove = moveAssignments is { IsComplete: true } && moveIds.Contains(moveAssignments.RightStableId);
         var balanceBoard = false;
         try { balanceBoard = HidDeviceEnumerator.FindBalanceBoards().Count > 0; } catch { }
         var phoneConnected = PhonePresence.TryGetFresh(out var phoneEndpoint);
@@ -47,6 +52,8 @@ public sealed class HardwareDiscoveryService : IHardwareDiscoveryService
             new(DeviceKind.HandTracking, "Hand Tracking", DeviceState.Unknown, "Güvenilir yerel API ile doğrulanamıyor.", "Quest ve Virtual Desktop içinden el takibini doğrulayın."),
             FoundOrMissing(DeviceKind.JoyConLeft, "Sol Joy-Con", leftJoyCon, "Original Joy-Con L HID arabirimi algılandı.", "Nintendo VID/PID ile Joy-Con L bulunamadı.", "Joy-Con L'yi açın ve Windows Bluetooth bağlantısını kontrol edin."),
             FoundOrMissing(DeviceKind.JoyConRight, "Sağ Joy-Con", rightJoyCon, "Original Joy-Con R HID arabirimi algılandı.", "Nintendo VID/PID ile Joy-Con R bulunamadı.", "Joy-Con R'yi açın ve Windows Bluetooth bağlantısını kontrol edin."),
+            FoundOrMissing(DeviceKind.PsMoveLeft, "Sol PS Move", leftMove, "Atanmış kırmızı PS Move bağlı.", "Atanmış sol PS Move bulunamadı.", "Move düğmesine basın veya kurulum sihirbazını açın."),
+            FoundOrMissing(DeviceKind.PsMoveRight, "Sağ PS Move", rightMove, "Atanmış mavi PS Move bağlı.", "Atanmış sağ PS Move bulunamadı.", "Move düğmesine basın veya kurulum sihirbazını açın."),
             FoundOrMissing(DeviceKind.Phone, "Android Telefon", phoneConnected,
                 $"owoTrack canlı veri alınıyor · {phoneEndpoint}",
                 "Telefondan canlı owoTrack verisi alınmıyor.",
@@ -138,5 +145,5 @@ public sealed class MockHardwareDiscoveryService : IHardwareDiscoveryService
         IReadOnlyList<DeviceStatus> statuses = Enum.GetValues<DeviceKind>().Select(k => new DeviceStatus(k, Name(k), DeviceState.Connected, "Simüle edilmiş cihaz.", "Test modu verisi; gerçek donanım değildir.")).ToArray();
         return Task.FromResult(statuses);
     }
-    private static string Name(DeviceKind k) => k switch { DeviceKind.SteamVr => "SteamVR", DeviceKind.VirtualDesktop => "Virtual Desktop", DeviceKind.HandTracking => "Hand Tracking", DeviceKind.JoyConLeft => "Sol Joy-Con", DeviceKind.JoyConRight => "Sağ Joy-Con", DeviceKind.Phone => "Android Telefon", DeviceKind.BalanceBoard => "Wii Balance Board", _ => "Quest 3" };
+    private static string Name(DeviceKind k) => k switch { DeviceKind.SteamVr => "SteamVR", DeviceKind.VirtualDesktop => "Virtual Desktop", DeviceKind.HandTracking => "Hand Tracking", DeviceKind.JoyConLeft => "Sol Joy-Con", DeviceKind.JoyConRight => "Sağ Joy-Con", DeviceKind.PsMoveLeft => "Sol PS Move", DeviceKind.PsMoveRight => "Sağ PS Move", DeviceKind.Phone => "Android Telefon", DeviceKind.BalanceBoard => "Wii Balance Board", _ => "Quest 3" };
 }

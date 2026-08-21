@@ -1,6 +1,6 @@
 namespace NiiRMotion.Core;
 
-public enum DeviceKind { Quest3, SteamVr, VirtualDesktop, HandTracking, JoyConLeft, JoyConRight, Phone, BalanceBoard }
+public enum DeviceKind { Quest3, SteamVr, VirtualDesktop, HandTracking, JoyConLeft, JoyConRight, PsMoveLeft, PsMoveRight, Phone, BalanceBoard }
 public enum DeviceState { Connected, Missing, Unknown }
 public sealed record DeviceStatus(DeviceKind Kind, string Name, DeviceState State, string Detail, string Action)
 {
@@ -11,7 +11,7 @@ public sealed record DeviceStatus(DeviceKind Kind, string Name, DeviceState Stat
     public string IconGlyph => Kind switch
     {
         DeviceKind.Quest3 => "⌁", DeviceKind.SteamVr => "▶", DeviceKind.VirtualDesktop => "▣", DeviceKind.HandTracking => "✋",
-        DeviceKind.JoyConLeft => "◖", DeviceKind.JoyConRight => "◗", DeviceKind.Phone => "▯", DeviceKind.BalanceBoard => "◇", _ => "•"
+        DeviceKind.JoyConLeft => "◖", DeviceKind.JoyConRight => "◗", DeviceKind.PsMoveLeft => "●", DeviceKind.PsMoveRight => "●", DeviceKind.Phone => "▯", DeviceKind.BalanceBoard => "◇", _ => "•"
     };
     public string IconPath => Kind switch
     {
@@ -21,6 +21,8 @@ public sealed record DeviceStatus(DeviceKind Kind, string Name, DeviceState Stat
         DeviceKind.HandTracking => "/NiiRMotion.App;component/Assets/device-v3-hands.png",
         DeviceKind.JoyConLeft => "/NiiRMotion.App;component/Assets/device-v3-joycon-left.png",
         DeviceKind.JoyConRight => "/NiiRMotion.App;component/Assets/device-v3-joycon-right.png",
+        DeviceKind.PsMoveLeft => "/NiiRMotion.App;component/Assets/niirmotion-icon.png",
+        DeviceKind.PsMoveRight => "/NiiRMotion.App;component/Assets/niirmotion-icon.png",
         DeviceKind.Phone => "/NiiRMotion.App;component/Assets/device-v3-phone.png",
         DeviceKind.BalanceBoard => "/NiiRMotion.App;component/Assets/device-v3-board.png",
         _ => ""

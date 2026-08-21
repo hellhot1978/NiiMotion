@@ -11,6 +11,9 @@ public sealed record MotionProfile(string Id, string Name, IReadOnlySet<DeviceKi
     public static MotionProfile JoyConOnly { get; } = new("joycon-only", "Joy-Con Only",
         new HashSet<DeviceKind> { DeviceKind.Quest3, DeviceKind.JoyConLeft, DeviceKind.JoyConRight },
         new HashSet<DeviceKind> { DeviceKind.VirtualDesktop, DeviceKind.HandTracking }, true);
+    public static MotionProfile PsMoveOnly { get; } = new("psmove-only", "PS Move Only",
+        new HashSet<DeviceKind> { DeviceKind.Quest3, DeviceKind.PsMoveLeft, DeviceKind.PsMoveRight },
+        new HashSet<DeviceKind> { DeviceKind.VirtualDesktop, DeviceKind.HandTracking }, true);
     public static MotionProfile JoyConPhone { get; } = new("joycon-phone", "Joy-Con + Phone",
         new HashSet<DeviceKind> { DeviceKind.Quest3, DeviceKind.JoyConLeft, DeviceKind.JoyConRight, DeviceKind.Phone },
         new HashSet<DeviceKind> { DeviceKind.VirtualDesktop, DeviceKind.HandTracking }, true);
