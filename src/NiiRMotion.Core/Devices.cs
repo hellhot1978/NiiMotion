@@ -21,8 +21,8 @@ public sealed record DeviceStatus(DeviceKind Kind, string Name, DeviceState Stat
         DeviceKind.HandTracking => "/NiiRMotion.App;component/Assets/device-v3-hands.png",
         DeviceKind.JoyConLeft => "/NiiRMotion.App;component/Assets/device-v3-joycon-left.png",
         DeviceKind.JoyConRight => "/NiiRMotion.App;component/Assets/device-v3-joycon-right.png",
-        DeviceKind.PsMoveLeft => "/NiiRMotion.App;component/Assets/niirmotion-icon.png",
-        DeviceKind.PsMoveRight => "/NiiRMotion.App;component/Assets/niirmotion-icon.png",
+        DeviceKind.PsMoveLeft => "/NiiRMotion.App;component/Assets/device-v3-psmove-left.png",
+        DeviceKind.PsMoveRight => "/NiiRMotion.App;component/Assets/device-v3-psmove-right.png",
         DeviceKind.Phone => "/NiiRMotion.App;component/Assets/device-v3-phone.png",
         DeviceKind.BalanceBoard => "/NiiRMotion.App;component/Assets/device-v3-board.png",
         _ => ""

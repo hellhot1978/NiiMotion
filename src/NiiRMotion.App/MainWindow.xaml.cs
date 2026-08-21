@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _scanTimer = new() { Interval = TimeSpan.FromSeconds(4) };
     private bool _autoScanBusy;
     private bool _phonePairing;
+    private bool _moveIdentifyBusy;
     private OwoTrackSensorSource? _phoneMonitor;
     private SessionReadiness? _readiness;
     private MotionProfile _profile = MotionProfile.AlyxFullFusion;
@@ -478,7 +479,34 @@ public partial class MainWindow : Window
         }
         else if (device.Kind is DeviceKind.PsMoveLeft or DeviceKind.PsMoveRight)
         {
-            e.Handled = true; new PsMoveLabWindow { Owner = this }.ShowDialog(); await ScanAsync();
+            e.Handled = true;
+            if (_moveIdentifyBusy) return;
+            var assignments = await new PsMoveAssignmentStore(NiiMotionPaths.PsMoveAssignments).LoadAsync();
+            if (!device.IsConnected || assignments is null || !assignments.IsComplete)
+            {
+                new PsMoveLabWindow { Owner = this }.ShowDialog();
+                await ScanAsync();
+                return;
+            }
+
+            _moveIdentifyBusy = true;
+            var side = device.Kind == DeviceKind.PsMoveLeft ? LegSide.Left : LegSide.Right;
+            try
+            {
+                ReadinessTitle.Text = side == LegSide.Left ? "SOL PS MOVE · KIRMIZI" : "SAĞ PS MOVE · MAVİ";
+                ReadinessMessage.Text = "Seçtiğin kontrolcünün küresi kısa süre yanıyor.";
+                await new PsMoveDiagnosticsService().ShowAssignedControllerColorAsync(assignments, side, TimeSpan.FromSeconds(3));
+            }
+            catch (Exception ex)
+            {
+                ReadinessTitle.Text = "PS MOVE IŞIK TESTİ BAŞARISIZ";
+                ReadinessMessage.Text = ex.Message;
+            }
+            finally
+            {
+                _moveIdentifyBusy = false;
+                await ScanAsync();
+            }
         }
     }
     private IReadOnlyList<DeviceStatus> PreflightBlockingDevices(IReadOnlyCollection<DeviceStatus> devices)
