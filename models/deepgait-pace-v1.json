@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "source": "https://github.com/Josef4Sci/DeepGait",
+  "license": "GPL-3.0",
+  "windowSeconds": 2.0,
+  "featureNames": [
+    "cadenceHz",
+    "gyroP95Dps",
+    "cadenceSquared",
+    "gyroP95Squared",
+    "cadenceTimesGyroP95"
+  ],
+  "mean": [
+    2.777381279165523,
+    404.45205100727253,
+    8.6939335712325,
+    188346.9111375015,
+    1146.9316424512708
+  ],
+  "scale": [
+    0.98999333400452,
+    157.37042153312095,
+    5.457236139138647,
+    247242.89339810784,
+    588.3705090611771
+  ],
+  "coefficients": [
+    4.923449019907188,
+    0.8975726093757068,
+    2.0782748477884425,
+    -1.1275151585417944,
+    -1.2274064029929665,
+    0.5548462148969483
+  ],
+  "training": {
+    "subjects": 8,
+    "windows": 3643,
+    "speedMinKmh": 0.5032660518664782,
+    "speedMedianKmh": 4.909189683717981,
+    "speedMaxKmh": 9.996373161233773,
+    "fitMaeKmh": 0.6787440913975781,
+    "fitRmseKmh": 0.9865824843874043,
+    "leaveOneSubjectOut": [
+      {
+        "subject": 1,
+        "windows": 490,
+        "maeKmh": 0.5816850165167369,
+        "rmseKmh": 0.8691243551416851
+      },
+      {
+        "subject": 2,
+        "windows": 571,
+        "maeKmh": 0.7854392372215886,
+        "rmseKmh": 1.033315632386291
+      },
+      {
+        "subject": 3,
+        "windows": 288,
+        "maeKmh": 0.6990135744560272,
+        "rmseKmh": 0.9055138643241276
+      },
+      {
+        "subject": 4,
+        "windows": 321,
+        "maeKmh": 1.0538528660591726,
+        "rmseKmh": 1.697170852406601
+      },
+      {
+        "subject": 5,
+        "windows": 267,
+        "maeKmh": 0.5014575646298165,
+        "rmseKmh": 0.7307377522935655
+      },
+      {
+        "subject": 6,
+        "windows": 573,
+        "maeKmh": 0.8292264857316994,
+        "rmseKmh": 1.0575058920904195
+      },
+      {
+        "subject": 7,
+        "windows": 818,
+        "maeKmh": 0.569906289538215,
+        "rmseKmh": 0.7755777650345169
+      },
+      {
+        "subject": 8,
+        "windows": 315,
+        "maeKmh": 0.7205003685459963,
+        "rmseKmh": 1.1725238530037563
+      }
+    ],
+    "crossSubjectMaeKmh": 0.7176351753374066
+  },
+  "niirmotionPersonalization": {
+    "leftLiftP95Dps": 157.3,
+    "rightLiftP95Dps": 140.9,
+    "leftRestP95Dps": 44.9,
+    "rightRestP95Dps": 42.9,
+    "source": "recordings/leg-balance.jsonl"
+  }
+}

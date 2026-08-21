@@ -1,0 +1,20 @@
+.dotnet/
+.cli-home/
+.nuget/
+.appdata/
+.localappdata/
+**/bin/
+**/obj/
+.vs/
+*.user
+*.log
+recordings/
+/artifacts/
+/logs/
+/data/
+/analysis/
+/calibration/
+/config/personal-*.json
+/config/system-mode.json
+# Local portable build toolchains/SDKs
+.tools/

@@ -1,0 +1,34 @@
+{
+  "jsonid": "input_profile",
+  "controller_type": "niirmotion_locomotion",
+  "legacy_profile": "niirmotion_locomotion",
+  "device_class": "TrackedDeviceClass_Controller",
+  "input_bindingui_mode": "single_device",
+  "should_show_binding_errors": true,
+  "input_source": {
+    "/input/joystick": {
+      "type": "joystick",
+      "click": true,
+      "touch": true,
+      "binding_image_point": [ 64, 64 ],
+      "order": 1
+    },
+    "/input/turnstick": {
+      "type": "joystick",
+      "click": true,
+      "touch": true,
+      "binding_image_point": [ 96, 64 ],
+      "order": 2
+    }
+  },
+  "default_bindings": [
+    {
+      "app_key": "steam.app.546560",
+      "binding_url": "default_bindings/steam.app.546560_niirmotion.json"
+    },
+    {
+      "app_key": "steam.app.1540210",
+      "binding_url": "default_bindings/steam.app.1540210_niirmotion.json"
+    }
+  ]
+}

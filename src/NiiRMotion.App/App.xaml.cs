@@ -1,0 +1,38 @@
+using System.IO;
+using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+
+namespace NiiRMotion.App;
+
+public partial class App : Application
+{
+    protected override void OnStartup(StartupEventArgs e)
+    {
+        base.OnStartup(e);
+        var boardLabScreenshotArg = e.Args.FirstOrDefault(x => x.StartsWith("--board-lab-screenshot=", StringComparison.OrdinalIgnoreCase));
+        Window window = boardLabScreenshotArg is null ? new MainWindow() : new BoardLabWindow(); MainWindow = window; window.Show();
+        if (boardLabScreenshotArg is not null)
+        {
+            var boardPath = boardLabScreenshotArg[(boardLabScreenshotArg.IndexOf('=') + 1)..];
+            SaveScreenshotAndExit(window, boardPath); return;
+        }
+        var screenshotArg = e.Args.FirstOrDefault(x => x.StartsWith("--screenshot=", StringComparison.OrdinalIgnoreCase));
+        if (screenshotArg is null) return;
+        var path = screenshotArg[(screenshotArg.IndexOf('=') + 1)..];
+        SaveScreenshotAndExit(window, path);
+    }
+
+    private void SaveScreenshotAndExit(Window window, string path)
+    {
+        window.Dispatcher.BeginInvoke(() =>
+        {
+            window.UpdateLayout();
+            var width = Math.Max(1, (int)Math.Ceiling(window.ActualWidth)); var height = Math.Max(1, (int)Math.Ceiling(window.ActualHeight));
+            var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32); bitmap.Render(window);
+            var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap)); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            using var stream = File.Create(path); encoder.Save(stream); window.Close(); Shutdown();
+        }, DispatcherPriority.ApplicationIdle);
+    }
+}

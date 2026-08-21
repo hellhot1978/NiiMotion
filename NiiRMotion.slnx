@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/NiiRMotion.App/NiiRMotion.App.csproj" />
+    <Project Path="src/NiiRMotion.Core/NiiRMotion.Core.csproj" />
+    <Project Path="src/NiiRMotion.Infrastructure/NiiRMotion.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NiiRMotion.Tests/NiiRMotion.Tests.csproj" />
+  </Folder>
+</Solution>
