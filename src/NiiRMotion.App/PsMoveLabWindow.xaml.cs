@@ -26,6 +26,25 @@ public partial class PsMoveLabWindow : Window
         new(50, "fast_walk", "Olduğun yerde hızlı yürü; koşma"),
         new(20, "stand", "Dur ve sabit kal")
     ];
+    private static readonly RecordingPhase[] DiscriminationPlan = BuildDiscriminationPlan();
+
+    private static RecordingPhase[] BuildDiscriminationPlan()
+    {
+        var phases = new List<RecordingPhase> { new(30, "stand", "Sabit ve rahat dur") };
+        for (var i = 0; i < 6; i++)
+        {
+            phases.Add(new(8, "natural_walk", "Doğal yürü; ses gelince hemen dur"));
+            phases.Add(new(4, "stand", "Hemen dur ve kıpırdama"));
+        }
+        phases.AddRange([
+            new(40, "bend_no_walk", "Yürümeden dizlerini bük ve doğrul"),
+            new(40, "single_leg_no_walk", "Yürümeden sırayla bir bacağını kaldırıp bekle"),
+            new(40, "turn_no_walk", "Yürümeden olduğun yerde sağa ve sola dön"),
+            new(40, "crouch_reach_no_walk", "Yürümeden çömel, doğrul ve uzan"),
+            new(38, "natural_walk", "Son doğrulama: doğal hızda yerinde yürü")
+        ]);
+        return phases.ToArray();
+    }
 
     public PsMoveLabWindow()
     {
@@ -33,9 +52,12 @@ public partial class PsMoveLabWindow : Window
         Loaded += async (_, _) =>
         {
             if (await new PsMovePlacementCalibrationStore(PlacementCalibration).LoadAsync() is null) return;
-            _stage = 2; StateText.Text = "KALİBRE"; InstructionText.Text = "İlk Move yürüyüş kaydı hazır";
+            _stage = 2;
+            var foundationExists = Directory.Exists(@"C:\NiirMotion\data\psmove") && Directory.EnumerateDirectories(@"C:\NiirMotion\data\psmove", "*-foundation").Any();
+            StateText.Text = "KALİBRE"; InstructionText.Text = foundationExists ? "Başla–dur ve yanlış hareket kaydı hazır" : "İlk Move yürüyüş kaydı hazır";
             DetailText.Text = "5 dakika boyunca ekrandaki yönergeleri uygula. Olduğun yerde yürü; ileri gitme.";
-            CountdownText.Text = "3 · ETİKETLİ TEMEL HAREKET KAYDI"; ProgressText.Text = "Sabit · yavaş · doğal · hızlı · duruş geçişleri";
+            CountdownText.Text = foundationExists ? "4 · HAREKET AYRIŞTIRMA KAYDI" : "3 · ETİKETLİ TEMEL HAREKET KAYDI";
+            ProgressText.Text = foundationExists ? "Başla–dur · diz bükme · tek bacak · dönme · çömelme" : "Sabit · yavaş · doğal · hızlı · duruş geçişleri";
             ActionButton.Content = "▶  5 DK KAYDI BAŞLAT";
         };
     }
@@ -119,12 +141,16 @@ public partial class PsMoveLabWindow : Window
 
     private async Task RecordFoundationAsync()
     {
-        var folder = Path.Combine(@"C:\NiirMotion\data\psmove", DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-foundation");
+        var root = @"C:\NiirMotion\data\psmove";
+        var isFoundation = !Directory.Exists(root) || !Directory.EnumerateDirectories(root, "*-foundation").Any();
+        var plan = isFoundation ? FoundationPlan : DiscriminationPlan;
+        var kind = isFoundation ? "foundation" : "discrimination";
+        var folder = Path.Combine(root, DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-" + kind);
         Directory.CreateDirectory(folder);
         await File.WriteAllTextAsync(Path.Combine(folder, "manifest.json"), JsonSerializer.Serialize(new
         {
             version = 1, sensor = "PS Move CECH-ZCM1E pair", placement = "calf_lower_leg", locomotionOutput = false,
-            plan = FoundationPlan, startedAtUtc = DateTimeOffset.UtcNow
+            plan, startedAtUtc = DateTimeOffset.UtcNow
         }, new JsonSerializerOptions { WriteIndented = true }));
         await using var writer = new StreamWriter(Path.Combine(folder, "samples.jsonl"), false, new System.Text.UTF8Encoding(false));
         await using var source = new PsMoveSensorSource(Assignments, FactoryCalibration);
@@ -134,7 +160,7 @@ public partial class PsMoveLabWindow : Window
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(310));
         await foreach (var sample in source.Samples.ReadAllAsync(timeout.Token))
         {
-            var phase = FoundationPlan[phaseIndex]; var phaseElapsed = clock.Elapsed.TotalSeconds - phaseStart;
+            var phase = plan[phaseIndex]; var phaseElapsed = clock.Elapsed.TotalSeconds - phaseStart;
             Update(sample); InstructionText.Text = phase.Instruction;
             CountdownText.Text = $"{phase.Label.Replace('_', ' ').ToUpperInvariant()} · {Math.Max(0, phase.Seconds - (int)phaseElapsed)} sn";
             ProgressText.Text = $"Toplam {Math.Min(300, (int)clock.Elapsed.TotalSeconds)} / 300 sn · {samples:N0} örnek";
@@ -143,12 +169,12 @@ public partial class PsMoveLabWindow : Window
             if (samples % 200 == 0) await writer.FlushAsync();
             if (phaseElapsed < phase.Seconds) continue;
             phaseStart += phase.Seconds; phaseIndex++; System.Media.SystemSounds.Asterisk.Play();
-            if (phaseIndex >= FoundationPlan.Length) break;
+            if (phaseIndex >= plan.Length) break;
         }
         await writer.FlushAsync();
-        _stage = 3; StateText.Text = "KAYIT TAMAMLANDI"; InstructionText.Text = "5 dakikalık temel Move kaydı alındı";
-        DetailText.Text = "Sabit, yavaş, doğal ve hızlı yerinde yürüyüş tek zaman çizelgesinde etiketlendi.";
-        CountdownText.Text = "✓ TEMEL VERİ KAYDEDİLDİ"; ProgressText.Text = $"{samples:N0} örnek · {Path.GetFileName(folder)}";
+        _stage = 3; StateText.Text = "KAYIT TAMAMLANDI"; InstructionText.Text = isFoundation ? "5 dakikalık temel Move kaydı alındı" : "Move eğitim seti 10 dakikaya ulaştı";
+        DetailText.Text = isFoundation ? "Sabit, yavaş, doğal ve hızlı yerinde yürüyüş tek zaman çizelgesinde etiketlendi." : "Başla–dur geçişleri ve yürüyüş olmayan bacak hareketleri ayrı etiketlerle kaydedildi.";
+        CountdownText.Text = isFoundation ? "✓ TEMEL VERİ KAYDEDİLDİ" : "✓ AYRIŞTIRMA VERİSİ KAYDEDİLDİ"; ProgressText.Text = $"{samples:N0} örnek · {Path.GetFileName(folder)}";
         ActionButton.Content = "TAMAMLANDI"; ActionButton.IsEnabled = false;
         System.Media.SystemSounds.Asterisk.Play();
     }
