@@ -21,6 +21,20 @@ public sealed record PsMovePlacementCalibration(
     double RightLiftPeak,
     int NeutralSamples,
     int MovementSamples);
+public sealed record PsMoveMotionAnchor(double MeanRadps, double MedianRadps, double P95Radps, int Samples);
+public sealed record PsMoveTrainingProfile(
+    int Version,
+    DateTimeOffset CreatedAtUtc,
+    SensorPlacement Placement,
+    int TotalSamples,
+    double DurationSeconds,
+    double RestReleaseThresholdRadps,
+    double GaitActivationThresholdRadps,
+    double SlowAnchorRadps,
+    double NaturalAnchorRadps,
+    double FastAnchorRadps,
+    double NaturalLeftRightRatio,
+    IReadOnlyDictionary<string, PsMoveMotionAnchor> Labels);
 public readonly record struct PhoneImuSample(string SourceId, long Sequence, SensorTimestamp Timestamp, long SentAtUnixMicroseconds, Quaternion Orientation, Vector3 AccelerationMps2, Vector3 AngularVelocityRadps) : ISensorSample;
 public readonly record struct BalanceBoardSample(string SourceId, long Sequence, SensorTimestamp Timestamp, float FrontLeftKg, float FrontRightKg, float BackLeftKg, float BackRightKg) : ISensorSample
 {
