@@ -13,6 +13,7 @@ public partial class PsMoveLabWindow : Window
     private const string Assignments = @"C:\NiirMotion\config\psmove-assignments.json";
     private const string FactoryCalibration = @"C:\NiirMotion\config\psmove-calibrations.json";
     private const string PlacementCalibration = @"C:\NiirMotion\config\personal-psmove-placement.json";
+    private const string TrainingProfile = @"C:\NiirMotion\config\personal-psmove-training.json";
     private int _stage;
     private bool _busy;
     private sealed record RecordingPhase(int Seconds, string Label, string Instruction);
@@ -54,6 +55,14 @@ public partial class PsMoveLabWindow : Window
             if (await new PsMovePlacementCalibrationStore(PlacementCalibration).LoadAsync() is null) return;
             _stage = 2;
             var foundationExists = Directory.Exists(@"C:\NiirMotion\data\psmove") && Directory.EnumerateDirectories(@"C:\NiirMotion\data\psmove", "*-foundation").Any();
+            var discriminationExists = Directory.Exists(@"C:\NiirMotion\data\psmove") && Directory.EnumerateDirectories(@"C:\NiirMotion\data\psmove", "*-discrimination").Any();
+            if (discriminationExists && File.Exists(TrainingProfile))
+            {
+                _stage = 3; StateText.Text = "MODEL HAZIR"; InstructionText.Text = "Canlı Move doğrulaması hazır";
+                DetailText.Text = "45 saniyelik test oyun hareketi göndermez; yürüyüş ve yanlış hareket ayrımını canlı gösterir.";
+                CountdownText.Text = "5 · CANLI MODEL DOĞRULAMA"; ProgressText.Text = "Sabit → doğal yürü → dur → diz bük → dön";
+                ActionButton.Content = "▶  45 SN CANLI TEST"; return;
+            }
             StateText.Text = "KALİBRE"; InstructionText.Text = foundationExists ? "Başla–dur ve yanlış hareket kaydı hazır" : "İlk Move yürüyüş kaydı hazır";
             DetailText.Text = "5 dakika boyunca ekrandaki yönergeleri uygula. Olduğun yerde yürü; ileri gitme.";
             CountdownText.Text = foundationExists ? "4 · HAREKET AYRIŞTIRMA KAYDI" : "3 · ETİKETLİ TEMEL HAREKET KAYDI";
@@ -71,6 +80,7 @@ public partial class PsMoveLabWindow : Window
             if (_stage == 0) await VerifyAsync();
             else if (_stage == 1) await CalibrateAsync();
             else if (_stage == 2) await RecordFoundationAsync();
+            else if (_stage == 3) await ValidateLiveAsync();
         }
         catch (Exception ex)
         {
@@ -175,6 +185,37 @@ public partial class PsMoveLabWindow : Window
         _stage = 3; StateText.Text = "KAYIT TAMAMLANDI"; InstructionText.Text = isFoundation ? "5 dakikalık temel Move kaydı alındı" : "Move eğitim seti 10 dakikaya ulaştı";
         DetailText.Text = isFoundation ? "Sabit, yavaş, doğal ve hızlı yerinde yürüyüş tek zaman çizelgesinde etiketlendi." : "Başla–dur geçişleri ve yürüyüş olmayan bacak hareketleri ayrı etiketlerle kaydedildi.";
         CountdownText.Text = isFoundation ? "✓ TEMEL VERİ KAYDEDİLDİ" : "✓ AYRIŞTIRMA VERİSİ KAYDEDİLDİ"; ProgressText.Text = $"{samples:N0} örnek · {Path.GetFileName(folder)}";
+        ActionButton.Content = "TAMAMLANDI"; ActionButton.IsEnabled = false;
+        System.Media.SystemSounds.Asterisk.Play();
+    }
+
+    private async Task ValidateLiveAsync()
+    {
+        var profile = JsonSerializer.Deserialize<PsMoveTrainingProfile>(await File.ReadAllTextAsync(TrainingProfile))
+            ?? throw new InvalidDataException("Kişisel Move profili okunamadı.");
+        var engine = new PsMoveGaitEngine(profile); await using var source = new PsMoveSensorSource(Assignments, FactoryCalibration);
+        await source.StartAsync(); var clock = Stopwatch.StartNew(); long active = 0, samples = 0;
+        StateText.Text = "CANLI · VR KAPALI";
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(48));
+        await foreach (var sample in source.Samples.ReadAllAsync(timeout.Token))
+        {
+            engine.Observe(sample); var gait = engine.Update(sample.Timestamp.MonotonicTicks); Update(sample); samples++; if (gait.TargetSpeed > 0) active++;
+            var s = clock.Elapsed.TotalSeconds;
+            (InstructionText.Text, DetailText.Text) = s switch
+            {
+                < 8 => ("Sabit dur", "Hareket göstergesi KAPALI kalmalı"),
+                < 23 => ("Doğal hızda yerinde yürü", "Hareket göstergesi AÇIK olmalı"),
+                < 30 => ("Hemen dur", "Gösterge kısa sürede KAPALI olmalı"),
+                < 38 => ("Yürümeden dizlerini bük", "Gösterge KAPALI kalmalı"),
+                _ => ("Yürümeden sağa ve sola dön", "Gösterge KAPALI kalmalı")
+            };
+            CountdownText.Text = $"{(gait.TargetSpeed > 0 ? "● HAREKET AÇIK" : "○ HAREKET KAPALI")} · {Math.Max(0, 45 - (int)s)} sn";
+            ProgressText.Text = $"Durum {gait.State} · hız {gait.TargetSpeed:0.00} · güven %{gait.Confidence * 100:0}";
+            if (s >= 45) break;
+        }
+        _stage = 4; StateText.Text = "DOĞRULAMA TAMAM"; InstructionText.Text = "Canlı test tamamlandı";
+        DetailText.Text = "VR çıkışı test boyunca kapalı kaldı. Sonuçlar bir sonraki entegrasyon kapısında kullanılacak.";
+        CountdownText.Text = "✓ MOVE MODELİ ÇALIŞIYOR"; ProgressText.Text = $"{samples:N0} örnek · etkin örnek %{active * 100d / Math.Max(1, samples):0.0}";
         ActionButton.Content = "TAMAMLANDI"; ActionButton.IsEnabled = false;
         System.Media.SystemSounds.Asterisk.Play();
     }

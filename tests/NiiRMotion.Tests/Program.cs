@@ -116,6 +116,13 @@ if (args.Contains("--psmove-analyze", StringComparer.OrdinalIgnoreCase))
     Console.WriteLine(JsonSerializer.Serialize(profile, new JsonSerializerOptions { WriteIndented = true }));
     return 0;
 }
+if (args.Contains("--psmove-replay", StringComparer.OrdinalIgnoreCase))
+{
+    var profile = JsonSerializer.Deserialize<PsMoveTrainingProfile>(await File.ReadAllTextAsync(@"C:\NiirMotion\config\personal-psmove-training.json"))!;
+    var results = await PsMoveReplayValidator.ValidateAsync(@"C:\NiirMotion\data\psmove", profile);
+    foreach (var result in results) Console.WriteLine($"{result.Label}: {result.ActiveRatio:P1} active ({result.ActiveSamples}/{result.Samples})");
+    return 0;
+}
 if (args.Contains("--psmove-raw", StringComparer.OrdinalIgnoreCase))
 {
     var capture = await new PsMoveDiagnosticsService().CaptureInputReportsAsync(TimeSpan.FromSeconds(3));
@@ -248,10 +255,23 @@ static void PsMoveTrainingProfileTest()
     var profile = new PsMoveTrainingAnalyzer().Analyze(observations);
     Assert(profile.RestReleaseThresholdRadps < profile.GaitActivationThresholdRadps, "PS Move activation must stay above rest noise.");
     Assert(profile.SlowAnchorRadps < profile.NaturalAnchorRadps && profile.NaturalAnchorRadps < profile.FastAnchorRadps, "PS Move pace anchors must remain ordered.");
+    PsMoveGaitContractTest();
     void Add(string label, double center)
     {
         for (var i = 0; i < 3_000; i++) observations.Add(new(label, i % 2 == 0 ? LegSide.Left : LegSide.Right, i * 6, center + (i % 17 - 8) * .002));
     }
+}
+static void PsMoveGaitContractTest()
+{
+    var anchors = new Dictionary<string, PsMoveMotionAnchor>();
+    var profile = new PsMoveTrainingProfile(1, DateTimeOffset.UtcNow, SensorPlacement.CalfLowerLeg, 10000, 60, .10, .24, .43, .69, 1.17, 1, anchors);
+    var gait = new PsMoveGaitEngine(profile); var ticks = System.Diagnostics.Stopwatch.GetTimestamp();
+    for (var i = 0; i < 8; i++) { ticks += System.Diagnostics.Stopwatch.Frequency / 2; var side = i % 2 == 0 ? LegSide.Left : LegSide.Right; gait.Observe(side, new Vector3(.6f,.6f,.1f), ticks); gait.Observe(side, Vector3.Zero, ticks + 2); }
+    Assert(gait.Update(ticks).TargetSpeed > 0, "Alternating PS Move calf motion must activate locomotion.");
+    Assert(gait.Update(ticks + (long)(System.Diagnostics.Stopwatch.Frequency * .5)).TargetSpeed == 0, "PS Move gait must stop promptly after motion ends.");
+    var reject = new PsMoveGaitEngine(profile); ticks = System.Diagnostics.Stopwatch.GetTimestamp();
+    for (var i = 0; i < 8; i++) { ticks += System.Diagnostics.Stopwatch.Frequency / 2; reject.Observe(LegSide.Left, new Vector3(1,.1f,.05f), ticks); reject.Observe(LegSide.Right, new Vector3(1,.1f,.05f), ticks + 1); reject.Observe(LegSide.Left, Vector3.Zero, ticks + 2); reject.Observe(LegSide.Right, Vector3.Zero, ticks + 3); }
+    Assert(reject.Update(ticks).TargetSpeed == 0, "Bilateral PS Move bend motion must not activate locomotion.");
 }
 static async Task PsMoveAssignmentsRoundTrip()
 {
