@@ -4,6 +4,15 @@ Bu plan `NiiMotion_Codex_Master_Prompt_V5_FINAL.txt` gereksinimlerini mevcut ça
 
 ## Sınıflandırma
 
+## Sahip tarafından doğrulanan yerleşim değişikliği
+
+V5 taslağındaki yerleşim, sahibin fiziksel kullanım kararıyla değiştirilmiştir. Bundan sonraki tek doğru topoloji:
+
+- Sol/Sağ PS Move: diz altında, baldır/lower-leg.
+- Sol/Sağ Joy-Con: kalça ile diz arasında, uyluk/upper-leg.
+- Hybrid model Move'u alt bacak, Joy-Con'u üst bacak evidence kaynağı olarak yorumlar.
+- Eski kayıtlar yeniden etiketlenmez; session manifest içindeki placement alanı model seçimini belirler.
+
 ### KEEP AS-IS
 
 - Koyu WPF görsel dili, mevcut Genel Bakış ve Test/Kalibrasyon akışı.

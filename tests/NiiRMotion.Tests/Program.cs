@@ -96,6 +96,18 @@ if (args.Contains("--psmove-health", StringComparer.OrdinalIgnoreCase))
         Console.WriteLine($"{item.StableId} | {item.ReportRateHz:F1} Hz | jitter {item.JitterMs:F2} ms | loss {item.MissingReports} | battery 0x{item.Battery:X2} | accel {item.MinimumAccelerationG:F2}-{item.MaximumAccelerationG:F2} g | gyro max {item.MaximumAngularVelocityRadPerSecond:F2} rad/s");
     return health.Count == 2 && health.All(x => x.ReportCount > 0) ? 0 : 2;
 }
+if (args.Contains("--psmove-source-smoke", StringComparer.OrdinalIgnoreCase))
+{
+    var configRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "config"));
+    await using var source = new PsMoveSensorSource(Path.Combine(configRoot, "psmove-assignments.json"), Path.Combine(configRoot, "psmove-calibrations.json"));
+    await source.StartAsync();
+    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+    var counts = new Dictionary<LegSide, int>();
+    while (counts.Values.Sum() < 500 && await source.Samples.WaitToReadAsync(timeout.Token))
+        while (source.Samples.TryRead(out var sample)) counts[sample.Side] = counts.GetValueOrDefault(sample.Side) + 1;
+    Console.WriteLine(string.Join(" | ", counts.OrderBy(x => x.Key).Select(x => $"{x.Key}: {x.Value} calibrated calf samples")));
+    return counts.GetValueOrDefault(LegSide.Left) > 0 && counts.GetValueOrDefault(LegSide.Right) > 0 ? 0 : 2;
+}
 if (args.Contains("--psmove-raw", StringComparer.OrdinalIgnoreCase))
 {
     var capture = await new PsMoveDiagnosticsService().CaptureInputReportsAsync(TimeSpan.FromSeconds(3));

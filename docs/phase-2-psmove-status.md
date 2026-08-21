@@ -20,6 +20,8 @@ Date: 2026-08-21
 - Factory accelerometer and gyroscope mapping follows the PS Move API ZCM1 calibration model and converts raw values to `g` and `rad/s`.
 - Final calibrated Bluetooth health capture passed for both devices: approximately 82–84 report Hz, full battery, stationary acceleration near 1 g, and low stationary gyro magnitude. Windows scheduling/sequence-loss metrics remain visible as diagnostics rather than being hidden.
 - The PS Move card now performs both color identification and a calibrated health capture, with concise status on the card and technical detail in the result strip.
+- Owner placement override is encoded in the normalized live source: PS Move samples are `CalfLowerLeg`; Joy-Con remains the upper-leg/thigh sensor.
+- The production-style `PsMoveSensorSource` delivered 256 left and 244 right calibrated lower-leg samples in the first 500-sample dual smoke test.
 
 ## Safety boundary
 
