@@ -9,6 +9,18 @@ public readonly record struct SensorTimestamp(long MonotonicTicks, DateTimeOffse
 public interface ISensorSample { string SourceId { get; } long Sequence { get; } SensorTimestamp Timestamp { get; } }
 public readonly record struct JoyConImuSample(string SourceId, long Sequence, SensorTimestamp Timestamp, Vector3 AccelerationG, Vector3 AngularVelocityDps, int SubSampleIndex) : ISensorSample;
 public readonly record struct PsMoveImuSample(string SourceId, long Sequence, SensorTimestamp Timestamp, LegSide Side, SensorPlacement Placement, Vector3 AccelerationG, Vector3 AngularVelocityRadps, Vector3 MagnetometerRaw, byte Battery, int SubSampleIndex) : ISensorSample;
+public sealed record PsMovePlacementCalibration(
+    int Version,
+    DateTimeOffset CreatedAtUtc,
+    SensorPlacement Placement,
+    Vector3 LeftGravityG,
+    Vector3 RightGravityG,
+    double LeftRestNoise,
+    double RightRestNoise,
+    double LeftLiftPeak,
+    double RightLiftPeak,
+    int NeutralSamples,
+    int MovementSamples);
 public readonly record struct PhoneImuSample(string SourceId, long Sequence, SensorTimestamp Timestamp, long SentAtUnixMicroseconds, Quaternion Orientation, Vector3 AccelerationMps2, Vector3 AngularVelocityRadps) : ISensorSample;
 public readonly record struct BalanceBoardSample(string SourceId, long Sequence, SensorTimestamp Timestamp, float FrontLeftKg, float FrontRightKg, float BackLeftKg, float BackRightKg) : ISensorSample
 {

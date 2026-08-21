@@ -256,6 +256,10 @@ public partial class MainWindow : Window
     private async void PhoneTestClick(object sender, RoutedEventArgs e) => await BeginPhonePairingAsync();
     private async void PsMoveIdentifyClick(object sender, RoutedEventArgs e)
     {
+        new PsMoveLabWindow { Owner = this }.ShowDialog();
+        await ScanAsync();
+        return;
+#pragma warning disable CS0162
         PsMoveIdentifyButton.IsEnabled = false;
         CalibrationPsMoveStatus.Text = "Tanıtılıyor… sol kırmızı · sağ mavi";
         CalibrationPsMoveStatus.Foreground = Brush("#F6C86B");
@@ -282,6 +286,7 @@ public partial class MainWindow : Window
             CalibrationLiveResult.Foreground = Brush("#FF9BA8");
         }
         finally { PsMoveIdentifyButton.IsEnabled = true; }
+#pragma warning restore CS0162
     }
 
     private static string BatteryText(byte value) => value switch
