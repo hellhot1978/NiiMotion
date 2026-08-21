@@ -9,8 +9,11 @@ namespace NiiRMotion.App;
 
 public partial class App : Application
 {
+    private Mutex? _singleInstanceMutex;
     protected override void OnStartup(StartupEventArgs e)
     {
+        _singleInstanceMutex = new Mutex(true, @"Local\NiiMotion.App.Singleton", out var firstInstance);
+        if (!firstInstance) { Shutdown(); return; }
         base.OnStartup(e);
         NiiMotionPaths.Initialize();
         var boardLabScreenshotArg = e.Args.FirstOrDefault(x => x.StartsWith("--board-lab-screenshot=", StringComparison.OrdinalIgnoreCase));
@@ -24,6 +27,12 @@ public partial class App : Application
         if (screenshotArg is null) return;
         var path = screenshotArg[(screenshotArg.IndexOf('=') + 1)..];
         SaveScreenshotAndExit(window, path);
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        _singleInstanceMutex?.ReleaseMutex(); _singleInstanceMutex?.Dispose(); _singleInstanceMutex = null;
+        base.OnExit(e);
     }
 
     private void SaveScreenshotAndExit(Window window, string path)

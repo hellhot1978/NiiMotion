@@ -16,7 +16,7 @@ public partial class MainWindow : Window
     private readonly LiveLocomotionService _locomotion = new();
     private readonly SystemModeService _systemMode = new();
     private readonly DispatcherTimer _demoTimer = new() { Interval = TimeSpan.FromMilliseconds(80) };
-    private readonly DispatcherTimer _scanTimer = new() { Interval = TimeSpan.FromSeconds(2) };
+    private readonly DispatcherTimer _scanTimer = new() { Interval = TimeSpan.FromSeconds(4) };
     private bool _autoScanBusy;
     private bool _phonePairing;
     private OwoTrackSensorSource? _phoneMonitor;

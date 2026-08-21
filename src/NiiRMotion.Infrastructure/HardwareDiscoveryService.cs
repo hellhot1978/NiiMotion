@@ -7,8 +7,10 @@ namespace NiiRMotion.Infrastructure;
 public sealed class HardwareDiscoveryService : IHardwareDiscoveryService
 {
     public bool IsTestMode => false;
-    public Task<IReadOnlyList<DeviceStatus>> ScanAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<DeviceStatus>> ScanAsync(CancellationToken cancellationToken = default)
     {
+        return await Task.Run(async () =>
+        {
         cancellationToken.ThrowIfCancellationRequested();
         var processes = Process.GetProcesses().Select(p => p.ProcessName).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var steamVr = processes.Contains("vrserver") || processes.Contains("vrmonitor");
@@ -24,7 +26,7 @@ public sealed class HardwareDiscoveryService : IHardwareDiscoveryService
         var rightJoyCon = joyCons.Any(x => x.Side == JoyConSide.Right);
         var moveIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         try { foreach (var probe in new PsMoveDiagnosticsService().Discover().Where(x => x.SensorReportsPossible && x.Device.StableId is not null)) moveIds.Add(probe.Device.StableId!); } catch { }
-        var moveAssignments = new PsMoveAssignmentStore(NiiMotionPaths.PsMoveAssignments).LoadAsync(cancellationToken).GetAwaiter().GetResult();
+        var moveAssignments = await new PsMoveAssignmentStore(NiiMotionPaths.PsMoveAssignments).LoadAsync(cancellationToken).ConfigureAwait(false);
         var leftMove = moveAssignments is { IsComplete: true } && moveIds.Contains(moveAssignments.LeftStableId);
         var rightMove = moveAssignments is { IsComplete: true } && moveIds.Contains(moveAssignments.RightStableId);
         var balanceBoard = false;
@@ -63,7 +65,8 @@ public sealed class HardwareDiscoveryService : IHardwareDiscoveryService
                 "Eşleştirilmiş Balance Board şu anda uykuda veya bağlantısız.",
                 "Board'un ön güç düğmesine basın ve tekrar tarayın.")
         ];
-        return Task.FromResult(statuses);
+        return statuses;
+        }, cancellationToken).ConfigureAwait(false);
     }
     private static DeviceStatus Missing(DeviceKind kind, string name, string detail, string action) => new(kind, name, DeviceState.Missing, detail, action);
     private static DeviceStatus FoundOrMissing(DeviceKind kind, string name, bool found, string foundDetail, string missingDetail, string action) => new(kind, name, found ? DeviceState.Connected : DeviceState.Missing, found ? foundDetail : missingDetail, action);
