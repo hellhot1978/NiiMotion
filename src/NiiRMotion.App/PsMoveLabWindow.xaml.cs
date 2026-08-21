@@ -16,6 +16,7 @@ public partial class PsMoveLabWindow : Window
     private static string TrainingProfile => NiiMotionPaths.PsMoveTrainingProfile;
     private int _stage;
     private bool _busy;
+    private string? _pendingLeftId;
     private sealed record RecordingPhase(int Seconds, string Label, string Instruction);
     private static readonly RecordingPhase[] FoundationPlan =
     [
@@ -52,6 +53,20 @@ public partial class PsMoveLabWindow : Window
         InitializeComponent();
         Loaded += async (_, _) =>
         {
+            var onboarding = await new PsMoveOnboardingService().GetStatusAsync();
+            if (onboarding.NextStep == PsMoveOnboardingStep.AssignControllers)
+            {
+                _stage = -10; StateText.Text = "CİHAZ TANITMA"; InstructionText.Text = "Sol bacağa ayıracağın Move'u eline al";
+                DetailText.Text = "Düğmeye bastıktan sonra büyük PS Move düğmesine bas. İlk kontrolcü kırmızı olarak atanacak.";
+                CountdownText.Text = "1 · SOL MOVE'U TANIT"; ProgressText.Text = "Diğer Move'a henüz basma"; ActionButton.Content = "▶  SOL MOVE'U DİNLE"; return;
+            }
+            if (onboarding.NextStep == PsMoveOnboardingStep.ReadFactoryCalibration)
+            {
+                var assignments = await new PsMoveAssignmentStore(Assignments).LoadAsync();
+                var stored = await new PsMoveCalibrationStore(FactoryCalibration).LoadAsync();
+                var leftMissing = assignments is { IsComplete: true } && !stored.Any(x => x.StableId == assignments.LeftStableId);
+                _stage = leftMissing ? -8 : -7; ShowUsbInstruction(leftMissing ? "sol/kırmızı" : "sağ/mavi"); return;
+            }
             if (await new PsMovePlacementCalibrationStore(PlacementCalibration).LoadAsync() is null) return;
             _stage = 2;
             var foundationExists = Directory.EnumerateDirectories(NiiMotionPaths.PsMoveData, "*-foundation").Any();
@@ -78,6 +93,9 @@ public partial class PsMoveLabWindow : Window
         try
         {
             if (_stage == 0) await VerifyAsync();
+            else if (_stage == -10) await AssignLeftAsync();
+            else if (_stage == -9) await AssignRightAsync();
+            else if (_stage is -8 or -7) await ReadFactoryCalibrationAsync(_stage == -8 ? LegSide.Left : LegSide.Right);
             else if (_stage == 1) await CalibrateAsync();
             else if (_stage == 2) await RecordFoundationAsync();
             else if (_stage == 3) await ValidateLiveAsync();
@@ -88,6 +106,52 @@ public partial class PsMoveLabWindow : Window
             InstructionText.Text = "Kalibrasyon tamamlanamadı"; DetailText.Text = ex.Message;
         }
         finally { _busy = false; ActionButton.IsEnabled = true; }
+    }
+
+    private async Task AssignLeftAsync()
+    {
+        StateText.Text = "SOL BEKLENİYOR"; InstructionText.Text = "Sol Move'un büyük Move düğmesine bas";
+        var device = await new PsMoveDiagnosticsService().WaitForButtonAsync(1u << 19, TimeSpan.FromSeconds(25));
+        _pendingLeftId = device?.StableId ?? throw new InvalidOperationException("Sol Move düğme basışı alınamadı. Bluetooth bağlantısını kontrol et.");
+        _stage = -9; StateText.Text = "SOL TANINDI"; InstructionText.Text = "Şimdi sağ Move'u eline al";
+        DetailText.Text = "Sağ olarak kullanacağın diğer kontrolcünün büyük Move düğmesine bas."; CountdownText.Text = "2 · SAĞ MOVE'U TANIT";
+        ProgressText.Text = "Sol kimliği güvenle tutuluyor"; ActionButton.Content = "▶  SAĞ MOVE'U DİNLE"; System.Media.SystemSounds.Asterisk.Play();
+    }
+
+    private async Task AssignRightAsync()
+    {
+        StateText.Text = "SAĞ BEKLENİYOR"; InstructionText.Text = "Sağ Move'un büyük Move düğmesine bas";
+        var device = await new PsMoveDiagnosticsService().WaitForButtonAsync(1u << 19, TimeSpan.FromSeconds(25));
+        var rightId = device?.StableId ?? throw new InvalidOperationException("Sağ Move düğme basışı alınamadı. Bluetooth bağlantısını kontrol et.");
+        if (rightId.Equals(_pendingLeftId, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Aynı kontrolcü iki kez seçildi. Sağ için diğer Move'u kullan.");
+        await new PsMoveAssignmentStore(Assignments).SaveAsync(_pendingLeftId!, rightId);
+        var assignments = await new PsMoveAssignmentStore(Assignments).LoadAsync();
+        if (assignments is not null) await new PsMoveDiagnosticsService().ShowAssignmentColorsAsync(assignments, TimeSpan.FromSeconds(4));
+        _stage = -8; ShowUsbInstruction("sol/kırmızı"); System.Media.SystemSounds.Asterisk.Play();
+    }
+
+    private void ShowUsbInstruction(string side)
+    {
+        StateText.Text = "USB KALİBRASYONU"; InstructionText.Text = $"Yalnız {side} Move'u USB ile bağla";
+        DetailText.Text = "Diğer Move'un USB kablosunu çıkar. Bluetooth açık kalabilir. Hazır olunca fabrika sensör verisi otomatik okunacak.";
+        CountdownText.Text = side.StartsWith("sol") ? "3 · SOL FABRİKA KALİBRASYONU" : "4 · SAĞ FABRİKA KALİBRASYONU";
+        ProgressText.Text = "Bu işlem birkaç saniye sürer"; ActionButton.Content = "▶  USB VERİSİNİ OKU";
+    }
+
+    private async Task ReadFactoryCalibrationAsync(LegSide side)
+    {
+        var assignments = await new PsMoveAssignmentStore(Assignments).LoadAsync() ?? throw new InvalidOperationException("Move atamaları bulunamadı.");
+        var capture = new PsMoveDiagnosticsService().ReadUsbFactoryCalibration() ?? throw new InvalidOperationException("USB ile bağlı PS Move bulunamadı.");
+        var stableId = side == LegSide.Left ? assignments.LeftStableId : assignments.RightStableId;
+        await new PsMoveCalibrationStore(FactoryCalibration).SaveAsync(stableId, side.ToString().ToLowerInvariant(), capture.Blob);
+        if (side == LegSide.Left) { _stage = -7; ShowUsbInstruction("sağ/mavi"); }
+        else
+        {
+            _stage = 0; StateText.Text = "FABRİKA VERİSİ TAMAM"; InstructionText.Text = "İki Move'u Bluetooth ile bağla";
+            DetailText.Text = "USB kablosunu çıkar. İki Move bağlı olduğunda renk ve sensör kontrolüne geç."; CountdownText.Text = "5 · BAĞLANTI KONTROLÜ";
+            ProgressText.Text = "Sol kırmızı · sağ mavi"; ActionButton.Content = "▶  MOVE'LARI DOĞRULA";
+        }
+        System.Media.SystemSounds.Asterisk.Play();
     }
 
     private async Task VerifyAsync()
