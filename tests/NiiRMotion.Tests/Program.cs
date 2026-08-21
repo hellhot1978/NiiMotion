@@ -57,6 +57,35 @@ if (args.Contains("--psmove-colors", StringComparer.OrdinalIgnoreCase))
     await new PsMoveDiagnosticsService().ShowAssignmentColorsAsync(assignments, TimeSpan.FromSeconds(8));
     return 0;
 }
+if (args.Contains("--psmove-calibration-usb", StringComparer.OrdinalIgnoreCase))
+{
+    var capture = new PsMoveDiagnosticsService().ReadUsbFactoryCalibration();
+    if (capture is null)
+    {
+        Console.WriteLine("No PS Move CECH-ZCM1 USB device is connected.");
+        return 2;
+    }
+    Console.WriteLine($"PS Move factory calibration: {capture.Blob.Length} bytes");
+    Console.WriteLine(Convert.ToHexString(capture.Blob));
+    return capture.Blob.Length == 143 ? 0 : 2;
+}
+var saveMoveCalibrationArg = args.FirstOrDefault(x => x.StartsWith("--psmove-save-calibration=", StringComparison.OrdinalIgnoreCase));
+if (saveMoveCalibrationArg is not null)
+{
+    var side = saveMoveCalibrationArg[(saveMoveCalibrationArg.IndexOf('=') + 1)..];
+    var assignmentPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "config", "psmove-assignments.json"));
+    var calibrationPath = Path.Combine(Path.GetDirectoryName(assignmentPath)!, "psmove-calibrations.json");
+    var assignments = await new PsMoveAssignmentStore(assignmentPath).LoadAsync();
+    if (assignments is not { IsComplete: true }) return 2;
+    var stableId = side.Equals("left", StringComparison.OrdinalIgnoreCase) ? assignments.LeftStableId : side.Equals("right", StringComparison.OrdinalIgnoreCase) ? assignments.RightStableId : "";
+    if (string.IsNullOrEmpty(stableId)) return 2;
+    var capture = new PsMoveDiagnosticsService().ReadUsbFactoryCalibration();
+    if (capture is null) return 2;
+    await new PsMoveCalibrationStore(calibrationPath).SaveAsync(stableId, side, capture.Blob);
+    var parsed = PsMoveZcm1FactoryCalibration.Parse(capture.Blob);
+    Console.WriteLine($"Saved {side} PS Move calibration for {stableId}: accel low {parsed.AccelerationLow}, high {parsed.AccelerationHigh}, gyro scale {parsed.GyroscopeRadiansPerSecondPerUnit}");
+    return 0;
+}
 if (args.Contains("--psmove-raw", StringComparer.OrdinalIgnoreCase))
 {
     var capture = await new PsMoveDiagnosticsService().CaptureInputReportsAsync(TimeSpan.FromSeconds(3));
@@ -108,7 +137,7 @@ if (args.Contains("--vr-output-forward-test", StringComparer.OrdinalIgnoreCase))
 if (args.Contains("--vr-pace-simulation", StringComparer.OrdinalIgnoreCase)) return await VrPaceSimulationAsync();
 if (args.Contains("--vr-pace-simulation-short", StringComparer.OrdinalIgnoreCase)) return await VrPaceSimulationAsync(200);
 if (args.Contains("--vr-straight-drift-test", StringComparer.OrdinalIgnoreCase)) return await VrStraightDriftTestAsync();
-var tests = new (string Name, Func<Task> Run)[] { Sync("Required device missing blocks session", RequiredMissingBlocks), Sync("Optional device missing degrades session", OptionalMissingDegrades), Sync("All devices ready", AllReady), Sync("Classic VR disables locomotion", ClassicVrIsNonInvasive), Sync("Joy-Con identity rejects clones", JoyConIdentity), Sync("PS Move identity accepts only ZCM1", PsMoveIdentity), Sync("PS Move ZCM1 input report parses", PsMoveInputReport), Sync("PS Move LED report preserves zero rumble", PsMoveLedReport), ("PS Move assignments persist by stable identity", PsMoveAssignmentsRoundTrip), Sync("Joy-Con report parses three IMU samples", ParseImu), Sync("Invalid report is rejected", InvalidReport), Sync("Factory calibration parses", ParseCalibration), Sync("Factory calibration scales IMU", ScaleCalibration), Sync("Phone sequence loss is measured", PhoneLoss), Sync("owoTrack big-endian rotation parses", OwoRotation), Sync("Balance Board derives load and CoP", BalanceBoardDerivesCop), Sync("Balance Board protocol parses and calibrates", BalanceBoardProtocol), Sync("Board hold gesture turns without walking", BoardHoldGestureTurns), Sync("Board walking does not become a turn", BoardWalkingDoesNotTurn), Sync("Torso motion alone never starts locomotion", TorsoCannotStart), Sync("Experimental phone-only requires sustained motion", ExperimentalPhoneOnlyIsExplicitlyGated), Sync("Bilateral crouch motion resets gait confidence", BilateralMotionRejected), Sync("Single leg movement does not become walking", SingleLegRejected), Sync("Alternating leg evidence starts gait", AlternatingLegsStart), Sync("Natural cadence stays continuous and stops promptly", NaturalCadenceContinuity), Sync("Threshold hysteresis rejects sensor chatter", ThresholdHysteresisRejectsChatter), Sync("Stronger thigh swings produce a faster natural pace", SwingAmplitudeControlsPace), ("Learned DeepGait pace prior loads and scales", LearnedPacePrior), Sync("Gait stops after stale leg data", GaitStops), Sync("Optional fusion evidence cannot create gait", OptionalFusionCannotStart), Sync("Stale optional sensors degrade without blocking gait", StaleOptionalSensorsDoNotBlock), Sync("Analog output is smoothed", SpeedIsSmoothed), ("VR session starts promptly, stays straight and stops promptly", VrSessionResponseContract), Sync("Calibration rejects incomplete capture", CalibrationRejectsIncomplete), ("Calibration is versioned and round-trips", CalibrationRoundTrip), ("Personal gait records analyze and apply", PersonalGaitAnalysisRoundTrip), ("Recording round-trips through replay", RecordingRoundTrip), ("Balance Board recording round-trips", BalanceBoardRecordingRoundTrip), ("Phone UDP listener validates token", PhoneUdpRoundTrip), ("Live log retention enforces its disk budget", LogRetentionEnforcesBudget), Sync("Alyx physical forward override preserves controller buttons", AlyxPhysicalForwardOverride), Sync("Arizona 2 movement override preserves controller buttons", Arizona2PhysicalMovementOverride), ("VR output starts at zero and clamps analog values", VrOutputLifecycle), ("VR output refuses movement while off", VrOutputOffRejects), ("VR output failure detaches safely", VrOutputFailureDetaches), ("Fused gait drives analog output and stops safely", FusedGaitDrivesOutput), ("Board turn drives horizontal output only", BoardTurnDrivesHorizontalOutput), ("Named-pipe output packet matches native protocol", NamedPipeOutputProtocol), Sync("Native OpenVR DLL exports driver factory", NativeDriverExportsFactory), Sync("Native treadmill publishes an active stationary pose", NativeDriverPoseContract), Sync("Alyx binding includes treadmill vector and walk activation", AlyxBindingContract), Sync("Arizona Sunshine 2 binding includes movement vector", Arizona2BindingContract) };
+var tests = new (string Name, Func<Task> Run)[] { Sync("Required device missing blocks session", RequiredMissingBlocks), Sync("Optional device missing degrades session", OptionalMissingDegrades), Sync("All devices ready", AllReady), Sync("Classic VR disables locomotion", ClassicVrIsNonInvasive), Sync("Joy-Con identity rejects clones", JoyConIdentity), Sync("PS Move identity accepts only ZCM1", PsMoveIdentity), Sync("PS Move ZCM1 input report parses", PsMoveInputReport), Sync("PS Move LED report preserves zero rumble", PsMoveLedReport), Sync("PS Move factory calibration maps sensor units", PsMoveFactoryCalibration), ("PS Move assignments persist by stable identity", PsMoveAssignmentsRoundTrip), Sync("Joy-Con report parses three IMU samples", ParseImu), Sync("Invalid report is rejected", InvalidReport), Sync("Factory calibration parses", ParseCalibration), Sync("Factory calibration scales IMU", ScaleCalibration), Sync("Phone sequence loss is measured", PhoneLoss), Sync("owoTrack big-endian rotation parses", OwoRotation), Sync("Balance Board derives load and CoP", BalanceBoardDerivesCop), Sync("Balance Board protocol parses and calibrates", BalanceBoardProtocol), Sync("Board hold gesture turns without walking", BoardHoldGestureTurns), Sync("Board walking does not become a turn", BoardWalkingDoesNotTurn), Sync("Torso motion alone never starts locomotion", TorsoCannotStart), Sync("Experimental phone-only requires sustained motion", ExperimentalPhoneOnlyIsExplicitlyGated), Sync("Bilateral crouch motion resets gait confidence", BilateralMotionRejected), Sync("Single leg movement does not become walking", SingleLegRejected), Sync("Alternating leg evidence starts gait", AlternatingLegsStart), Sync("Natural cadence stays continuous and stops promptly", NaturalCadenceContinuity), Sync("Threshold hysteresis rejects sensor chatter", ThresholdHysteresisRejectsChatter), Sync("Stronger thigh swings produce a faster natural pace", SwingAmplitudeControlsPace), ("Learned DeepGait pace prior loads and scales", LearnedPacePrior), Sync("Gait stops after stale leg data", GaitStops), Sync("Optional fusion evidence cannot create gait", OptionalFusionCannotStart), Sync("Stale optional sensors degrade without blocking gait", StaleOptionalSensorsDoNotBlock), Sync("Analog output is smoothed", SpeedIsSmoothed), ("VR session starts promptly, stays straight and stops promptly", VrSessionResponseContract), Sync("Calibration rejects incomplete capture", CalibrationRejectsIncomplete), ("Calibration is versioned and round-trips", CalibrationRoundTrip), ("Personal gait records analyze and apply", PersonalGaitAnalysisRoundTrip), ("Recording round-trips through replay", RecordingRoundTrip), ("Balance Board recording round-trips", BalanceBoardRecordingRoundTrip), ("Phone UDP listener validates token", PhoneUdpRoundTrip), ("Live log retention enforces its disk budget", LogRetentionEnforcesBudget), Sync("Alyx physical forward override preserves controller buttons", AlyxPhysicalForwardOverride), Sync("Arizona 2 movement override preserves controller buttons", Arizona2PhysicalMovementOverride), ("VR output starts at zero and clamps analog values", VrOutputLifecycle), ("VR output refuses movement while off", VrOutputOffRejects), ("VR output failure detaches safely", VrOutputFailureDetaches), ("Fused gait drives analog output and stops safely", FusedGaitDrivesOutput), ("Board turn drives horizontal output only", BoardTurnDrivesHorizontalOutput), ("Named-pipe output packet matches native protocol", NamedPipeOutputProtocol), Sync("Native OpenVR DLL exports driver factory", NativeDriverExportsFactory), Sync("Native treadmill publishes an active stationary pose", NativeDriverPoseContract), Sync("Alyx binding includes treadmill vector and walk activation", AlyxBindingContract), Sync("Arizona Sunshine 2 binding includes movement vector", Arizona2BindingContract) };
 var failures = new List<string>();
 foreach (var test in tests) { try { await test.Run(); Console.WriteLine($"PASS  {test.Name}"); } catch (Exception ex) { failures.Add($"FAIL  {test.Name}: {ex.Message}"); } }
 foreach (var failure in failures) Console.Error.WriteLine(failure); Console.WriteLine($"{tests.Length - failures.Count}/{tests.Length} tests passed."); return failures.Count == 0 ? 0 : 1;
@@ -166,6 +195,19 @@ static void PsMoveLedReport()
 {
     var report = PsMoveZcm1OutputReport.CreateLed(255, 20, 30);
     Assert(report.Length == 49 && report[0] == 0x06 && report[2] == 255 && report[3] == 20 && report[4] == 30 && report[6] == 0, "PS Move LED report mismatch.");
+}
+static void PsMoveFactoryCalibration()
+{
+    var blob = new byte[143];
+    static void Put(byte[] b, int offset, int centered) { var raw = centered + 0x8000; b[offset] = (byte)raw; b[offset + 1] = (byte)(raw >> 8); }
+    Put(blob, 10, -1000); Put(blob, 36, -1000); Put(blob, 20, -1000);
+    Put(blob, 22, 1000); Put(blob, 30, 1000); Put(blob, 8, 1000);
+    Put(blob, 42, 0); Put(blob, 44, 0); Put(blob, 46, 0);
+    Put(blob, 70, 800); Put(blob, 80, 800); Put(blob, 90, 800);
+    var calibration = PsMoveZcm1FactoryCalibration.Parse(blob);
+    Assert(calibration.CalibrateAcceleration(Vector3.Zero) == Vector3.Zero, "PS Move accelerometer center mismatch.");
+    Assert(Math.Abs(calibration.CalibrateAcceleration(new Vector3(1000)).X - 1) < .001, "PS Move accelerometer +1g mismatch.");
+    Assert(Math.Abs(calibration.CalibrateGyroscope(new Vector3(800)).X - 80 * 2 * Math.PI / 60) < .001, "PS Move gyroscope scale mismatch.");
 }
 static async Task PsMoveAssignmentsRoundTrip()
 {

@@ -77,6 +77,38 @@ public static class PsMoveZcm1OutputReport
     }
 }
 
+public sealed record PsMoveZcm1FactoryCalibration(
+    Vector3 AccelerationLow,
+    Vector3 AccelerationHigh,
+    Vector3 GyroscopeBias,
+    Vector3 GyroscopeRadiansPerSecondPerUnit)
+{
+    public static PsMoveZcm1FactoryCalibration Parse(ReadOnlySpan<byte> blob)
+    {
+        if (blob.Length != 143) throw new ArgumentException("Expected a 143-byte ZCM1 factory calibration blob.", nameof(blob));
+        var low = new Vector3(ReadUnsigned(blob, 10), ReadUnsigned(blob, 36), ReadUnsigned(blob, 20));
+        var high = new Vector3(ReadUnsigned(blob, 22), ReadUnsigned(blob, 30), ReadUnsigned(blob, 8));
+        var bias = new Vector3(ReadUnsigned(blob, 42), ReadUnsigned(blob, 44), ReadUnsigned(blob, 46));
+        var rpm80 = new Vector3(ReadUnsigned(blob, 70) - bias.X, ReadUnsigned(blob, 80) - bias.Y, ReadUnsigned(blob, 90) - bias.Z);
+        if (high.X == low.X || high.Y == low.Y || high.Z == low.Z || rpm80.X == 0 || rpm80.Y == 0 || rpm80.Z == 0)
+            throw new InvalidDataException("ZCM1 factory calibration contains a zero sensor range.");
+        var radiansAt80Rpm = 80f * 2f * MathF.PI / 60f;
+        return new(low, high, bias, new(radiansAt80Rpm / rpm80.X, radiansAt80Rpm / rpm80.Y, radiansAt80Rpm / rpm80.Z));
+    }
+
+    public Vector3 CalibrateAcceleration(Vector3 raw)
+        => new(
+            2f * (raw.X - AccelerationLow.X) / (AccelerationHigh.X - AccelerationLow.X) - 1f,
+            2f * (raw.Y - AccelerationLow.Y) / (AccelerationHigh.Y - AccelerationLow.Y) - 1f,
+            2f * (raw.Z - AccelerationLow.Z) / (AccelerationHigh.Z - AccelerationLow.Z) - 1f);
+
+    public Vector3 CalibrateGyroscope(Vector3 raw)
+        => raw * GyroscopeRadiansPerSecondPerUnit;
+
+    private static int ReadUnsigned(ReadOnlySpan<byte> blob, int offset)
+        => (blob[offset] | blob[offset + 1] << 8) - 0x8000;
+}
+
 public sealed record PsMoveDeviceDescriptor(
     string DevicePath,
     ushort VendorId,

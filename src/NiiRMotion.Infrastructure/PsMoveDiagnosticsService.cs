@@ -24,10 +24,38 @@ public sealed record PsMoveRawCapture(
     int ReportBytes,
     string FirstReportHex);
 
+public sealed record PsMoveFactoryCalibrationCapture(PsMoveDeviceDescriptor Device, byte[] Blob);
+
 public sealed class PsMoveDiagnosticsService
 {
     public IReadOnlyList<PsMoveHidProbe> Discover()
         => HidDeviceEnumerator.FindPsMoves().Select(ProbeReadOnly).ToArray();
+
+    public PsMoveFactoryCalibrationCapture? ReadUsbFactoryCalibration()
+    {
+        var probe = Discover().FirstOrDefault(x => x.Device.Transport == PsMoveTransport.Usb && x.SensorReportsPossible);
+        if (probe is null) return null;
+
+        using var handle = CreateFile(probe.Device.DevicePath, 0, FileShare.ReadWrite, 0, FileMode.Open, 0, 0);
+        if (handle.IsInvalid) throw new Win32Exception(Marshal.GetLastWin32Error());
+        var blocks = new Dictionary<byte, byte[]>();
+        for (var attempt = 0; attempt < 6 && blocks.Count < 3; attempt++)
+        {
+            var report = new byte[49];
+            report[0] = 0x10;
+            if (!HidD_GetFeature(handle, report, report.Length))
+                throw new Win32Exception(Marshal.GetLastWin32Error(), "PS Move factory calibration feature report could not be read.");
+            if (report[1] is 0x00 or 0x01 or 0x82) blocks[report[1]] = report;
+        }
+        if (!blocks.TryGetValue(0x00, out var first) || !blocks.TryGetValue(0x01, out var second) || !blocks.TryGetValue(0x82, out var third))
+            throw new InvalidDataException("PS Move returned an incomplete factory calibration sequence.");
+
+        var blob = new byte[143];
+        Buffer.BlockCopy(first, 0, blob, 0, 49);
+        Buffer.BlockCopy(second, 2, blob, 49, 47);
+        Buffer.BlockCopy(third, 2, blob, 96, 47);
+        return new(probe.Device, blob);
+    }
 
     public async Task<PsMoveRawCapture?> CaptureInputReportsAsync(TimeSpan duration, CancellationToken cancellationToken = default)
     {
@@ -235,6 +263,9 @@ public sealed class PsMoveDiagnosticsService
 
     [DllImport("hid.dll", SetLastError = true)]
     private static extern bool HidD_GetPreparsedData(SafeFileHandle hidDeviceObject, out nint preparsedData);
+
+    [DllImport("hid.dll", SetLastError = true)]
+    private static extern bool HidD_GetFeature(SafeFileHandle hidDeviceObject, [Out] byte[] reportBuffer, int reportBufferLength);
 
     [DllImport("hid.dll")]
     private static extern bool HidD_FreePreparsedData(nint preparsedData);

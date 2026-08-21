@@ -15,6 +15,9 @@ Date: 2026-08-21
 - Parser exposes sequence, buttons, trigger, battery, dual accel frames, dual gyro frames, timestamp, and ZCM1 magnetometer raw values.
 - Real LED identification was verified: assigned left displays red, assigned right displays blue, with rumble forced to zero.
 - Test and Calibration now contains a focused PS Move card and an eight-second `Kontrolcüleri Tanıt` action; the primary Overview page is unchanged.
+- Disconnect/reconnect returned the same stable identities and both concurrent streams resumed successfully.
+- The 143-byte factory calibration was read over USB for each controller and stored separately by stable identity outside Git.
+- Factory accelerometer and gyroscope mapping follows the PS Move API ZCM1 calibration model and converts raw values to `g` and `rad/s`.
 
 ## Safety boundary
 
@@ -25,7 +28,5 @@ Date: 2026-08-21
 
 ## Pending before Phase 2 completion
 
-- Disconnect/reconnect both controllers and prove the same stable identities return.
-- Add calibrated sensor conversion after reading the real factory calibration feature reports.
 - Add explicit L/R reassignment flow and detailed live sensor health to Test and Calibration.
 - Verify battery and button state changes live.

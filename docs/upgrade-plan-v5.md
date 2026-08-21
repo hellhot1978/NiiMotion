@@ -79,7 +79,8 @@ Kabul: tek gerçek kontrolcü USB/Bluetooth görünürlüğü ve canlı input il
 
 - İki gerçek cihaz kalıcı Bluetooth kimliğiyle ayırt edildi; kullanıcı kontrollü L/R ataması saklandı.
 - Ham accel/gyro/magnetometer/battery/buttons/timing parser ve çift canlı akış tanısı eklendi.
-- USB/Bluetooth ve iki eşzamanlı cihaz doğrulandı; disconnect/reconnect testi bekliyor.
+- USB/Bluetooth, iki eşzamanlı cihaz ve disconnect/reconnect doğrulandı.
+- İki kontrolcünün ayrı 143 baytlık fabrika kalibrasyonu okundu; ham ivme ve jiroskop için fiziksel birim dönüşümü eklendi.
 - Ana UI sade; ham XYZ/jitter gelişmiş görünümde.
 
 Ayrıntı: `phase-2-psmove-status.md`.
