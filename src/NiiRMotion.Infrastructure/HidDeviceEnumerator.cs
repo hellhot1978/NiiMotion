@@ -29,6 +29,19 @@ public static partial class HidDeviceEnumerator
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .ToArray();
 
+    public static IReadOnlyList<PsMoveDeviceDescriptor> FindPsMoves()
+    {
+        var results = new List<PsMoveDeviceDescriptor>();
+        foreach (var path in FindAllHidPaths())
+        {
+            if (TryReadVidPid(path, out var vid, out var pid)
+                && PsMoveDeviceDescriptor.TryCreate(path, vid, pid, out var descriptor))
+                results.Add(descriptor!);
+        }
+
+        return results.DistinctBy(x => x.DevicePath, StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
     private static bool TryReadVidPid(string path, out ushort vid, out ushort pid)
     {
         vid = pid = 0;

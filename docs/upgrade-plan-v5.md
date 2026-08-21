@@ -63,15 +63,15 @@ Bu plan `NiiMotion_Codex_Master_Prompt_V5_FINAL.txt` gereksinimlerini mevcut ça
 
 ### Faz 1 — PS Move bağlantı araştırması ve tek cihaz keşfi
 
-**NOT IMPLEMENTED**
+**SOFTWARE GROUNDWORK COMPLETE / HARDWARE VERIFICATION PENDING**
 
-1. Güncel birincil kaynaklardan CECH-ZCM1E Windows HID/Bluetooth davranışını araştır.
-2. Mevcut Windows HID katmanının `VID_054C/PID_03D5` collections görünürlüğünü read-only ölç.
-3. Tek Move USB ile collection/path/report length/unique identity tanı çıktısı al.
-4. Pairing yöntemi seçmeden önce gerçek Windows raporlarını kaydet.
-5. Bu fazda locomotion veya mevcut profiller değişmez.
+1. CECH-ZCM1E Windows HID/Bluetooth davranışı birincil PS Move API kaynaklarından araştırıldı.
+2. `VID_054C/PID_03D5` için strict descriptor ve Windows HID discovery eklendi.
+3. Read-only HID capability probe ve `--psmove-discovery` tanı komutu eklendi.
+4. Bilgisayarda bağlı Move olmadığı için gerçek report length/identity ölçümü donanım kapısında bekliyor.
+5. Pairing, controller write, locomotion ve mevcut profiller değiştirilmedi.
 
-Kabul: cihaz görünürlüğü gerçek donanımla raporlanmış; mock başarı sayılmamış; mevcut 48 test geçiyor.
+Kabul: yazılım regresyonu 49/49 geçti; gerçek donanım görünürlüğü henüz doğrulanmadığı için Faz 1 tamamlandı sayılmıyor. Ayrıntı: `phase-1-psmove-status.md`.
 
 ### Faz 2 — Move diagnostics, L/R ve reconnect
 
@@ -138,4 +138,4 @@ Kabul: cihaz görünürlüğü gerçek donanımla raporlanmış; mock başarı s
 
 ## Bir sonraki somut çalışma
 
-V5 talimatına göre bir sonraki milestone **Faz 1** olmalıdır. Gerekli kullanıcı donanım adımı yalnız şu noktada istenir: bir adet CECH-ZCM1E PS Move'u USB ile bilgisayara bağlamak. Öncesinde güncel protokol ve Windows yaklaşımı yalnız birincil/korunabilir kaynaklardan araştırılabilir.
+Faz 1 yazılım altyapısı hazırdır. Bir sonraki kapı gerçek donanım doğrulamasıdır: bir adet CECH-ZCM1E PS Move'u veri destekli Mini-USB kabloyla bilgisayara bağlamak. Read-only USB ölçümünden sonra aynı cihaz Bluetooth üzerinden ölçülmeden pairing veya IMU parser fazına geçilmez.
