@@ -266,7 +266,7 @@ static void PsMoveGaitContractTest()
     var anchors = new Dictionary<string, PsMoveMotionAnchor>();
     var profile = new PsMoveTrainingProfile(1, DateTimeOffset.UtcNow, SensorPlacement.CalfLowerLeg, 10000, 60, .10, .24, .43, .69, 1.17, 1, anchors);
     var gait = new PsMoveGaitEngine(profile); var ticks = System.Diagnostics.Stopwatch.GetTimestamp();
-    for (var i = 0; i < 8; i++) { ticks += System.Diagnostics.Stopwatch.Frequency / 2; var side = i % 2 == 0 ? LegSide.Left : LegSide.Right; gait.Observe(side, new Vector3(.6f,.6f,.1f), ticks); gait.Observe(side, Vector3.Zero, ticks + 2); }
+    for (var i = 0; i < 16; i++) { ticks += System.Diagnostics.Stopwatch.Frequency / 2; var side = i % 2 == 0 ? LegSide.Left : LegSide.Right; gait.Observe(side, new Vector3(.6f,.6f,.1f), ticks); gait.Observe(side, Vector3.Zero, ticks + 2); }
     Assert(gait.Update(ticks).TargetSpeed > 0, "Alternating PS Move calf motion must activate locomotion.");
     Assert(gait.Update(ticks + (long)(System.Diagnostics.Stopwatch.Frequency * .5)).TargetSpeed == 0, "PS Move gait must stop promptly after motion ends.");
     var reject = new PsMoveGaitEngine(profile); ticks = System.Diagnostics.Stopwatch.GetTimestamp();

@@ -11,6 +11,7 @@ public sealed class PsMoveGaitEngine(PsMoveTrainingProfile profile)
     private long _steps;
     private double _cadence, _peak, _confidence, _leftSpeed, _rightSpeed;
     private double _leftX, _leftY, _leftZ, _rightX, _rightY, _rightZ;
+    private double _leftPlaneConfidence, _rightPlaneConfidence;
 
     public bool Observe(PsMoveImuSample sample) => Observe(sample.Side, sample.AngularVelocityRadps, sample.Timestamp.MonotonicTicks);
 
@@ -24,7 +25,10 @@ public sealed class PsMoveGaitEngine(PsMoveTrainingProfile profile)
         var ratio = sx / Math.Max(.01, sy);
         // Owner recordings show walking in a balanced X/Y calf-rotation plane.
         // Turns are Y-dominant; bilateral bends are X-dominant.
-        var gaitPlane = ratio is >= .58 and <= 1.35 && sz <= Math.Max(.18, sy * .78);
+        var rawGaitPlane = ratio is >= .58 and <= 1.35 && sz <= Math.Max(.18, sy * .78);
+        ref var planeConfidence = ref (side == LegSide.Left ? ref _leftPlaneConfidence : ref _rightPlaneConfidence);
+        planeConfidence = planeConfidence * .94 + (rawGaitPlane ? .06 : 0);
+        var gaitPlane = rawGaitPlane && planeConfidence >= .25;
         return Observe(side, gaitPlane ? gyro.Length() : 0, ticks);
     }
 
