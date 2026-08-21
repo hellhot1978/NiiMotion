@@ -1,5 +1,7 @@
 using System.Diagnostics;
+using System.IO;
 using System.Numerics;
+using System.Text.Json;
 using System.Windows;
 using NiiRMotion.Core;
 using NiiRMotion.Infrastructure;
@@ -13,8 +15,30 @@ public partial class PsMoveLabWindow : Window
     private const string PlacementCalibration = @"C:\NiirMotion\config\personal-psmove-placement.json";
     private int _stage;
     private bool _busy;
+    private sealed record RecordingPhase(int Seconds, string Label, string Instruction);
+    private static readonly RecordingPhase[] FoundationPlan =
+    [
+        new(30, "stand", "Sabit ve rahat dur"),
+        new(60, "slow_walk", "Olduğun yerde yavaş yürü"),
+        new(20, "stand", "Dur ve sabit kal"),
+        new(100, "natural_walk", "Olduğun yerde doğal hızda yürü"),
+        new(20, "stand", "Dur ve sabit kal"),
+        new(50, "fast_walk", "Olduğun yerde hızlı yürü; koşma"),
+        new(20, "stand", "Dur ve sabit kal")
+    ];
 
-    public PsMoveLabWindow() => InitializeComponent();
+    public PsMoveLabWindow()
+    {
+        InitializeComponent();
+        Loaded += async (_, _) =>
+        {
+            if (await new PsMovePlacementCalibrationStore(PlacementCalibration).LoadAsync() is null) return;
+            _stage = 2; StateText.Text = "KALİBRE"; InstructionText.Text = "İlk Move yürüyüş kaydı hazır";
+            DetailText.Text = "5 dakika boyunca ekrandaki yönergeleri uygula. Olduğun yerde yürü; ileri gitme.";
+            CountdownText.Text = "3 · ETİKETLİ TEMEL HAREKET KAYDI"; ProgressText.Text = "Sabit · yavaş · doğal · hızlı · duruş geçişleri";
+            ActionButton.Content = "▶  5 DK KAYDI BAŞLAT";
+        };
+    }
 
     private async void ActionClick(object sender, RoutedEventArgs e)
     {
@@ -24,6 +48,7 @@ public partial class PsMoveLabWindow : Window
         {
             if (_stage == 0) await VerifyAsync();
             else if (_stage == 1) await CalibrateAsync();
+            else if (_stage == 2) await RecordFoundationAsync();
         }
         catch (Exception ex)
         {
@@ -88,6 +113,42 @@ public partial class PsMoveLabWindow : Window
         _stage = 2; StateText.Text = "TAMAMLANDI"; InstructionText.Text = "Baldır yerleşimi kalibre edildi";
         DetailText.Text = $"Sol tepe {result.LeftLiftPeak:0.00} rad/sn · Sağ tepe {result.RightLiftPeak:0.00} rad/sn. Sonraki aşamada etiketli Move yürüyüş kayıtları alınacak.";
         CountdownText.Text = "✓ MONTAJ AÇISI KAYDEDİLDİ"; ProgressText.Text = $"{result.NeutralSamples + result.MovementSamples:N0} kalibre edilmiş örnek";
+        ActionButton.Content = "▶  5 DK KAYDI BAŞLAT";
+        System.Media.SystemSounds.Asterisk.Play();
+    }
+
+    private async Task RecordFoundationAsync()
+    {
+        var folder = Path.Combine(@"C:\NiirMotion\data\psmove", DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-foundation");
+        Directory.CreateDirectory(folder);
+        await File.WriteAllTextAsync(Path.Combine(folder, "manifest.json"), JsonSerializer.Serialize(new
+        {
+            version = 1, sensor = "PS Move CECH-ZCM1E pair", placement = "calf_lower_leg", locomotionOutput = false,
+            plan = FoundationPlan, startedAtUtc = DateTimeOffset.UtcNow
+        }, new JsonSerializerOptions { WriteIndented = true }));
+        await using var writer = new StreamWriter(Path.Combine(folder, "samples.jsonl"), false, new System.Text.UTF8Encoding(false));
+        await using var source = new PsMoveSensorSource(Assignments, FactoryCalibration);
+        await source.StartAsync();
+        var clock = Stopwatch.StartNew(); var phaseStart = 0.0; var phaseIndex = 0; long samples = 0;
+        StateText.Text = "KAYIT · VR KAPALI"; System.Media.SystemSounds.Asterisk.Play();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(310));
+        await foreach (var sample in source.Samples.ReadAllAsync(timeout.Token))
+        {
+            var phase = FoundationPlan[phaseIndex]; var phaseElapsed = clock.Elapsed.TotalSeconds - phaseStart;
+            Update(sample); InstructionText.Text = phase.Instruction;
+            CountdownText.Text = $"{phase.Label.Replace('_', ' ').ToUpperInvariant()} · {Math.Max(0, phase.Seconds - (int)phaseElapsed)} sn";
+            ProgressText.Text = $"Toplam {Math.Min(300, (int)clock.Elapsed.TotalSeconds)} / 300 sn · {samples:N0} örnek";
+            await writer.WriteLineAsync(JsonSerializer.Serialize(new { elapsedMs = clock.ElapsedMilliseconds, label = phase.Label, placement = "calf_lower_leg", sample }, new JsonSerializerOptions { IncludeFields = true }));
+            samples++;
+            if (samples % 200 == 0) await writer.FlushAsync();
+            if (phaseElapsed < phase.Seconds) continue;
+            phaseStart += phase.Seconds; phaseIndex++; System.Media.SystemSounds.Asterisk.Play();
+            if (phaseIndex >= FoundationPlan.Length) break;
+        }
+        await writer.FlushAsync();
+        _stage = 3; StateText.Text = "KAYIT TAMAMLANDI"; InstructionText.Text = "5 dakikalık temel Move kaydı alındı";
+        DetailText.Text = "Sabit, yavaş, doğal ve hızlı yerinde yürüyüş tek zaman çizelgesinde etiketlendi.";
+        CountdownText.Text = "✓ TEMEL VERİ KAYDEDİLDİ"; ProgressText.Text = $"{samples:N0} örnek · {Path.GetFileName(folder)}";
         ActionButton.Content = "TAMAMLANDI"; ActionButton.IsEnabled = false;
         System.Media.SystemSounds.Asterisk.Play();
     }
