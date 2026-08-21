@@ -10,10 +10,10 @@ namespace NiiRMotion.App;
 
 public partial class PsMoveLabWindow : Window
 {
-    private const string Assignments = @"C:\NiirMotion\config\psmove-assignments.json";
-    private const string FactoryCalibration = @"C:\NiirMotion\config\psmove-calibrations.json";
-    private const string PlacementCalibration = @"C:\NiirMotion\config\personal-psmove-placement.json";
-    private const string TrainingProfile = @"C:\NiirMotion\config\personal-psmove-training.json";
+    private static string Assignments => NiiMotionPaths.PsMoveAssignments;
+    private static string FactoryCalibration => NiiMotionPaths.PsMoveFactoryCalibration;
+    private static string PlacementCalibration => NiiMotionPaths.PsMovePlacementCalibration;
+    private static string TrainingProfile => NiiMotionPaths.PsMoveTrainingProfile;
     private int _stage;
     private bool _busy;
     private sealed record RecordingPhase(int Seconds, string Label, string Instruction);
@@ -54,8 +54,8 @@ public partial class PsMoveLabWindow : Window
         {
             if (await new PsMovePlacementCalibrationStore(PlacementCalibration).LoadAsync() is null) return;
             _stage = 2;
-            var foundationExists = Directory.Exists(@"C:\NiirMotion\data\psmove") && Directory.EnumerateDirectories(@"C:\NiirMotion\data\psmove", "*-foundation").Any();
-            var discriminationExists = Directory.Exists(@"C:\NiirMotion\data\psmove") && Directory.EnumerateDirectories(@"C:\NiirMotion\data\psmove", "*-discrimination").Any();
+            var foundationExists = Directory.EnumerateDirectories(NiiMotionPaths.PsMoveData, "*-foundation").Any();
+            var discriminationExists = Directory.EnumerateDirectories(NiiMotionPaths.PsMoveData, "*-discrimination").Any();
             if (discriminationExists && File.Exists(TrainingProfile))
             {
                 _stage = 3; StateText.Text = "MODEL HAZIR"; InstructionText.Text = "Canlı Move doğrulaması hazır";
@@ -151,7 +151,7 @@ public partial class PsMoveLabWindow : Window
 
     private async Task RecordFoundationAsync()
     {
-        var root = @"C:\NiirMotion\data\psmove";
+        var root = NiiMotionPaths.PsMoveData;
         var isFoundation = !Directory.Exists(root) || !Directory.EnumerateDirectories(root, "*-foundation").Any();
         var plan = isFoundation ? FoundationPlan : DiscriminationPlan;
         var kind = isFoundation ? "foundation" : "discrimination";
@@ -182,6 +182,11 @@ public partial class PsMoveLabWindow : Window
             if (phaseIndex >= plan.Length) break;
         }
         await writer.FlushAsync();
+        if (!isFoundation)
+        {
+            var learned = await new PsMoveTrainingAnalyzer().AnalyzeAsync(root);
+            await PsMoveTrainingAnalyzer.SaveAsync(learned, TrainingProfile);
+        }
         _stage = 3; StateText.Text = "KAYIT TAMAMLANDI"; InstructionText.Text = isFoundation ? "5 dakikalık temel Move kaydı alındı" : "Move eğitim seti 10 dakikaya ulaştı";
         DetailText.Text = isFoundation ? "Sabit, yavaş, doğal ve hızlı yerinde yürüyüş tek zaman çizelgesinde etiketlendi." : "Başla–dur geçişleri ve yürüyüş olmayan bacak hareketleri ayrı etiketlerle kaydedildi.";
         CountdownText.Text = isFoundation ? "✓ TEMEL VERİ KAYDEDİLDİ" : "✓ AYRIŞTIRMA VERİSİ KAYDEDİLDİ"; ProgressText.Text = $"{samples:N0} örnek · {Path.GetFileName(folder)}";

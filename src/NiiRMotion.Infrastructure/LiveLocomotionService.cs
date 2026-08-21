@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Text.Json;
 using NiiRMotion.Core;
 
 namespace NiiRMotion.Infrastructure;
@@ -12,11 +13,54 @@ public sealed class LiveLocomotionService : IAsyncDisposable
     private Task[] _workers = [];
     private VrLocomotionSession? _vrSession;
     private SensorFusionEngine? _fusion;
+    private PsMoveGaitEngine? _psMoveGait;
     private StreamWriter? _diagnosticWriter;
 
     public bool IsRunning => _lifetime is { IsCancellationRequested: false };
     public string ModeDescription { get; private set; } = "OFF";
     public event EventHandler<string>? CriticalSensorLost;
+
+    public async Task StartPsMoveOnlyAsync(CancellationToken cancellationToken = default)
+    {
+        if (IsRunning) return;
+        var onboarding = await new PsMoveOnboardingService().GetStatusAsync(cancellationToken);
+        if (!onboarding.IsReady) throw new InvalidOperationException(onboarding.Instruction);
+        var profile = JsonSerializer.Deserialize<PsMoveTrainingProfile>(await File.ReadAllTextAsync(NiiMotionPaths.PsMoveTrainingProfile, cancellationToken))
+            ?? throw new InvalidDataException("PS Move kişisel profili okunamadı.");
+        _psMoveGait = new(profile); _lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken); var token = _lifetime.Token;
+        try
+        {
+            var source = new PsMoveSensorSource(NiiMotionPaths.PsMoveAssignments, NiiMotionPaths.PsMoveFactoryCalibration);
+            _sources.Add(source); await source.StartAsync(token);
+            _vrSession = new VrLocomotionSession(new NamedPipeVrOutputSink()); await _vrSession.StartAsync(token);
+            var logFolder = Path.Combine(NiiMotionPaths.Logs, "live"); Directory.CreateDirectory(logFolder); StorageRetention.EnforceDirectoryBudget(logFolder);
+            _diagnosticWriter = new StreamWriter(Path.Combine(logFolder, DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-psmove.csv"));
+            _diagnosticWriter.WriteLine("elapsed_ticks;state;target_speed;confidence;cadence_hz;steps");
+            var pump = PumpPsMoveAsync(source, token); var output = RunPsMoveOutputLoopAsync(token);
+            _workers = [pump, output, MonitorCriticalSensorsAsync([pump, output], token)];
+            ModeDescription = "SADECE PS MOVE — KİŞİSEL BALDIR PROFİLİ";
+        }
+        catch { await StopAsync(); throw; }
+    }
+
+    private async Task PumpPsMoveAsync(PsMoveSensorSource source, CancellationToken token)
+    {
+        await foreach (var sample in source.Samples.ReadAllAsync(token)) lock (_fusionLock) _psMoveGait!.Observe(sample);
+        token.ThrowIfCancellationRequested(); throw new IOException("PS Move veri bağlantısı kesildi.");
+    }
+
+    private async Task RunPsMoveOutputLoopAsync(CancellationToken token)
+    {
+        var previous = Stopwatch.GetTimestamp(); using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(10));
+        while (await timer.WaitForNextTickAsync(token))
+        {
+            var now = Stopwatch.GetTimestamp(); GaitSnapshot gait; lock (_fusionLock) gait = _psMoveGait!.Update(now);
+            var snapshot = new FusionSnapshot(gait, gait.Confidence, gait.TargetSpeed, false, false, false, 0);
+            _diagnosticWriter?.WriteLine(string.Join(';', now, gait.State, gait.TargetSpeed.ToString("0.000", CultureInfo.InvariantCulture), gait.Confidence.ToString("0.000", CultureInfo.InvariantCulture), gait.CadenceHz.ToString("0.000", CultureInfo.InvariantCulture), gait.StepCount));
+            var delta = TimeSpan.FromSeconds((now - previous) / (double)Stopwatch.Frequency); previous = now;
+            await _vrSession!.UpdateAsync(snapshot, delta, token);
+        }
+    }
 
     public async Task StartAsync(string? calibrationPath = null, bool includePhone = true, bool phoneOnly = false, bool includeBoard = false, bool boardOnly = false, CancellationToken cancellationToken = default)
     {
@@ -150,7 +194,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
         if (_vrSession is not null) { await _vrSession.DisposeAsync(); _vrSession = null; }
         foreach (var source in _sources.AsEnumerable().Reverse()) await source.DisposeAsync();
         _diagnosticWriter?.Flush(); _diagnosticWriter?.Dispose(); _diagnosticWriter = null;
-        _sources.Clear(); _fusion = null; ModeDescription = "OFF";
+        _sources.Clear(); _fusion = null; _psMoveGait = null; ModeDescription = "OFF";
     }
 
     private static async Task<double> LoadThresholdAsync(string? path, CancellationToken cancellationToken)

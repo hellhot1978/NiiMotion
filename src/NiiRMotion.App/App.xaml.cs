@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using NiiRMotion.Infrastructure;
 
 namespace NiiRMotion.App;
 
@@ -11,6 +12,7 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        NiiMotionPaths.Initialize();
         var boardLabScreenshotArg = e.Args.FirstOrDefault(x => x.StartsWith("--board-lab-screenshot=", StringComparison.OrdinalIgnoreCase));
         Window window = boardLabScreenshotArg is null ? new MainWindow() : new BoardLabWindow(); MainWindow = window; window.Show();
         if (boardLabScreenshotArg is not null)
