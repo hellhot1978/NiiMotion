@@ -96,12 +96,14 @@ Ayrıntı: `phase-2-psmove-status.md`.
 
 ### Faz 3–4 — Move Only kalibrasyon, eğitim ve locomotion
 
-**NOT IMPLEMENTED**
+**IMPLEMENTED — OWNER VR VALIDATION PENDING**
 
-- Uyluk yerleşim açısı kalibrasyonu ve MoveOnly kişisel veri şeması.
-- En az yaklaşık 10 dk gerçek etiketli veri; kalite ve segment redo.
-- Replay üzerinden tuning; sonra gerçek Move Only VR testi.
-- Mevcut Joy-Con motoru kopyalanmaz; ortak feature sözleşmesi küçük adımlarla genişletilir.
+- Sahibin fiziksel kullanım kararı uyarınca Move sensörleri baldır/diz altına yerleştirildi; nötr yerleşim kalibrasyonu ve kişisel MoveOnly veri şeması tamamlandı.
+- 10 dakikalık etiketli gerçek veri (198.550 örnek) kalite kontrolünden geçirildi ve sürümlü kişisel profile dönüştürüldü.
+- Ayrı `PsMoveGaitEngine`, kayıt replay ayarı, güvenli durma ve OpenVR analog çıkışı tamamlandı.
+- İlk kurulum sihirbazı sol/sağ atama, fabrika kalibrasyonu, yerleşim, iki eğitim kaydı ve kişisel profil üretimini yapay zekâ yardımı olmadan tamamlıyor.
+- Ana arayüzde Move Only profili, canlı bağlantı kartları, sol-kırmızı/sağ-mavi görsel kimlik testi ve eksik kurulum yönlendirmesi mevcut.
+- Son kapı: sahibin gerçek SteamVR oyun oturumunda başlangıç, duruş, dönüş ve hız duyarlılığını doğrulaması.
 
 ### Faz 5–8 — Hybrid ve non-HMD Full Fusion
 
@@ -150,4 +152,4 @@ Ayrıntı: `phase-2-psmove-status.md`.
 
 ## Bir sonraki somut çalışma
 
-Faz 1 tamamlandı. Bir sonraki kapı Faz 2 için iki cihazın aynı anda Bluetooth üzerinden görülmesi, kalıcı kimliklerinin alınması ve kullanıcı kontrollü sol/sağ atamadır. İkinci Move bağlanmadan enumeration sırasına dayalı geçici L/R uygulanmaz.
+Move Only yazılım zinciri tamamlandı. Bir sonraki kapı, iki atanmış Move Bluetooth ile bağlıyken gerçek SteamVR oyun doğrulamasıdır. Bu doğrulama geçmeden Move + Joy-Con saat hizalama ve hibrit profile başlanmaz.
