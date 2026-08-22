@@ -18,14 +18,14 @@ public sealed class SystemModeService
                 : @"C:\NiirMotion\native\openvr-driver\dist";
         }
     }
-    private const string VrPathReg = @"C:\Program Files (x86)\Steam\steamapps\common\SteamVR\bin\win64\vrpathreg.exe";
+    private static string VrPathReg => Path.Combine(SteamInstallLocator.FindSteamVr() ?? @"C:\Program Files (x86)\Steam\steamapps\common\SteamVR", "bin", "win64", "vrpathreg.exe");
     private const string SteamVrSettings = @"C:\Program Files (x86)\Steam\config\steamvr.vrsettings";
-    private const string AlyxAutoExec = @"F:\SteamLibrary\steamapps\common\Half-Life Alyx\game\hlvr\cfg\autoexec.cfg";
-    private const string AlyxTouchBindings = @"F:\SteamLibrary\steamapps\common\Half-Life Alyx\game\hlvr\cfg\bindings_touch.json";
-    private const string AlyxTouchBindingsBackup = @"C:\NiirMotion\config\bindings_touch.original.json";
-    private const string Arizona2TouchBindings = @"C:\Program Files (x86)\Steam\steamapps\common\Arizona Sunshine 2\ArizonaSunshine2_Data\StreamingAssets\SteamVR\bindings_oculus_touch.json";
-    private const string Arizona2TouchBindingsBackup = @"C:\NiirMotion\config\arizona2_bindings_oculus_touch.original.json";
-    private const string SteamExe = @"C:\Program Files (x86)\Steam\steam.exe";
+    private static string AlyxAutoExec => Path.Combine(SteamInstallLocator.FindGame("546560") ?? "", "game", "hlvr", "cfg", "autoexec.cfg");
+    private static string AlyxTouchBindings => Path.Combine(SteamInstallLocator.FindGame("546560") ?? "", "game", "hlvr", "cfg", "bindings_touch.json");
+    private static string AlyxTouchBindingsBackup => Path.Combine(NiiMotionPaths.Config, "bindings_touch.original.json");
+    private static string Arizona2TouchBindings => Path.Combine(SteamInstallLocator.FindGame("1540210") ?? "", "ArizonaSunshine2_Data", "StreamingAssets", "SteamVR", "bindings_oculus_touch.json");
+    private static string Arizona2TouchBindingsBackup => Path.Combine(NiiMotionPaths.Config, "arizona2_bindings_oculus_touch.original.json");
+    private static string SteamExe => SteamInstallLocator.FindSteamExe() ?? @"C:\Program Files (x86)\Steam\steam.exe";
 
     public SystemMode CurrentMode => IsNiiMotionDriverRegistered() ? SystemMode.NiiMotion : SystemMode.Original;
 

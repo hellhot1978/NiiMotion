@@ -58,6 +58,38 @@ public sealed class SteamGameCatalog
     }
 }
 
+public static class SteamInstallLocator
+{
+    public static string? FindGame(string appId) => new SteamGameCatalog().Detect()
+        .FirstOrDefault(x => string.Equals(x.Definition.SteamAppId, appId, StringComparison.OrdinalIgnoreCase))?.InstallPath;
+
+    public static string? FindSteamVr()
+    {
+        foreach (var root in CandidateSteamApps())
+        {
+            var path = Path.Combine(root, "common", "SteamVR");
+            if (Directory.Exists(path)) return path;
+        }
+        return null;
+    }
+
+    public static string? FindSteamExe()
+    {
+        foreach (var root in CandidateSteamApps())
+        {
+            var path = Path.GetFullPath(Path.Combine(root, "..", "steam.exe"));
+            if (File.Exists(path)) return path;
+        }
+        return null;
+    }
+
+    private static IEnumerable<string> CandidateSteamApps()
+    {
+        yield return @"C:\Program Files (x86)\Steam\steamapps";
+        foreach (var drive in DriveInfo.GetDrives().Where(x => x.IsReady)) yield return Path.Combine(drive.RootDirectory.FullName, "SteamLibrary", "steamapps");
+    }
+}
+
 public sealed record SteamAppCandidate(string AppId, string Name, string InstallPath)
 {
     public override string ToString() => Name;
