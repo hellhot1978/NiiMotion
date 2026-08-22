@@ -37,6 +37,7 @@ public partial class DeviceCalibrationWindow : Window
         };
         TitleText.Text = $"{name} · temel kalibrasyon"; DeviceName.Text = name;
         DeviceImage.Source = new BitmapImage(new Uri($"pack://application:,,,/NiiRMotion.App;component/Assets/{icon}"));
+        SetupHelpText.Text = SetupHelp();
     }
 
     private async Task LoadAsync()
@@ -53,6 +54,15 @@ public partial class DeviceCalibrationWindow : Window
         ConnectionButton.IsEnabled = false; ConnectionText.Text = "Cihaz aranıyor…";
         try
         {
+            if (_sensor == SensorFamily.PsMove)
+            {
+                var assignments = await new PsMoveAssignmentStore(NiiMotionPaths.PsMoveAssignments).LoadAsync();
+                if (assignments is null || !assignments.IsComplete)
+                {
+                    ConnectionText.Text = "Önce sol/sağ Move tanıtma ve USB kalibrasyonu yapılacak.";
+                    new PsMoveLabWindow { Owner = this }.ShowDialog();
+                }
+            }
             if (_sensor == SensorFamily.Phone)
             {
                 await using var phone = new OwoTrackSensorSource(); await phone.StartAsync();
@@ -206,6 +216,14 @@ public partial class DeviceCalibrationWindow : Window
         SensorFamily.PsMove => "İki atanmış PS Move'u Bluetooth ile bağla.",
         SensorFamily.Phone => "Telefonda owoTrack'i başlat ve aynı ağa bağlan.",
         _ => "Balance Board'u Windows Bluetooth'a bağla ve kartı boş bırak."
+    };
+
+    private string SetupHelp() => _sensor switch
+    {
+        SensorFamily.JoyCon => "1. İki Joy-Con'u Windows Bluetooth'a bağla.\n2. Solu sol, sağı sağ uyluğa; kalça ile diz arasına sabitle.\n3. Düğmeler dışa, analog çubuklar yukarı baksın.",
+        SensorFamily.PsMove => "1. İlk kullanımda sol/sağ tanıtma ve USB fabrika kalibrasyonunu tamamla.\n2. Bluetooth ile bağla.\n3. Küre yukarı bakacak şekilde diz altına/baldıra sabitle.",
+        SensorFamily.Phone => "1. Android telefona owoTrack kur ve aç.\n2. Telefon ile bilgisayarı aynı ağa bağla.\n3. Göğüste yatay; ekran sana, üst kenar sola bakacak şekilde sabitle.",
+        _ => "1. Windows Bluetooth'tan Nintendo RVL-WBC-01 olarak eşleştir.\n2. Gerekirse karttaki SYNC ve güç düğmesini kullan.\n3. İlk kontrol sırasında kart boş ve düz zeminde olsun."
     };
 
     private string PhaseInstruction(int phase) => (phase, _sensor) switch

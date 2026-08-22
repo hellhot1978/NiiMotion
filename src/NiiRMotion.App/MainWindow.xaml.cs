@@ -857,8 +857,9 @@ public partial class MainWindow : Window
             var assignments = await new PsMoveAssignmentStore(NiiMotionPaths.PsMoveAssignments).LoadAsync();
             if (!device.IsConnected || assignments is null || !assignments.IsComplete)
             {
-                new PsMoveLabWindow { Owner = this }.ShowDialog();
-                await ScanAsync();
+                ToolsNavClick(this, new RoutedEventArgs());
+                CalibrationLiveResult.Text = "PS Move kurulumu eksik. Aşağıdaki PS Move kartını aç; bağlantı ekranı sol/sağ tanıtma ve USB kalibrasyonuna yönlendirecek.";
+                CalibrationLiveResult.Foreground = Brush("#F1C566");
                 return;
             }
 
