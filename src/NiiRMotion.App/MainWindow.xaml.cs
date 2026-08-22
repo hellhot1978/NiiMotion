@@ -41,6 +41,7 @@ public partial class MainWindow : Window
         Loaded += async (_, _) =>
         {
             await EnsureHardwareInventoryAsync();
+            HandTrackingToggle.IsChecked = _inventory.UsesHandTracking;
             RebuildProfileMenu();
             ShowPage(OverviewPage, "Genel Bakış", "Sistem durumu ve hızlı başlangıç", OverviewNav);
             RefreshSystemMode();
@@ -88,11 +89,11 @@ public partial class MainWindow : Window
         var handsIndex = devices.FindIndex(x => x.Kind == DeviceKind.HandTracking);
         if (handsIndex >= 0)
         {
-            var enabled = HandTrackingToggle.IsChecked == true;
-            devices[handsIndex] = new DeviceStatus(DeviceKind.HandTracking, "El Takibi",
-                enabled ? DeviceState.Connected : DeviceState.Missing,
-                enabled ? "Seçili; gerçek el takibi Quest içinde doğrulanır." : "Bu oturum için kapalı.",
-                enabled ? "Kapatmak için karta tıkla." : "Açmak için karta tıkla.");
+            var enabled = _inventory.UsesHandTracking;
+            devices[handsIndex] = new DeviceStatus(DeviceKind.HandTracking, "VR El Kontrolü",
+                enabled ? DeviceState.Unknown : DeviceState.Missing,
+                enabled ? "Oyun kontrolü için seçili; yürüyüş motorundan bağımsızdır." : "Bu kontrol yöntemi kullanılmıyor.",
+                enabled ? "Quest'te el takibini ve Virtual Desktop'ta kontrolcü emülasyonunu aç." : "Kullanmak için Cihazlarım ekranından etkinleştir.");
         }
         RefreshHandTrackingVisual();
         RefreshPhoneVisual(devices);
@@ -619,7 +620,19 @@ public partial class MainWindow : Window
     private void OpenBoardLabClick(object sender, RoutedEventArgs e) => new BoardLabWindow { Owner = this }.ShowDialog();
     private async void BoardJoyConProfileClick(object sender, RoutedEventArgs e) { SelectProfile(MotionProfile.BoardJoyCon); await ScanAsync(); }
     private async void BoardPhoneProfileClick(object sender, RoutedEventArgs e) { SelectProfile(MotionProfile.BoardPhone); await ScanAsync(); }
-    private async void HandTrackingChanged(object sender, RoutedEventArgs e) { RefreshHandTrackingVisual(); if (IsLoaded) await ScanAsync(); }
+    private async void HandTrackingChanged(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        var enabled = HandTrackingToggle.IsChecked == true;
+        if (_inventory.UsesHandTracking != enabled)
+        {
+            _inventory = _inventory with { UsesHandTracking = enabled, UpdatedAt = DateTimeOffset.UtcNow };
+            await new UserSetupStore().SaveInventoryAsync(_inventory);
+            RebuildProfileMenu();
+        }
+        RefreshHandTrackingVisual();
+        await ScanAsync();
+    }
     private void HandTrackingQuickClick(object sender, RoutedEventArgs e) => HandTrackingToggle.IsChecked = HandTrackingToggle.IsChecked != true;
     private void RefreshHandTrackingVisual() { }
     private async void DeviceCardClick(object sender, System.Windows.Input.MouseButtonEventArgs e)

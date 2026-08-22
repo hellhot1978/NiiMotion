@@ -166,6 +166,24 @@ public sealed class OfflineCalibrationPipeline
         value = (T)Enum.ToObject(typeof(T), number);
         return true;
     }
-    private static async Task WriteAtomicAsync<T>(string path, T value, CancellationToken token) { Directory.CreateDirectory(Path.GetDirectoryName(path)!); var temporary = path + ".tmp"; await File.WriteAllTextAsync(temporary, JsonSerializer.Serialize(value, WriteOptions), token); File.Move(temporary, path, true); }
+    private static async Task WriteAtomicAsync<T>(string path, T value, CancellationToken token)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var content = JsonSerializer.Serialize(value, WriteOptions);
+        if (File.Exists(path))
+        {
+            var previous = await File.ReadAllTextAsync(path, token);
+            if (string.Equals(previous, content, StringComparison.Ordinal)) return;
+            var history = Path.Combine(NiiMotionPaths.Config, "model-history", Path.GetFileNameWithoutExtension(path));
+            Directory.CreateDirectory(history);
+            var backup = Path.Combine(history, DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff") + ".json");
+            await File.WriteAllTextAsync(backup, previous, token);
+            foreach (var old in new DirectoryInfo(history).GetFiles("*.json").OrderByDescending(x => x.CreationTimeUtc).Skip(20))
+                try { old.Delete(); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
+        var temporary = path + ".tmp";
+        await File.WriteAllTextAsync(temporary, content, token);
+        File.Move(temporary, path, true);
+    }
     private sealed record Capture(SensorFamily Sensor, int Phase, string Folder);
 }

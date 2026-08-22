@@ -153,3 +153,13 @@ Ayrıntı: `phase-2-psmove-status.md`.
 ## Bir sonraki somut çalışma
 
 Move Only yazılım zinciri tamamlandı. Bir sonraki kapı, iki atanmış Move Bluetooth ile bağlıyken gerçek SteamVR oyun doğrulamasıdır. Bu doğrulama geçmeden Move + Joy-Con saat hizalama ve hibrit profile başlanmaz.
+
+## 2026-08-22 ilerleme güncellemesi
+
+- Donanım envanterine göre bütün sensör alt kümeleri profil olarak üretiliyor; temel cihaz kalibrasyonu ve aktif kombinasyon kalibrasyonu birbirinden ayrıldı.
+- Joy-Con, PS Move, telefon ve Balance Board için üç temel fazdan yerel kişisel profil üreten çevrimdışı analiz hattı eklendi. Oyun motoru bu profilleri sonraki VR oturumunda doğrudan okuyor.
+- İsteğe bağlı 5 dakikalık kombinasyon kayıtları temel istatistikleri ezmeden sınırlı ağırlıkla modele ekleniyor.
+- Kişisel model dosyaları değişiklik öncesinde en fazla 20 sürüm olacak şekilde yedekleniyor; son gelişmiş kayıt arayüzden reddedilip model kalan veriden yeniden üretilebiliyor.
+- VR el kontrolü yürüyüş füzyonundan kesin olarak ayrıldı. Yalnız Virtual Desktop'ın elden kontrolcü emülasyonu için kullanıcı tercihi olarak saklanıyor; hiçbir locomotion profilinde zorunlu cihaz değil.
+- Faz 9 **PARTIAL**: model sürümleme, ek kayıt geri alma, sürümlü birleşik sensör manifesti ve bütün akışları monotonic zaman damgasıyla tek zaman çizelgesinde birleştiren replay okuyucusu uygulandı. Segment bazlı kalite puanı ve yalnız bozuk segmenti tekrar alma henüz tamamlanmadı.
+- Sıradaki fiziksel olmayan iş: segment bazlı kalite/redo. Sonrasında Oyunlar sayfası/adaptör sözleşmesi.

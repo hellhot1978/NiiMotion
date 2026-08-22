@@ -11,6 +11,7 @@ public partial class AdvancedTrainingWindow : Window
     private readonly MotionProfile _profile;
     private readonly SensorFamily[] _sensors;
     private bool _recording;
+    private string? _lastRecordingRoot;
 
     public AdvancedTrainingWindow(MotionProfile profile, IEnumerable<SensorFamily> sensors)
     {
@@ -36,7 +37,10 @@ public partial class AdvancedTrainingWindow : Window
             try { results = await Task.WhenAll(tasks); }
             catch { linked.Cancel(); try { await Task.WhenAll(tasks); } catch { } throw; }
             await File.WriteAllTextAsync(Path.Combine(root, "training-manifest.json"), JsonSerializer.Serialize(new { version = 1, profile = _profile.Id, sensors = _sensors, results = results.Select(x => new { x.Sensor, x.TotalSamples, x.Folder }), completedAtUtc = DateTimeOffset.UtcNow }, new JsonSerializerOptions { WriteIndented = true }));
+            await UnifiedSensorSessionWriter.WriteAsync(root, "advanced-combination-training", _profile.Id, 0, results);
             var analysis = await new OfflineCalibrationPipeline().ApplyAvailableAsync();
+            _lastRecordingRoot = root;
+            RejectButton.IsEnabled = true;
             InstructionText.Text = $"✓ Kayıt tamamlandı · {results.Sum(x => x.TotalSamples):N0} eşzamanlı örnek analiz edildi."
                 + (analysis.UpdatedProfiles.Count > 0 ? $" Oyuna uygulanan profiller: {string.Join(", ", analysis.UpdatedProfiles)}." : " Temel üç faz tamamlandığında otomatik uygulanacak.");
             StartButton.Content = "✓ YENİ KAYIT EKLENDİ";
@@ -51,5 +55,21 @@ public partial class AdvancedTrainingWindow : Window
     }
 
     private static string DisplayName(SensorFamily sensor) => sensor switch { SensorFamily.JoyCon => "Joy-Con", SensorFamily.PsMove => "PS Move", SensorFamily.Phone => "Telefon", _ => "Balance Board" };
+    private async void RejectClick(object sender, RoutedEventArgs e)
+    {
+        if (_recording || _lastRecordingRoot is null) return;
+        try
+        {
+            var full = Path.GetFullPath(_lastRecordingRoot);
+            var allowed = Path.GetFullPath(Path.Combine(NiiMotionPaths.Data, "advanced-training")) + Path.DirectorySeparatorChar;
+            if (!full.StartsWith(allowed, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Kayıt güvenli veri alanının dışında.");
+            if (Directory.Exists(full)) Directory.Delete(full, true);
+            var analysis = await new OfflineCalibrationPipeline().ApplyAvailableAsync();
+            InstructionText.Text = "↶ Son ek kayıt reddedildi; kişisel model kalan doğrulanmış kayıtlardan yeniden oluşturuldu."
+                + (analysis.UpdatedProfiles.Count > 0 ? $" Güncellenenler: {string.Join(", ", analysis.UpdatedProfiles)}." : "");
+            _lastRecordingRoot = null; RejectButton.IsEnabled = false; StartButton.Content = "▶  YENİ 5 DK KAYIT EKLE";
+        }
+        catch (Exception ex) { InstructionText.Text = "Kayıt geri alınamadı: " + ex.GetBaseException().Message; }
+    }
     private void CloseClick(object sender, RoutedEventArgs e) { if (!_recording) Close(); }
 }

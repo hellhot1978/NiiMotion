@@ -81,6 +81,7 @@ public partial class DeviceCalibrationWindow : Window
         try
         {
             var result = await new GuidedCalibrationRecorder().RecordAsync(_sensor, phase, PhaseDuration, progress);
+            await UnifiedSensorSessionWriter.WriteAsync(result.Folder, "base-calibration", null, phase, [result]);
             await SaveProgressAsync(phase, phase == 3 ? CalibrationStage.Ready : (CalibrationStage)((int)CalibrationStage.Phase1 + phase - 1));
             var analysis = await new OfflineCalibrationPipeline().ApplyAvailableAsync();
             var applied = analysis.UpdatedProfiles.Contains(DisplayName(_sensor));
