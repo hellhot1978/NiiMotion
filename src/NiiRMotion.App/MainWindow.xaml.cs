@@ -269,7 +269,6 @@ public partial class MainWindow : Window
         root.Children.Clear();
         var progress = await new UserSetupStore().LoadCalibrationAsync();
         var selected = _inventory.Sensors.OrderBy(x => x).ToArray();
-        var activeProfileSensors = ProfileSensors(_profile).ToArray();
 
         root.Children.Add(SectionHeader("KALİBRASYON MERKEZİ", "Önce cihazlarını hazırla", "Her cihaz bağlantıdan sonra üç adet 5 dakikalık temel fazı tamamlar. Bu kayıtlar cihazı kullanıma açar."));
         var devicePanel = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) };
@@ -277,17 +276,10 @@ public partial class MainWindow : Window
         foreach (var sensor in selected) devicePanel.Children.Add(CreateCalibrationCard(sensor, progress.Devices.FirstOrDefault(x => x.Sensor == sensor)));
         root.Children.Add(devicePanel);
 
-        var walking = new Border { Background = Brush("#0D151D"), BorderBrush = Brush("#273945"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(18), Margin = new Thickness(0, 8, 0, 12) };
-        var walkingGrid = new Grid(); walkingGrid.ColumnDefinitions.Add(new ColumnDefinition()); walkingGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(210) });
-        var walkingText = new StackPanel(); walkingText.Children.Add(Label("AKTİF CİHAZLARLA YÜRÜYÜŞ", "#35B8F5", 9, FontWeights.Bold)); walkingText.Children.Add(Label("Birlikte çalışma kalibrasyonu", "#F4F7FA", 18, FontWeights.SemiBold, new Thickness(0, 7, 0, 4)));
-        walkingText.Children.Add(Label($"Aktif profil: {_profile.Name}. Cihazların tek tek temel kalibrasyonları bittikten sonra ritim, hız ve duruş uyumunu birlikte ölçer.", "#94A1AD", 11, FontWeights.Normal)); walkingGrid.Children.Add(walkingText);
-        var walkingButton = new Button { Content = "YÜRÜYÜŞÜ KALİBRE ET  →", IsEnabled = activeProfileSensors.Length > 0 && activeProfileSensors.All(x => progress.Devices.FirstOrDefault(p => p.Sensor == x)?.IsReady == true), VerticalAlignment = VerticalAlignment.Center };
-        walkingButton.Click += (_, _) => OpenWalkingCalibrationForInventory(); Grid.SetColumn(walkingButton, 1); walkingGrid.Children.Add(walkingButton); walking.Child = walkingGrid; root.Children.Add(walking);
-
-        var advanced = new Border { Background = Brush("#09121A"), BorderBrush = Brush("#1F303C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(18) };
-        var advancedGrid = new Grid(); advancedGrid.ColumnDefinitions.Add(new ColumnDefinition()); advancedGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(520) });
-        var advancedText = new StackPanel(); advancedText.Children.Add(Label("İSTEĞE BAĞLI · İLERİ SEVİYE", "#8AA0AF", 9, FontWeights.Bold)); advancedText.Children.Add(Label("Modeli yeni kayıtlarla geliştir", "#F4F7FA", 17, FontWeights.SemiBold, new Thickness(0, 7, 0, 4)));
-        advancedText.Children.Add(Label("Temel kalibrasyondan ayrıdır. Sahip olduğun cihazları tek başına veya birlikte kaydederek kişisel modeli zaman içinde güçlendirir.", "#94A1AD", 11, FontWeights.Normal)); advancedGrid.Children.Add(advancedText);
+        var advanced = new Border { Background = Brush("#09121A"), BorderBrush = Brush("#1F303C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(16, 14, 16, 14), Margin = new Thickness(0, 6, 0, 0) };
+        var advancedGrid = new Grid(); advancedGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(245) }); advancedGrid.ColumnDefinitions.Add(new ColumnDefinition());
+        var advancedText = new StackPanel(); advancedText.Children.Add(Label("İSTEĞE BAĞLI · EK KAYIT", "#8AA0AF", 9, FontWeights.Bold)); advancedText.Children.Add(Label("Modeli yeni kayıtlarla geliştir", "#F4F7FA", 17, FontWeights.SemiBold, new Thickness(0, 6, 0, 4)));
+        advancedText.Children.Add(Label("Temel fazlardan sonra tek cihaz veya istediğin kombinasyonla 5 dakikalık ek kayıt yap.", "#94A1AD", 10, FontWeights.Normal)); advancedGrid.Children.Add(advancedText);
         var advancedChoices = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
         var combinations = _profileRecommendations
             .Where(x => x.Profile.LocomotionAllowed)
