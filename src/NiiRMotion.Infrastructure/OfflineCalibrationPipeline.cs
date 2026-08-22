@@ -55,8 +55,10 @@ public sealed class OfflineCalibrationPipeline
             {
                 using var document = JsonDocument.Parse(File.ReadAllText(manifest));
                 var root = document.RootElement;
+                if (root.TryGetProperty("superseded", out var superseded) && superseded.ValueKind == JsonValueKind.True) continue;
                 if (!TryEnum(root, "sensor", out SensorFamily sensor) || !TryInt(root, "phase", out var phase)) continue;
                 var purpose = root.TryGetProperty("purpose", out var purposeValue) ? purposeValue.GetString() ?? "" : "";
+                if (purpose.Equals("segment-repair", StringComparison.OrdinalIgnoreCase)) continue;
                 var folder = Path.GetDirectoryName(manifest)!;
                 if (!ExpectedFiles(sensor).All(name => File.Exists(Path.Combine(folder, name)))) continue;
                 captures.Add(new(sensor, phase, purpose, folder));

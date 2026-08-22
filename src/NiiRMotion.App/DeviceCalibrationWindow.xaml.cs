@@ -14,6 +14,7 @@ public partial class DeviceCalibrationWindow : Window
     private DeviceCalibrationProgress _progress;
     private bool _connected;
     private bool _recording;
+    private GuidedCalibrationResult? _pendingResult;
 
     public DeviceCalibrationWindow(SensorFamily sensor)
     {
@@ -82,18 +83,57 @@ public partial class DeviceCalibrationWindow : Window
         {
             var result = await new GuidedCalibrationRecorder().RecordAsync(_sensor, phase, PhaseDuration, progress);
             await UnifiedSensorSessionWriter.WriteAsync(result.Folder, "base-calibration", null, phase, [result]);
-            await SaveProgressAsync(phase, phase == 3 ? CalibrationStage.Ready : (CalibrationStage)((int)CalibrationStage.Phase1 + phase - 1));
-            var analysis = await new OfflineCalibrationPipeline().ApplyAvailableAsync();
-            var applied = analysis.UpdatedProfiles.Contains(DisplayName(_sensor));
-            var quality = result.Quality.IsClean
-                ? $"kalite %{result.Quality.Score * 100:0} · temiz kayıt"
-                : $"kalite %{result.Quality.Score * 100:0} · yeniden alınması önerilen aralıklar: {string.Join(", ", result.Quality.RedoSegments.Select(x => $"{x.StartSeconds:0}-{x.EndSeconds:0} sn"))}";
-            InstructionText.Text = applied
-                ? $"✓ Faz {phase} tamamlandı · {result.TotalSamples:N0} örnek · {quality} · kişisel profil oyuna uygulandı."
-                : $"✓ Faz {phase} tamamlandı · {result.TotalSamples:N0} örnek · {quality}.";
+            if (!result.Quality.IsClean)
+            {
+                _pendingResult = result; RepairSegmentButton.Visibility = Visibility.Visible;
+                ShowPendingRepair();
+            }
+            else await CompleteCleanPhaseAsync(result);
         }
         catch (Exception ex) { InstructionText.Text = $"Faz tamamlanmadı: {ex.GetBaseException().Message}"; }
         finally { _recording = false; PhaseProgress.Value = 0; TimerText.Text = "00:00 / 05:00"; RefreshPhaseButtons(); }
+    }
+
+    private async void RepairSegmentClick(object sender, RoutedEventArgs e)
+    {
+        if (_recording || _pendingResult is null || _pendingResult.Quality.RedoSegments.FirstOrDefault() is not { } segment) return;
+        _recording = true; RepairSegmentButton.IsEnabled = false; RefreshPhaseButtons();
+        var duration = TimeSpan.FromSeconds(segment.EndSeconds - segment.StartSeconds);
+        InstructionText.Text = $"{segment.StartSeconds:0}-{segment.EndSeconds:0} saniyelik sorunlu bölüm yeniden kaydediliyor. Faz yönergesindeki hareketi sürdür.";
+        PhaseProgress.Maximum = duration.TotalSeconds;
+        var progress = new Progress<TimeSpan>(elapsed => { PhaseProgress.Value = Math.Min(duration.TotalSeconds, elapsed.TotalSeconds); TimerText.Text = $"{elapsed:mm\\:ss} / {duration:mm\\:ss}"; });
+        try
+        {
+            var repair = await new GuidedCalibrationRecorder().RecordAsync(_sensor, _pendingResult.Phase, duration, progress, "segment-repair");
+            _pendingResult = await new CalibrationSegmentRepairService().ReplaceAsync(_pendingResult, segment, repair);
+            if (_pendingResult.Quality.IsClean) await CompleteCleanPhaseAsync(_pendingResult);
+            else ShowPendingRepair();
+        }
+        catch (Exception ex) { InstructionText.Text = "Bölüm yenilenemedi: " + ex.GetBaseException().Message; }
+        finally
+        {
+            _recording = false; PhaseProgress.Maximum = 300; PhaseProgress.Value = 0; TimerText.Text = "00:00 / 05:00";
+            RepairSegmentButton.IsEnabled = true; RefreshPhaseButtons();
+        }
+    }
+
+    private void ShowPendingRepair()
+    {
+        if (_pendingResult is null) return;
+        var segment = _pendingResult.Quality.RedoSegments.First();
+        InstructionText.Text = $"Kalite %{_pendingResult.Quality.Score * 100:0}. {segment.StartSeconds:0}-{segment.EndSeconds:0} sn bölümünde {segment.Issue.ToLowerInvariant()}. Yalnız bu {segment.EndSeconds - segment.StartSeconds:0} saniyeyi yeniden kaydet.";
+        RepairSegmentButton.Content = $"↻ {segment.StartSeconds:0}-{segment.EndSeconds:0} SN BÖLÜMÜNÜ YENİDEN KAYDET";
+        RepairSegmentButton.Visibility = Visibility.Visible;
+    }
+
+    private async Task CompleteCleanPhaseAsync(GuidedCalibrationResult result)
+    {
+        await SaveProgressAsync(result.Phase, result.Phase == 3 ? CalibrationStage.Ready : (CalibrationStage)((int)CalibrationStage.Phase1 + result.Phase - 1));
+        var analysis = await new OfflineCalibrationPipeline().ApplyAvailableAsync(); var applied = analysis.UpdatedProfiles.Contains(DisplayName(_sensor));
+        InstructionText.Text = applied
+            ? $"✓ Faz {result.Phase} tamamlandı · {result.TotalSamples:N0} örnek · kalite %{result.Quality.Score * 100:0} · kişisel profil oyuna uygulandı."
+            : $"✓ Faz {result.Phase} tamamlandı · {result.TotalSamples:N0} örnek · kalite %{result.Quality.Score * 100:0}.";
+        _pendingResult = null; RepairSegmentButton.Visibility = Visibility.Collapsed;
     }
 
     private async Task SaveProgressAsync(int completed, CalibrationStage stage)

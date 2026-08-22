@@ -59,7 +59,7 @@ public sealed class GuidedCalibrationRecorder
 
         try { Validate(sensor, counts); }
         catch { TryDeleteIncomplete(folder); throw; }
-        var quality = AnalyzeQuality(folder, duration);
+        var quality = AnalyzeFolder(folder, duration);
         var result = new GuidedCalibrationResult(sensor, phase, duration, counts, folder, quality);
         await File.WriteAllTextAsync(Path.Combine(folder, "manifest.json"), JsonSerializer.Serialize(new
         {
@@ -126,7 +126,7 @@ public sealed class GuidedCalibrationRecorder
     private static Dictionary<string, int> ReadCounts(string folder) => Directory.GetFiles(folder, "*.count")
         .ToDictionary(x => Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(x)), x => int.TryParse(File.ReadAllText(x), out var count) ? count : 0);
 
-    private static CalibrationQualityReport AnalyzeQuality(string folder, TimeSpan duration)
+    public static CalibrationQualityReport AnalyzeFolder(string folder, TimeSpan duration)
     {
         var points = new List<CalibrationStreamPoint>(); long? origin = null;
         foreach (var file in Directory.GetFiles(folder, "*.jsonl"))
