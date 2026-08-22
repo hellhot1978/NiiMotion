@@ -38,6 +38,13 @@ public partial class DeviceCalibrationWindow : Window
         TitleText.Text = $"{name} · temel kalibrasyon"; DeviceName.Text = name;
         DeviceImage.Source = new BitmapImage(new Uri($"pack://application:,,,/NiiRMotion.App;component/Assets/{icon}"));
         SetupHelpText.Text = SetupHelp();
+        RePairButton.Visibility = _sensor == SensorFamily.PsMove ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void RePairClick(object sender, RoutedEventArgs e)
+    {
+        if (MessageBox.Show("Move'ların sol/sağ eşleştirmesini yeniden yapmak istiyor musun? Mevcut kayıtlar ancak yeni iki kontrolcü başarıyla tanıtılırsa değiştirilir.", "PS Move eşleştirme", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        new PsMoveLabWindow(forcePairing: true) { Owner = this }.ShowDialog();
     }
 
     private async Task LoadAsync()

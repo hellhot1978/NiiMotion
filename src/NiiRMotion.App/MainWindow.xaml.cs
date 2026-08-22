@@ -714,7 +714,12 @@ public partial class MainWindow : Window
             var probes = new PsMoveDiagnosticsService().Discover().Where(x => x.SensorReportsPossible).ToArray();
             var left = assignments is { IsComplete: true } && probes.Any(x => x.Device.StableId == assignments.LeftStableId);
             var right = assignments is { IsComplete: true } && probes.Any(x => x.Device.StableId == assignments.RightStableId);
-            CalibrationPsMoveStatus.Text = left && right ? "✓ İki Move bağlı · renklerle tanıt" : $"{(left ? "Sol ✓" : "Sol eksik")} · {(right ? "Sağ ✓" : "Sağ eksik")}";
+            var battery = left || right ? await new PsMoveDiagnosticsService().ReadBatteryStatusAsync() : [];
+            var leftBattery = battery.FirstOrDefault(x => x.StableId.Equals(assignments?.LeftStableId, StringComparison.OrdinalIgnoreCase))?.Display;
+            var rightBattery = battery.FirstOrDefault(x => x.StableId.Equals(assignments?.RightStableId, StringComparison.OrdinalIgnoreCase))?.Display;
+            CalibrationPsMoveStatus.Text = left && right
+                ? $"✓ Sol {leftBattery ?? "bağlı"} · Sağ {rightBattery ?? "bağlı"} · renklerle tanıt"
+                : $"{(left ? $"Sol {leftBattery ?? "✓"}" : "Sol uyuyor/eksik")} · {(right ? $"Sağ {rightBattery ?? "✓"}" : "Sağ uyuyor/eksik")}";
             CalibrationPsMoveStatus.Foreground = Brush(left && right ? "#54D4A8" : "#94A1AD");
         }
         catch

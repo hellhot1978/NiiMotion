@@ -38,10 +38,43 @@ public sealed record PsMoveCalibratedHealth(
     float MaximumAccelerationG,
     float MaximumAngularVelocityRadPerSecond);
 
+public sealed record PsMoveBatteryStatus(string StableId, byte RawLevel, int? Percent, bool Charging)
+{
+    public string Display => Charging ? "Şarj oluyor" : Percent is int percent ? $"%{percent}" : "Bilinmiyor";
+}
+
 public sealed class PsMoveDiagnosticsService
 {
     public IReadOnlyList<PsMoveHidProbe> Discover()
         => HidDeviceEnumerator.FindPsMoves().Select(ProbeReadOnly).ToArray();
+
+    public async Task<IReadOnlyList<PsMoveBatteryStatus>> ReadBatteryStatusAsync(CancellationToken cancellationToken = default)
+    {
+        var probes = Discover().Where(x => x.SensorReportsPossible && x.Device.StableId is not null)
+            .DistinctBy(x => x.Device.StableId!, StringComparer.OrdinalIgnoreCase).ToArray();
+        var results = await Task.WhenAll(probes.Select(ReadBatteryAsync));
+        return results.Where(x => x is not null).Select(x => x!).ToArray();
+
+        async Task<PsMoveBatteryStatus?> ReadBatteryAsync(PsMoveHidProbe probe)
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(1));
+            try
+            {
+                await using var stream = new FileStream(probe.Device.DevicePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, probe.InputReportBytes, FileOptions.Asynchronous);
+                var buffer = new byte[probe.InputReportBytes];
+                while (!timeout.IsCancellationRequested)
+                {
+                    if (await stream.ReadAsync(buffer, timeout.Token) != PsMoveZcm1ReportParser.InputReportBytes) continue;
+                    var raw = PsMoveZcm1ReportParser.Parse(buffer).Battery;
+                    return new(probe.Device.StableId!, raw, raw <= 5 ? raw * 20 : raw == 0xEF ? 100 : null, raw == 0xEE);
+                }
+            }
+            catch (OperationCanceledException) when (timeout.IsCancellationRequested) { }
+            catch { }
+            return null;
+        }
+    }
 
     public PsMoveFactoryCalibrationCapture? ReadUsbFactoryCalibration()
     {

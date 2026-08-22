@@ -37,6 +37,7 @@ public sealed class PsMovePairingService
         if (usb.Length == 0) return new(false, "USB ile bağlı PS Move bulunamadı.");
         if (usb.Length > 1) return new(false, "Güvenli sağ/sol ataması için USB'de yalnız bir PS Move bırak.");
 
+        await NiiMotionEventLog.WriteAsync("psmove", "pair-started", "USB assisted pairing started.", cancellationToken: cancellationToken);
         await EnsureToolAsync(cancellationToken);
         var executable = Path.Combine(_toolDirectory, "psmove.exe");
         var start = new ProcessStartInfo
@@ -52,12 +53,15 @@ public sealed class PsMovePairingService
         {
             using var process = Process.Start(start) ?? throw new InvalidOperationException("PS Move eşleştirme aracı başlatılamadı.");
             await process.WaitForExitAsync(cancellationToken);
-            return process.ExitCode == 0
+            PsMovePairingResult result = process.ExitCode == 0
                 ? new(true, "Bluetooth eşleştirme bilgisi kontrolcüye yazıldı.")
                 : new(false, $"PS Move eşleştirme aracı hata kodu {process.ExitCode} döndürdü.");
+            await NiiMotionEventLog.WriteAsync("psmove", result.Success ? "pair-completed" : "pair-failed", result.Message, new { exitCode = process.ExitCode }, cancellationToken);
+            return result;
         }
         catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
         {
+            await NiiMotionEventLog.WriteAsync("psmove", "pair-cancelled", "Administrator permission was cancelled.", cancellationToken: cancellationToken);
             return new(false, "Yönetici izni iptal edildi; eşleştirme yapılmadı.");
         }
     }
@@ -89,6 +93,7 @@ public sealed class PsMovePairingService
             Extract(zip, PackageRoot + "bin/psmove.exe", executable);
             Extract(zip, PackageRoot + "lib/psmoveapi.dll", library);
             Extract(zip, PackageRoot + "COPYING", license);
+            await NiiMotionEventLog.WriteAsync("psmove", "pair-tool-installed", $"Official PSMoveAPI {Version} pairing components installed.", new { sha256 = ArchiveSha256 }, cancellationToken);
         }
         finally
         {

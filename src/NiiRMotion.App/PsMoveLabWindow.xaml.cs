@@ -49,11 +49,12 @@ public partial class PsMoveLabWindow : Window
         return phases.ToArray();
     }
 
-    public PsMoveLabWindow()
+    public PsMoveLabWindow(bool forcePairing = false)
     {
         InitializeComponent();
         Loaded += async (_, _) =>
         {
+            if (forcePairing) { _stage = -12; ShowPairingInstruction(LegSide.Left); return; }
             var onboarding = await new PsMoveOnboardingService().GetStatusAsync();
             if (onboarding.NextStep == PsMoveOnboardingStep.AssignControllers)
             {
