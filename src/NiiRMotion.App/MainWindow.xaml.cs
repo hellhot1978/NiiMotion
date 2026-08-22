@@ -59,6 +59,7 @@ public partial class MainWindow : Window
             }
             if (arguments.Contains("--calibration-page", StringComparer.OrdinalIgnoreCase)) ToolsNavClick(this, new RoutedEventArgs());
             if (arguments.Contains("--games-page", StringComparer.OrdinalIgnoreCase)) GamesNavClick(this, new RoutedEventArgs());
+            if (arguments.Contains("--game-wizard", StringComparer.OrdinalIgnoreCase)) { GamesNavClick(this, new RoutedEventArgs()); OpenGameAdapterWizard(); }
             _scanTimer.Start();
         };
         Closed += async (_, _) => { _demoTimer.Stop(); _scanTimer.Stop(); await StopPhoneMonitorAsync(); await _locomotion.DisposeAsync(); };
@@ -274,6 +275,10 @@ public partial class MainWindow : Window
     {
         GamesPanel.Children.Clear();
         GamesPanel.Children.Add(SectionHeader("OYUN KÜTÜPHANESİ", "Hareket profilini oyuna bağla", "Kişisel yürüyüş modelin ortak kalır; yalnız oyun giriş eşlemesi değişir. Değişiklikler geri alınabilir yapılır."));
+        var wizardBar = new Border { Background = Brush("#0D151D"), BorderBrush = Brush("#273945"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(16, 11, 12, 11), Margin = new Thickness(0, 0, 0, 14) };
+        var wizardGrid = new Grid(); wizardGrid.ColumnDefinitions.Add(new ColumnDefinition()); wizardGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var wizardText = new StackPanel(); wizardText.Children.Add(Label("Başka bir SteamVR oyunu mu kullanacaksın?", "#F4F7FA", 12, FontWeights.SemiBold)); wizardText.Children.Add(Label("Sihirbaz kurulu oyunu tarar, hareket action'ını doğrular ve geri alınabilir bir eşleme üretir.", "#8FA1AD", 10, FontWeights.Normal, new Thickness(0, 2, 0, 0))); wizardGrid.Children.Add(wizardText);
+        var wizardButton = new Button { Content = "+ OYUN EKLE", Padding = new Thickness(20, 10, 20, 10), MinWidth = 128 }; wizardButton.Click += (_, _) => OpenGameAdapterWizard(); Grid.SetColumn(wizardButton, 1); wizardGrid.Children.Add(wizardButton); wizardBar.Child = wizardGrid; GamesPanel.Children.Add(wizardBar);
         var installed = new SteamGameCatalog().Detect();
         var readyCount = installed.Count(x => x.State == GameIntegrationState.Ready);
         var summary = new Border { Background = Brush("#0D151D"), BorderBrush = Brush("#273945"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(16), Margin = new Thickness(0, 0, 0, 14) };
@@ -283,6 +288,50 @@ public partial class MainWindow : Window
         foreach (var game in installed) cards.Children.Add(CreateGameCard(game));
         GamesPanel.Children.Add(cards);
         GamesPanel.Children.Add(new Border { Child = Label("Zelda entegrasyonu doğrulanmış bir dosya yolu bulunana kadar değiştirilmez. Metro ve Skyrim için gerçek giriş sistemi incelenmeden 'hazır' durumu verilmez.", "#8496A3", 10, FontWeights.Normal), Background = Brush("#09121A"), BorderBrush = Brush("#1F303C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(7), Padding = new Thickness(14), Margin = new Thickness(0, 4, 10, 0) });
+    }
+
+    private void OpenGameAdapterWizard()
+    {
+        var candidates = new SteamGameCatalog().DetectAdapterCandidates();
+        var window = new Window { Title = "NiiMotion · Oyun Ekleme Sihirbazı", Owner = this, Width = 720, Height = 660, WindowStartupLocation = WindowStartupLocation.CenterOwner, ResizeMode = ResizeMode.NoResize, Background = Brush("#070D12"), Foreground = Brushes.White };
+        var root = new Grid { Margin = new Thickness(28) }; root.RowDefinitions.Add(new RowDefinition()); root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var body = new StackPanel();
+        body.Children.Add(Label("Oyun Ekleme Sihirbazı", "#F5F8FA", 25, FontWeights.SemiBold));
+        body.Children.Add(Label("1  Oyunu seç   →   2  Action'ları tara   →   3  Eşlemeyi doğrula", "#55DDB8", 11, FontWeights.SemiBold, new Thickness(0, 5, 0, 18)));
+        body.Children.Add(Label("KURULU STEAM OYUNU", "#4ABCF4", 9, FontWeights.Bold));
+        var game = new ComboBox { ItemsSource = candidates, SelectedIndex = candidates.Count > 0 ? 0 : -1, Height = 38, Margin = new Thickness(0, 6, 0, 15) }; body.Children.Add(game);
+        var scan = new Button { Content = "OYUN GİRDİLERİNİ TARA", Height = 40, Margin = new Thickness(0, 0, 0, 17) }; body.Children.Add(scan);
+        body.Children.Add(Label("İLERİ HAREKET ACTION'I", "#4ABCF4", 9, FontWeights.Bold));
+        var movement = new ComboBox { IsEditable = true, Height = 38, Margin = new Thickness(0, 6, 0, 4) }; body.Children.Add(movement);
+        var discoveryStatus = Label("Tarama, oyunun yerel SteamVR action dosyalarını okur; hiçbir oyun dosyasını değiştirmez.", "#8FA1AD", 9, FontWeights.Normal, new Thickness(0, 0, 0, 14)); body.Children.Add(discoveryStatus);
+        body.Children.Add(Label("YÜRÜME / KOŞMA ACTION'I  ·  İSTEĞE BAĞLI", "#4ABCF4", 9, FontWeights.Bold));
+        var activation = new TextBox { Height = 38, Margin = new Thickness(0, 6, 0, 14), Padding = new Thickness(10, 8, 10, 8), ToolTip = "Örnek: /actions/main/in/sprint" }; body.Children.Add(activation);
+        body.Children.Add(Label("OYUN HIZ ÇARPANI", "#4ABCF4", 9, FontWeights.Bold));
+        var speedLine = new Grid { Margin = new Thickness(0, 6, 0, 14) }; speedLine.ColumnDefinitions.Add(new ColumnDefinition()); speedLine.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });
+        var speed = new Slider { Minimum = .25, Maximum = 3, Value = 1, TickFrequency = .05, IsSnapToTickEnabled = true, VerticalAlignment = VerticalAlignment.Center };
+        var speedValue = Label("1,00×", "#55DDB8", 13, FontWeights.Bold); speed.ValueChanged += (_, _) => speedValue.Text = $"{speed.Value:0.00}×"; speedLine.Children.Add(speed); Grid.SetColumn(speedValue, 1); speedLine.Children.Add(speedValue); body.Children.Add(speedLine);
+        var safety = new Border { Background = Brush("#0D1820"), BorderBrush = Brush("#29404D"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(7), Padding = new Thickness(13) };
+        safety.Child = Label("GÜVENLİ KURULUM · Oyun dosyaları değiştirilmez. NiiMotion eşlemesi ayrı oluşturulur; mevcut sürücü profili ilk değişiklikten önce yedeklenir.", "#A9BBC5", 10, FontWeights.Normal); body.Children.Add(safety); root.Children.Add(body);
+        var footer = new Grid { Margin = new Thickness(0, 20, 0, 0) }; footer.ColumnDefinitions.Add(new ColumnDefinition()); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(10) }); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var cancel = new Button { Content = "VAZGEÇ", Padding = new Thickness(20, 10, 20, 10) }; cancel.Click += (_, _) => window.Close(); Grid.SetColumn(cancel, 1); footer.Children.Add(cancel);
+        var save = new Button { Content = "EŞLEMEYİ OLUŞTUR", Padding = new Thickness(22, 10, 22, 10) }; Grid.SetColumn(save, 3); footer.Children.Add(save); Grid.SetRow(footer, 1); root.Children.Add(footer);
+        scan.Click += (_, _) =>
+        {
+            if (game.SelectedItem is not SteamAppCandidate selected) return;
+            var actions = new SteamActionDiscovery().Discover(selected.InstallPath); movement.ItemsSource = actions; movement.SelectedIndex = actions.Count > 0 ? 0 : -1;
+            discoveryStatus.Text = actions.Count > 0 ? $"{actions.Count} action bulundu. En olası hareket girdileri listenin başına getirildi; seçimi kontrol et." : "Action bulunamadı. Oyunun SteamVR bağlama ekranındaki /actions/.../in/... yolunu elle girebilirsin.";
+            discoveryStatus.Foreground = Brush(actions.Count > 0 ? "#55DDB8" : "#F1C566");
+        };
+        save.Click += (_, _) =>
+        {
+            if (game.SelectedItem is not SteamAppCandidate selected) { MessageBox.Show(window, "Önce kurulu bir Steam oyunu seç.", "NiiMotion", MessageBoxButton.OK, MessageBoxImage.Information); return; }
+            var path = movement.Text.Trim(); var marker = path.IndexOf("/in/", StringComparison.OrdinalIgnoreCase); var actionSet = marker > 0 ? path[..marker] : "";
+            var adapter = new UserGameAdapter($"user-steam-{selected.AppId}", selected.Name, selected.AppId, actionSet, path, string.IsNullOrWhiteSpace(activation.Text) ? null : activation.Text.Trim(), speed.Value, DateTimeOffset.Now);
+            var errors = GameAdapterValidator.Validate(adapter); if (errors.Count > 0) { MessageBox.Show(window, string.Join(Environment.NewLine, errors), "Eşleme doğrulanamadı", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+            try { new GameAdapterStore().SaveAndInstall(adapter); _selectedGameId = adapter.Id; new GameSelectionStore().Save(adapter.Id); window.DialogResult = true; window.Close(); BuildGamesPage(); }
+            catch (Exception ex) { MessageBox.Show(window, ex.Message, "Eşleme oluşturulamadı", MessageBoxButton.OK, MessageBoxImage.Error); }
+        };
+        window.Content = root; window.ShowDialog();
     }
 
     private FrameworkElement CreateGameCard(InstalledGame game)

@@ -20,5 +20,7 @@ recordings/
 /config/psmove-calibrations.json
 /config/user-hardware.json
 /config/calibration-progress.json
+/config/active-game.txt
+/config/game-adapters.json
 # Local portable build toolchains/SDKs
 .tools/
