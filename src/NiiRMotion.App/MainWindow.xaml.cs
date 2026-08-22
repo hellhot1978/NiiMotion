@@ -306,9 +306,9 @@ public partial class MainWindow : Window
             _ => ("Balance Board", "Basınç ve denge", "device-v3-board.png")
         };
         var done = progress?.CompletedPhases ?? 0; var ready = progress?.IsReady == true;
-        var button = new Button { Width = 218, Height = 190, Margin = new Thickness(0, 0, 12, 12), Padding = new Thickness(14), HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Stretch };
+        var button = new Button { Width = 205, Height = 174, Margin = new Thickness(0, 0, 10, 10), Padding = new Thickness(13), HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Stretch };
         var grid = new Grid(); grid.RowDefinitions.Add(new RowDefinition()); grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        var image = new Image { Source = new System.Windows.Media.Imaging.BitmapImage(new Uri($"pack://application:,,,/NiiRMotion.App;component/Assets/{icon}")), Height = 88, Stretch = Stretch.Uniform };
+        var image = new Image { Source = new System.Windows.Media.Imaging.BitmapImage(new Uri($"pack://application:,,,/NiiRMotion.App;component/Assets/{icon}")), Height = 78, Stretch = Stretch.Uniform };
         grid.Children.Add(image);
         var bottom = new Grid { Margin = new Thickness(0, 8, 0, 0) }; bottom.ColumnDefinitions.Add(new ColumnDefinition()); bottom.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var texts = new StackPanel(); texts.Children.Add(Label(name, "#F4F7FA", 14, FontWeights.SemiBold)); texts.Children.Add(Label(detail, "#8FA0AD", 9, FontWeights.Normal, new Thickness(0, 2, 0, 0))); texts.Children.Add(Label(ready ? "✓ KULLANIMA HAZIR" : $"TEMEL FAZ  {done}/3", ready ? "#55DDB8" : "#F1C566", 9, FontWeights.Bold, new Thickness(0, 7, 0, 0))); bottom.Children.Add(texts);
