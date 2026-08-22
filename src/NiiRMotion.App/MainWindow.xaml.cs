@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Controls;
 using System.Windows.Threading;
 using System.Diagnostics;
@@ -26,6 +27,8 @@ public partial class MainWindow : Window
     private UserHardwareInventory _inventory = UserHardwareInventory.Empty;
     private IReadOnlyList<ProfileRecommendation> _profileRecommendations = Array.Empty<ProfileRecommendation>();
     private string _selectedGameId = new GameSelectionStore().Load();
+    private bool _gameNiiMotionEnabled = true;
+    private string? _pendingGameAppId;
     private double _demoPhase;
     private long _demoSteps;
     public MainWindow()
@@ -267,6 +270,7 @@ public partial class MainWindow : Window
     }
     private void GamesNavClick(object sender, RoutedEventArgs e)
     {
+        _gameNiiMotionEnabled = _profile.LocomotionAllowed;
         BuildGamesPage();
         ShowPage(GamesPage, "Oyunlar", "Kişisel hareketini oyunlara güvenle uygula", GamesNav);
     }
@@ -274,20 +278,29 @@ public partial class MainWindow : Window
     private void BuildGamesPage()
     {
         GamesPanel.Children.Clear();
-        GamesPanel.Children.Add(SectionHeader("OYUN KÜTÜPHANESİ", "Hareket profilini oyuna bağla", "Kişisel yürüyüş modelin ortak kalır; yalnız oyun giriş eşlemesi değişir. Değişiklikler geri alınabilir yapılır."));
-        var wizardBar = new Border { Background = Brush("#0D151D"), BorderBrush = Brush("#273945"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(16, 11, 12, 11), Margin = new Thickness(0, 0, 0, 14) };
-        var wizardGrid = new Grid(); wizardGrid.ColumnDefinitions.Add(new ColumnDefinition()); wizardGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var wizardText = new StackPanel(); wizardText.Children.Add(Label("Başka bir SteamVR oyunu mu kullanacaksın?", "#F4F7FA", 12, FontWeights.SemiBold)); wizardText.Children.Add(Label("Sihirbaz kurulu oyunu tarar, hareket action'ını doğrular ve geri alınabilir bir eşleme üretir.", "#8FA1AD", 10, FontWeights.Normal, new Thickness(0, 2, 0, 0))); wizardGrid.Children.Add(wizardText);
-        var wizardButton = new Button { Content = "+ OYUN EKLE", Padding = new Thickness(20, 10, 20, 10), MinWidth = 128 }; wizardButton.Click += (_, _) => OpenGameAdapterWizard(); Grid.SetColumn(wizardButton, 1); wizardGrid.Children.Add(wizardButton); wizardBar.Child = wizardGrid; GamesPanel.Children.Add(wizardBar);
-        var installed = new SteamGameCatalog().Detect();
-        var readyCount = installed.Count(x => x.State == GameIntegrationState.Ready);
-        var summary = new Border { Background = Brush("#0D151D"), BorderBrush = Brush("#273945"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(16), Margin = new Thickness(0, 0, 0, 14) };
-        summary.Child = Label($"{installed.Count(x => x.IsInstalled)} kurulu oyun bulundu  ·  {readyCount} NiiMotion eşlemesi hazır  ·  Aktif: {installed.FirstOrDefault(x => x.Definition.Id == _selectedGameId)?.Definition.Name ?? "Half-Life: Alyx"}", "#AFC0CB", 11, FontWeights.Normal);
-        GamesPanel.Children.Add(summary);
-        var cards = new WrapPanel();
-        foreach (var game in installed) cards.Children.Add(CreateGameCard(game));
-        GamesPanel.Children.Add(cards);
-        GamesPanel.Children.Add(new Border { Child = Label("Zelda entegrasyonu doğrulanmış bir dosya yolu bulunana kadar değiştirilmez. Metro ve Skyrim için gerçek giriş sistemi incelenmeden 'hazır' durumu verilmez.", "#8496A3", 10, FontWeights.Normal), Background = Brush("#09121A"), BorderBrush = Brush("#1F303C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(7), Padding = new Thickness(14), Margin = new Thickness(0, 4, 10, 0) });
+        GamesPanel.Children.Add(SectionHeader("OYUN KÜTÜPHANESİ", "Oyunu seç ve güvenle başlat", "Yalnız doğrulanmış VR oyunları görünür. Kişisel yürüyüş modelin değişmez; oyun eşlemesi ayrı tutulur."));
+        var available = new SteamGameCatalog().Detect().Where(x => x.IsInstalled && x.State == GameIntegrationState.Ready).ToArray();
+        var selected = available.FirstOrDefault(x => x.Definition.Id == _selectedGameId) ?? available.FirstOrDefault();
+        if (selected is null) { GamesPanel.Children.Add(new Border { Child = Label("Henüz doğrulanmış ve kurulu bir VR oyunu bulunamadı. VR Oyunu Ekle ile yeni bir eşleme oluşturabilirsin.", "#F1C566", 12, FontWeights.SemiBold), Padding = new Thickness(18), Background = Brush("#151B1E"), CornerRadius = new CornerRadius(8) }); return; }
+        _selectedGameId = selected.Definition.Id; new GameSelectionStore().Save(_selectedGameId);
+
+        var selector = new Grid { Margin = new Thickness(0, 0, 0, 14) }; selector.ColumnDefinitions.Add(new ColumnDefinition()); selector.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) }); selector.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var picker = new ComboBox { ItemsSource = available, SelectedItem = selected, Height = 44, FontSize = 13, DisplayMemberPath = "Definition.Name" };
+        picker.SelectionChanged += (_, _) => { if (picker.SelectedItem is InstalledGame choice && choice.Definition.Id != _selectedGameId) { _selectedGameId = choice.Definition.Id; new GameSelectionStore().Save(_selectedGameId); BuildGamesPage(); } }; selector.Children.Add(picker);
+        var add = new Button { Content = "+ VR OYUNU EKLE", Padding = new Thickness(21, 10, 21, 10), MinWidth = 150 }; add.Click += (_, _) => OpenGameAdapterWizard(); Grid.SetColumn(add, 2); selector.Children.Add(add); GamesPanel.Children.Add(selector);
+
+        var hero = new Border { Height = 300, Background = Brush("#0D151D"), BorderBrush = Brush("#273945"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10), ClipToBounds = true, Margin = new Thickness(0, 0, 0, 14) };
+        var heroGrid = new Grid(); heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(220) }); heroGrid.ColumnDefinitions.Add(new ColumnDefinition());
+        var cover = new Border { Background = Brush("#101D26"), BorderBrush = Brush("#29404D"), BorderThickness = new Thickness(0, 0, 1, 0) }; var coverImage = new Image { Stretch = Stretch.UniformToFill }; cover.Child = coverImage; heroGrid.Children.Add(cover);
+        var content = new StackPanel { Margin = new Thickness(28, 25, 28, 24) }; Grid.SetColumn(content, 1);
+        content.Children.Add(Label("SEÇİLİ VR OYUNU", "#4ABCF4", 9, FontWeights.Bold)); content.Children.Add(Label(selected.Definition.Name, "#F5F8FA", 25, FontWeights.SemiBold, new Thickness(0, 7, 0, 3))); content.Children.Add(Label(selected.Definition.Runtime, "#55DDB8", 10, FontWeights.SemiBold));
+        var gameSummary = Label(selected.Definition.Summary, "#A5B4BE", 11, FontWeights.Normal, new Thickness(0, 12, 0, 16)); gameSummary.MaxHeight = 48; content.Children.Add(gameSummary); _ = LoadGameCoverAsync(selected, coverImage, gameSummary);
+        var profileLine = new Border { Background = Brush("#101D26"), BorderBrush = Brush("#29404D"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(7), Padding = new Thickness(13, 10, 13, 10) }; profileLine.Child = Label($"YÜRÜYÜŞ PROFİLİ  ·  {_profile.Name}", _profile.LocomotionAllowed ? "#55DDB8" : "#F1C566", 10, FontWeights.Bold); content.Children.Add(profileLine);
+        var controls = new Grid { Margin = new Thickness(0, 14, 0, 0) }; controls.ColumnDefinitions.Add(new ColumnDefinition()); controls.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) }); controls.ColumnDefinitions.Add(new ColumnDefinition());
+        var toggle = new CheckBox { Content = "NIIMOTION YÜRÜYÜŞÜ", IsChecked = _gameNiiMotionEnabled, Foreground = Brush(_gameNiiMotionEnabled ? "#55DDB8" : "#A5B4BE"), VerticalContentAlignment = VerticalAlignment.Center, FontWeight = FontWeights.SemiBold, Padding = new Thickness(12), BorderBrush = Brush("#38505E"), BorderThickness = new Thickness(1) }; toggle.Checked += (_, _) => { _gameNiiMotionEnabled = true; toggle.Foreground = Brush("#55DDB8"); }; toggle.Unchecked += (_, _) => { _gameNiiMotionEnabled = false; toggle.Foreground = Brush("#A5B4BE"); }; controls.Children.Add(toggle);
+        var launch = new Button { Content = "▶  DOĞRULA VE OYUNU BAŞLAT", Padding = new Thickness(20, 12, 20, 12) }; launch.Click += async (_, _) => await ValidateAndLaunchGameAsync(selected, launch); Grid.SetColumn(launch, 2); controls.Children.Add(launch); content.Children.Add(controls);
+        heroGrid.Children.Add(content); hero.Child = heroGrid; GamesPanel.Children.Add(hero);
+        var note = new Border { Background = Brush("#09121A"), BorderBrush = Brush("#1F303C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(7), Padding = new Thickness(14) }; note.Child = Label("Başlatma sırası: profil ve kalibrasyon → hareket cihazları → Quest / Virtual Desktop → SteamVR → oyun. Bir adım doğrulanmazsa oyun açılmaz.", "#93A7B3", 10, FontWeights.Normal); GamesPanel.Children.Add(note);
     }
 
     private void OpenGameAdapterWizard()
@@ -310,6 +323,7 @@ public partial class MainWindow : Window
         var speedLine = new Grid { Margin = new Thickness(0, 6, 0, 14) }; speedLine.ColumnDefinitions.Add(new ColumnDefinition()); speedLine.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });
         var speed = new Slider { Minimum = .25, Maximum = 3, Value = 1, TickFrequency = .05, IsSnapToTickEnabled = true, VerticalAlignment = VerticalAlignment.Center };
         var speedValue = Label("1,00×", "#55DDB8", 13, FontWeights.Bold); speed.ValueChanged += (_, _) => speedValue.Text = $"{speed.Value:0.00}×"; speedLine.Children.Add(speed); Grid.SetColumn(speedValue, 1); speedLine.Children.Add(speedValue); body.Children.Add(speedLine);
+        var vrConfirmed = new CheckBox { Content = "Bu oyun SteamVR/OpenXR kullanıyor veya çalışan bir VR modu kurulu", Margin = new Thickness(0, 0, 0, 12), FontWeight = FontWeights.SemiBold }; body.Children.Add(vrConfirmed);
         var safety = new Border { Background = Brush("#0D1820"), BorderBrush = Brush("#29404D"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(7), Padding = new Thickness(13) };
         safety.Child = Label("GÜVENLİ KURULUM · Oyun dosyaları değiştirilmez. NiiMotion eşlemesi ayrı oluşturulur; mevcut sürücü profili ilk değişiklikten önce yedeklenir.", "#A9BBC5", 10, FontWeights.Normal); body.Children.Add(safety); root.Children.Add(body);
         var footer = new Grid { Margin = new Thickness(0, 20, 0, 0) }; footer.ColumnDefinitions.Add(new ColumnDefinition()); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(10) }); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -322,39 +336,58 @@ public partial class MainWindow : Window
             discoveryStatus.Text = actions.Count > 0 ? $"{actions.Count} action bulundu. En olası hareket girdileri listenin başına getirildi; seçimi kontrol et." : "Action bulunamadı. Oyunun SteamVR bağlama ekranındaki /actions/.../in/... yolunu elle girebilirsin.";
             discoveryStatus.Foreground = Brush(actions.Count > 0 ? "#55DDB8" : "#F1C566");
         };
-        save.Click += (_, _) =>
+        save.Click += async (_, _) =>
         {
             if (game.SelectedItem is not SteamAppCandidate selected) { MessageBox.Show(window, "Önce kurulu bir Steam oyunu seç.", "NiiMotion", MessageBoxButton.OK, MessageBoxImage.Information); return; }
+            if (vrConfirmed.IsChecked != true) { MessageBox.Show(window, "VR olmayan oyunlar otomatik eklenmez. Oyun VR destekliyorsa veya çalışan bir VR modu kuruluysa kutuyu işaretle.", "VR doğrulaması gerekli", MessageBoxButton.OK, MessageBoxImage.Information); return; }
             var path = movement.Text.Trim(); var marker = path.IndexOf("/in/", StringComparison.OrdinalIgnoreCase); var actionSet = marker > 0 ? path[..marker] : "";
             var adapter = new UserGameAdapter($"user-steam-{selected.AppId}", selected.Name, selected.AppId, actionSet, path, string.IsNullOrWhiteSpace(activation.Text) ? null : activation.Text.Trim(), speed.Value, DateTimeOffset.Now);
             var errors = GameAdapterValidator.Validate(adapter); if (errors.Count > 0) { MessageBox.Show(window, string.Join(Environment.NewLine, errors), "Eşleme doğrulanamadı", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
-            try { new GameAdapterStore().SaveAndInstall(adapter); _selectedGameId = adapter.Id; new GameSelectionStore().Save(adapter.Id); window.DialogResult = true; window.Close(); BuildGamesPage(); }
+            try { new GameAdapterStore().SaveAndInstall(adapter); await new GameMetadataService().GetAsync(adapter.SteamAppId, adapter.Name); _selectedGameId = adapter.Id; new GameSelectionStore().Save(adapter.Id); window.DialogResult = true; window.Close(); BuildGamesPage(); }
             catch (Exception ex) { MessageBox.Show(window, ex.Message, "Eşleme oluşturulamadı", MessageBoxButton.OK, MessageBoxImage.Error); }
         };
         window.Content = root; window.ShowDialog();
     }
 
-    private FrameworkElement CreateGameCard(InstalledGame game)
+    private async Task LoadGameCoverAsync(InstalledGame game, Image target, TextBlock summary)
     {
-        var selected = game.Definition.Id == _selectedGameId;
-        var state = game.State;
-        var color = state switch { GameIntegrationState.Ready => "#55DDB8", GameIntegrationState.InstalledUnsupported => "#F1C566", GameIntegrationState.VerificationRequired => "#E4A85B", _ => "#6F8290" };
-        var status = state switch { GameIntegrationState.Ready => "EŞLEME HAZIR", GameIntegrationState.InstalledUnsupported => "ADAPTÖR BEKLİYOR", GameIntegrationState.VerificationRequired => "YOL DOĞRULANMADI", _ => "KURULU DEĞİL" };
-        var border = new Border { Width = 286, Height = 206, Background = Brush(selected ? "#102331" : "#0D151D"), BorderBrush = Brush(selected ? "#24A7EE" : "#273945"), BorderThickness = new Thickness(selected ? 2 : 1), CornerRadius = new CornerRadius(8), Padding = new Thickness(16), Margin = new Thickness(0, 0, 12, 12) };
-        var grid = new Grid(); grid.RowDefinitions.Add(new RowDefinition()); grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        var content = new StackPanel();
-        var badge = new Border { Background = Brush(state == GameIntegrationState.Ready ? "#12372D" : state == GameIntegrationState.NotInstalled ? "#17212A" : "#352B17"), CornerRadius = new CornerRadius(4), Padding = new Thickness(7, 3, 7, 3), HorizontalAlignment = HorizontalAlignment.Left };
-        badge.Child = Label((selected ? "✓ AKTİF · " : "") + status, color, 9, FontWeights.Bold); content.Children.Add(badge);
-        content.Children.Add(Label(game.Definition.Name, "#F4F7FA", 17, FontWeights.SemiBold, new Thickness(0, 12, 0, 3)));
-        content.Children.Add(Label(game.Definition.Runtime, "#35B8F5", 9, FontWeights.Bold));
-        content.Children.Add(Label(game.Definition.Summary, "#94A1AD", 10, FontWeights.Normal, new Thickness(0, 8, 0, 0))); grid.Children.Add(content);
-        var actions = new Grid { Margin = new Thickness(0, 12, 0, 0) }; actions.ColumnDefinitions.Add(new ColumnDefinition()); actions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) }); actions.ColumnDefinitions.Add(new ColumnDefinition());
-        var select = new Button { Content = selected ? "✓ SEÇİLİ" : "HAREKETİ KULLAN", IsEnabled = game.State == GameIntegrationState.Ready && !selected, Padding = new Thickness(8, 8, 8, 8) };
-        select.Click += (_, _) => { _selectedGameId = game.Definition.Id; new GameSelectionStore().Save(_selectedGameId); BuildGamesPage(); };
-        actions.Children.Add(select);
-        var launch = new Button { Content = "STEAM'DE AÇ", IsEnabled = game.IsInstalled && game.Definition.SteamAppId is not null, Padding = new Thickness(8, 8, 8, 8) };
-        launch.Click += (_, _) => Process.Start(new ProcessStartInfo($"steam://rungameid/{game.Definition.SteamAppId}") { UseShellExecute = true }); Grid.SetColumn(launch, 2); actions.Children.Add(launch);
-        Grid.SetRow(actions, 1); grid.Children.Add(actions); border.Child = grid; return border;
+        if (game.Definition.SteamAppId is null) return;
+        try
+        {
+            var result = await new GameMetadataService().GetAsync(game.Definition.SteamAppId, game.Definition.Name);
+            if (result.CoverPath is null || !File.Exists(result.CoverPath)) return;
+            var bitmap = new BitmapImage(); bitmap.BeginInit(); bitmap.CacheOption = BitmapCacheOption.OnLoad; bitmap.UriSource = new Uri(result.CoverPath); bitmap.EndInit(); bitmap.Freeze(); target.Source = bitmap;
+            target.ToolTip = $"Görsel ve oyun bilgisi: {result.Metadata.Source}";
+            if (!string.IsNullOrWhiteSpace(result.Metadata.Summary)) summary.Text = result.Metadata.Summary;
+        }
+        catch { }
+    }
+
+    private async Task ValidateAndLaunchGameAsync(InstalledGame game, Button launchButton)
+    {
+        if (game.Definition.SteamAppId is null) return;
+        if (_gameNiiMotionEnabled && !_profile.LocomotionAllowed)
+        {
+            MessageBox.Show(this, "NiiMotion yürüyüşü açık. Önce Genel Bakış sayfasından kullanacağın hareket profilini seç.", "Yürüyüş profili gerekli", MessageBoxButton.OK, MessageBoxImage.Information);
+            ShowPage(OverviewPage, "Genel Bakış", "Önce hareket profilini seç", OverviewNav); return;
+        }
+        if (_gameNiiMotionEnabled)
+        {
+            var uncalibrated = await UncalibratedProfileSensorsAsync();
+            if (uncalibrated.Count > 0) { MessageBox.Show(this, $"Önce temel kalibrasyonu tamamla: {string.Join(", ", uncalibrated.Select(SensorDisplayName))}", "Kalibrasyon gerekli", MessageBoxButton.OK, MessageBoxImage.Warning); ToolsNavClick(this, new RoutedEventArgs()); return; }
+            await ScanAsync(); var devices = (DevicesList.ItemsSource as IEnumerable<DeviceStatus>)?.ToArray() ?? []; var missing = PreflightBlockingDevices(devices);
+            if (missing.Count > 0) { MessageBox.Show(this, $"Oyun açılmadı. Önce bağla: {string.Join(", ", missing.Select(x => x.Name))}", "Cihazlar eksik", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+        }
+        else SelectProfile(MotionProfile.ClassicVr);
+        _selectedGameId = game.Definition.Id; new GameSelectionStore().Save(_selectedGameId); _pendingGameAppId = game.Definition.SteamAppId;
+        LaunchSteamVrClick(launchButton, new RoutedEventArgs());
+    }
+
+    private void LaunchPendingGame()
+    {
+        if (string.IsNullOrWhiteSpace(_pendingGameAppId)) return;
+        var appId = _pendingGameAppId; _pendingGameAppId = null;
+        Process.Start(new ProcessStartInfo($"steam://rungameid/{appId}") { UseShellExecute = true });
     }
 
     private async Task BuildCalibrationCenterAsync()
@@ -871,6 +904,7 @@ public partial class MainWindow : Window
                 if (!questReady) throw new InvalidOperationException("SteamVR açıldı ancak Quest 3 bağlantısı doğrulanamadı.");
                 ReadinessTitle.Text = "NORMAL VR BAŞLATILDI";
                 ReadinessMessage.Text = "NiiMotion kapalı; oyunu kontrolcülerinle normal şekilde oynayabilirsin.";
+                LaunchPendingGame();
                 return;
             }
             if (_systemMode.CurrentMode != SystemMode.NiiMotion) await _systemMode.ApplyAsync(SystemMode.NiiMotion);
@@ -880,8 +914,9 @@ public partial class MainWindow : Window
             RefreshSystemMode(); await ScanAsync();
             if (_readiness?.State == ReadinessState.NotReady) throw new InvalidOperationException("SteamVR açıldı ancak başlık veya gerekli cihazlardan biri doğrulanamadı. Hareket çıkışı başlatılmadı.");
             StartClick(StartButton, new RoutedEventArgs());
+            LaunchPendingGame();
         }
-        catch (Exception ex) { ReadinessTitle.Text = "VR HAZIRLANAMADI"; ReadinessMessage.Text = ex.Message; }
+        catch (Exception ex) { _pendingGameAppId = null; ReadinessTitle.Text = "VR HAZIRLANAMADI"; ReadinessMessage.Text = ex.Message; }
         finally { if (sender is Button prepareButton) prepareButton.IsEnabled = true; }
     }
 

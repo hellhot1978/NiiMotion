@@ -22,5 +22,6 @@ recordings/
 /config/calibration-progress.json
 /config/active-game.txt
 /config/game-adapters.json
+/config/game-metadata/
 # Local portable build toolchains/SDKs
 .tools/
