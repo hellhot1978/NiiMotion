@@ -125,9 +125,10 @@ Ayrıntı: `phase-2-psmove-status.md`.
 
 ### Faz 11–14 — Oyunlar ve non-HMD regresyon
 
-**PARTIAL / NOT IMPLEMENTED**
+**PARTIAL**
 
-- Alyx ve Arizona 2 mevcut çalışmalar **KEEP AS-IS**, sonra adaptör sözleşmesine alınır.
+- Alyx ve Arizona 2 seçilebilir oyun adaptörleri olarak ayrıldı; yalnız seçili oyunun geri alınabilir giriş eşlemesi uygulanıyor.
+- Oyunlar sayfası gerçek Steam manifestlerini tarıyor; kurulu olma ile NiiMotion desteğini birbirine karıştırmıyor.
 - Metro ve Skyrim yalnız gerçek runtime/input incelemesinden sonra eklenir.
 - Zelda zinciri bulunmadan kart/adaptör oluşturulmaz.
 - Kişisel hareket modeli ile oyun mapping'i kesin ayrılır.
@@ -162,4 +163,5 @@ Move Only yazılım zinciri tamamlandı. Bir sonraki kapı, iki atanmış Move B
 - Kişisel model dosyaları değişiklik öncesinde en fazla 20 sürüm olacak şekilde yedekleniyor; son gelişmiş kayıt arayüzden reddedilip model kalan veriden yeniden üretilebiliyor.
 - VR el kontrolü yürüyüş füzyonundan kesin olarak ayrıldı. Yalnız Virtual Desktop'ın elden kontrolcü emülasyonu için kullanıcı tercihi olarak saklanıyor; hiçbir locomotion profilinde zorunlu cihaz değil.
 - Faz 9 **PARTIAL**: model sürümleme, ek kayıt geri alma, sürümlü birleşik sensör manifesti ve bütün akışları monotonic zaman damgasıyla tek zaman çizelgesinde birleştiren replay okuyucusu uygulandı. Segment bazlı kalite puanı ve yalnız bozuk segmenti tekrar alma henüz tamamlanmadı.
-- Sıradaki fiziksel olmayan iş: segment bazlı kalite/redo. Sonrasında Oyunlar sayfası/adaptör sözleşmesi.
+- Oyunlar sayfası eklendi. Bu bilgisayarda Alyx, Arizona Sunshine 2 ve Metro Awakening gerçek Steam manifestlerinden algılandı; yalnız doğrulanmış Alyx ve Arizona eşlemeleri etkinleştirildi. Skyrim kurulu değil, Zelda yolu doğrulanmadı ve bu durumlar arayüzde açıkça gösteriliyor.
+- Sıradaki fiziksel olmayan iş: segment bazlı kalite/redo; ardından oyun adaptör sözleşmesini ortak şemaya taşıma.

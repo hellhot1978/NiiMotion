@@ -25,6 +25,7 @@ public partial class MainWindow : Window
     private MotionProfile _profile = MotionProfile.AlyxFullFusion;
     private UserHardwareInventory _inventory = UserHardwareInventory.Empty;
     private IReadOnlyList<ProfileRecommendation> _profileRecommendations = Array.Empty<ProfileRecommendation>();
+    private string _selectedGameId = new GameSelectionStore().Load();
     private double _demoPhase;
     private long _demoSteps;
     public MainWindow()
@@ -57,6 +58,7 @@ public partial class MainWindow : Window
                 if (arguments.Contains("--autostart", StringComparer.OrdinalIgnoreCase)) StartClick(this, new RoutedEventArgs());
             }
             if (arguments.Contains("--calibration-page", StringComparer.OrdinalIgnoreCase)) ToolsNavClick(this, new RoutedEventArgs());
+            if (arguments.Contains("--games-page", StringComparer.OrdinalIgnoreCase)) GamesNavClick(this, new RoutedEventArgs());
             _scanTimer.Start();
         };
         Closed += async (_, _) => { _demoTimer.Stop(); _scanTimer.Stop(); await StopPhoneMonitorAsync(); await _locomotion.DisposeAsync(); };
@@ -262,6 +264,49 @@ public partial class MainWindow : Window
         _ = BuildCalibrationCenterAsync();
         ShowPage(ToolsPage, "Test ve Kalibrasyon", "Kişisel ölçüm, doğrulama ve veri kaydı", ToolsNav);
     }
+    private void GamesNavClick(object sender, RoutedEventArgs e)
+    {
+        BuildGamesPage();
+        ShowPage(GamesPage, "Oyunlar", "Kişisel hareketini oyunlara güvenle uygula", GamesNav);
+    }
+
+    private void BuildGamesPage()
+    {
+        GamesPanel.Children.Clear();
+        GamesPanel.Children.Add(SectionHeader("OYUN KÜTÜPHANESİ", "Hareket profilini oyuna bağla", "Kişisel yürüyüş modelin ortak kalır; yalnız oyun giriş eşlemesi değişir. Değişiklikler geri alınabilir yapılır."));
+        var installed = new SteamGameCatalog().Detect();
+        var readyCount = installed.Count(x => x.State == GameIntegrationState.Ready);
+        var summary = new Border { Background = Brush("#0D151D"), BorderBrush = Brush("#273945"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(16), Margin = new Thickness(0, 0, 0, 14) };
+        summary.Child = Label($"{installed.Count(x => x.IsInstalled)} kurulu oyun bulundu  ·  {readyCount} NiiMotion eşlemesi hazır  ·  Aktif: {installed.FirstOrDefault(x => x.Definition.Id == _selectedGameId)?.Definition.Name ?? "Half-Life: Alyx"}", "#AFC0CB", 11, FontWeights.Normal);
+        GamesPanel.Children.Add(summary);
+        var cards = new WrapPanel();
+        foreach (var game in installed) cards.Children.Add(CreateGameCard(game));
+        GamesPanel.Children.Add(cards);
+        GamesPanel.Children.Add(new Border { Child = Label("Zelda entegrasyonu doğrulanmış bir dosya yolu bulunana kadar değiştirilmez. Metro ve Skyrim için gerçek giriş sistemi incelenmeden 'hazır' durumu verilmez.", "#8496A3", 10, FontWeights.Normal), Background = Brush("#09121A"), BorderBrush = Brush("#1F303C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(7), Padding = new Thickness(14), Margin = new Thickness(0, 4, 10, 0) });
+    }
+
+    private FrameworkElement CreateGameCard(InstalledGame game)
+    {
+        var selected = game.Definition.Id == _selectedGameId;
+        var state = game.State;
+        var color = state switch { GameIntegrationState.Ready => "#55DDB8", GameIntegrationState.InstalledUnsupported => "#F1C566", GameIntegrationState.VerificationRequired => "#E4A85B", _ => "#6F8290" };
+        var status = state switch { GameIntegrationState.Ready => "EŞLEME HAZIR", GameIntegrationState.InstalledUnsupported => "ADAPTÖR BEKLİYOR", GameIntegrationState.VerificationRequired => "YOL DOĞRULANMADI", _ => "KURULU DEĞİL" };
+        var border = new Border { Width = 286, Height = 206, Background = Brush(selected ? "#102331" : "#0D151D"), BorderBrush = Brush(selected ? "#24A7EE" : "#273945"), BorderThickness = new Thickness(selected ? 2 : 1), CornerRadius = new CornerRadius(8), Padding = new Thickness(16), Margin = new Thickness(0, 0, 12, 12) };
+        var grid = new Grid(); grid.RowDefinitions.Add(new RowDefinition()); grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var content = new StackPanel();
+        var badge = new Border { Background = Brush(state == GameIntegrationState.Ready ? "#12372D" : state == GameIntegrationState.NotInstalled ? "#17212A" : "#352B17"), CornerRadius = new CornerRadius(4), Padding = new Thickness(7, 3, 7, 3), HorizontalAlignment = HorizontalAlignment.Left };
+        badge.Child = Label((selected ? "✓ AKTİF · " : "") + status, color, 9, FontWeights.Bold); content.Children.Add(badge);
+        content.Children.Add(Label(game.Definition.Name, "#F4F7FA", 17, FontWeights.SemiBold, new Thickness(0, 12, 0, 3)));
+        content.Children.Add(Label(game.Definition.Runtime, "#35B8F5", 9, FontWeights.Bold));
+        content.Children.Add(Label(game.Definition.Summary, "#94A1AD", 10, FontWeights.Normal, new Thickness(0, 8, 0, 0))); grid.Children.Add(content);
+        var actions = new Grid { Margin = new Thickness(0, 12, 0, 0) }; actions.ColumnDefinitions.Add(new ColumnDefinition()); actions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) }); actions.ColumnDefinitions.Add(new ColumnDefinition());
+        var select = new Button { Content = selected ? "✓ SEÇİLİ" : "HAREKETİ KULLAN", IsEnabled = game.State == GameIntegrationState.Ready && !selected, Padding = new Thickness(8, 8, 8, 8) };
+        select.Click += (_, _) => { _selectedGameId = game.Definition.Id; new GameSelectionStore().Save(_selectedGameId); BuildGamesPage(); };
+        actions.Children.Add(select);
+        var launch = new Button { Content = "STEAM'DE AÇ", IsEnabled = game.IsInstalled && game.Definition.SteamAppId is not null, Padding = new Thickness(8, 8, 8, 8) };
+        launch.Click += (_, _) => Process.Start(new ProcessStartInfo($"steam://rungameid/{game.Definition.SteamAppId}") { UseShellExecute = true }); Grid.SetColumn(launch, 2); actions.Children.Add(launch);
+        Grid.SetRow(actions, 1); grid.Children.Add(actions); border.Child = grid; return border;
+    }
 
     private async Task BuildCalibrationCenterAsync()
     {
@@ -369,8 +414,8 @@ public partial class MainWindow : Window
     }
     private void ShowPage(UIElement page, string title, string subtitle, Button selectedNav)
     {
-        foreach (var item in new UIElement[] { OverviewPage, ModesPage, DevicesPage, ToolsPage }) item.Visibility = item == page ? Visibility.Visible : Visibility.Collapsed;
-        foreach (var nav in new[] { OverviewNav, ModesNav, DevicesNav, ToolsNav })
+        foreach (var item in new UIElement[] { OverviewPage, ModesPage, DevicesPage, GamesPage, ToolsPage }) item.Visibility = item == page ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var nav in new[] { OverviewNav, ModesNav, DevicesNav, GamesNav, ToolsNav })
         {
             nav.Background = Brush(nav == selectedNav ? "#122536" : "#080D13");
             nav.BorderBrush = Brush(nav == selectedNav ? "#1E6F9F" : "#080D13");

@@ -36,9 +36,12 @@ public sealed class SystemModeService
 
     public void EnsureGameOverrides(SystemMode mode)
     {
-        SetAlyxOverrides(mode == SystemMode.NiiMotion);
-        SetAlyxControllerBindingOverride(mode == SystemMode.NiiMotion);
-        SetArizona2ControllerBindingOverride(mode == SystemMode.NiiMotion);
+        var selected = new GameSelectionStore().Load();
+        var alyx = mode == SystemMode.NiiMotion && selected == "half-life-alyx";
+        var arizona = mode == SystemMode.NiiMotion && selected == "arizona-sunshine-2";
+        SetAlyxOverrides(alyx);
+        SetAlyxControllerBindingOverride(alyx);
+        SetArizona2ControllerBindingOverride(arizona);
     }
 
     public async Task StopSteamVrAsync(CancellationToken cancellationToken = default)
