@@ -85,9 +85,12 @@ public partial class DeviceCalibrationWindow : Window
             await SaveProgressAsync(phase, phase == 3 ? CalibrationStage.Ready : (CalibrationStage)((int)CalibrationStage.Phase1 + phase - 1));
             var analysis = await new OfflineCalibrationPipeline().ApplyAvailableAsync();
             var applied = analysis.UpdatedProfiles.Contains(DisplayName(_sensor));
+            var quality = result.Quality.IsClean
+                ? $"kalite %{result.Quality.Score * 100:0} · temiz kayıt"
+                : $"kalite %{result.Quality.Score * 100:0} · yeniden alınması önerilen aralıklar: {string.Join(", ", result.Quality.RedoSegments.Select(x => $"{x.StartSeconds:0}-{x.EndSeconds:0} sn"))}";
             InstructionText.Text = applied
-                ? $"✓ Faz {phase} tamamlandı · {result.TotalSamples:N0} örnek analiz edildi ve kişisel profil oyuna uygulandı."
-                : $"✓ Faz {phase} tamamlandı · {result.TotalSamples:N0} örnek güvenle kaydedildi.";
+                ? $"✓ Faz {phase} tamamlandı · {result.TotalSamples:N0} örnek · {quality} · kişisel profil oyuna uygulandı."
+                : $"✓ Faz {phase} tamamlandı · {result.TotalSamples:N0} örnek · {quality}.";
         }
         catch (Exception ex) { InstructionText.Text = $"Faz tamamlanmadı: {ex.GetBaseException().Message}"; }
         finally { _recording = false; PhaseProgress.Value = 0; TimerText.Text = "00:00 / 05:00"; RefreshPhaseButtons(); }

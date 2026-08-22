@@ -4,7 +4,7 @@ using NiiRMotion.Core;
 
 namespace NiiRMotion.Infrastructure;
 
-public sealed record GuidedCalibrationResult(SensorFamily Sensor, int Phase, TimeSpan Duration, IReadOnlyDictionary<string, int> Samples, string Folder)
+public sealed record GuidedCalibrationResult(SensorFamily Sensor, int Phase, TimeSpan Duration, IReadOnlyDictionary<string, int> Samples, string Folder, CalibrationQualityReport Quality)
 {
     public int TotalSamples => Samples.Values.Sum();
 }
@@ -59,11 +59,12 @@ public sealed class GuidedCalibrationRecorder
 
         try { Validate(sensor, counts); }
         catch { TryDeleteIncomplete(folder); throw; }
-        var result = new GuidedCalibrationResult(sensor, phase, duration, counts, folder);
+        var quality = AnalyzeQuality(folder, duration);
+        var result = new GuidedCalibrationResult(sensor, phase, duration, counts, folder, quality);
         await File.WriteAllTextAsync(Path.Combine(folder, "manifest.json"), JsonSerializer.Serialize(new
         {
             version = 1, sensor, phase, durationSeconds = duration.TotalSeconds, samples = counts,
-            completedAtUtc = DateTimeOffset.UtcNow, purpose
+            completedAtUtc = DateTimeOffset.UtcNow, purpose, quality
         }, new JsonSerializerOptions { WriteIndented = true }), cancellationToken);
         return result;
     }
@@ -124,6 +125,37 @@ public sealed class GuidedCalibrationRecorder
 
     private static Dictionary<string, int> ReadCounts(string folder) => Directory.GetFiles(folder, "*.count")
         .ToDictionary(x => Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(x)), x => int.TryParse(File.ReadAllText(x), out var count) ? count : 0);
+
+    private static CalibrationQualityReport AnalyzeQuality(string folder, TimeSpan duration)
+    {
+        var points = new List<CalibrationStreamPoint>(); long? origin = null;
+        foreach (var file in Directory.GetFiles(folder, "*.jsonl"))
+        {
+            var stream = Path.GetFileNameWithoutExtension(file);
+            foreach (var line in File.ReadLines(file))
+            {
+                try
+                {
+                    using var json = JsonDocument.Parse(line); var root = json.RootElement;
+                    if (!TryProperty(root, "sequence", out var sequence) || !sequence.TryGetInt64(out var seq)) continue;
+                    if (!TryProperty(root, "timestamp", out var timestamp) || !TryProperty(timestamp, "monotonicTicks", out var ticksElement) || !ticksElement.TryGetInt64(out var ticks)) continue;
+                    origin = origin is null ? ticks : Math.Min(origin.Value, ticks);
+                    points.Add(new(stream, seq, ticks / (double)System.Diagnostics.Stopwatch.Frequency));
+                }
+                catch (JsonException) { }
+            }
+        }
+        if (origin is null) return CalibrationQualityAnalyzer.Analyze([], duration.TotalSeconds);
+        var originSeconds = origin.Value / (double)System.Diagnostics.Stopwatch.Frequency;
+        return CalibrationQualityAnalyzer.Analyze(points.Select(x => x with { Seconds = x.Seconds - originSeconds }), duration.TotalSeconds);
+    }
+
+    private static bool TryProperty(JsonElement value, string name, out JsonElement property)
+    {
+        if (value.TryGetProperty(name, out property)) return true;
+        foreach (var candidate in value.EnumerateObject()) if (candidate.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) { property = candidate.Value; return true; }
+        property = default; return false;
+    }
 
     private static void Validate(SensorFamily sensor, IReadOnlyDictionary<string, int> counts)
     {
