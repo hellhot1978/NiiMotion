@@ -826,6 +826,11 @@ public partial class MainWindow : Window
             CalibrationLiveResult.Text = "✓ Seçili yedek geri yüklendi; cihazlar ve kişisel ayarlar yeniden okundu.";
         }
     }
+    private async void OpenDiagnosticsClick(object sender, RoutedEventArgs e)
+    {
+        await _locomotion.StopAsync(); SetStopControl(false);
+        new DiagnosticsWindow(_profile) { Owner = this }.ShowDialog();
+    }
     private async void BoardJoyConProfileClick(object sender, RoutedEventArgs e) { SelectProfile(MotionProfile.BoardJoyCon); await ScanAsync(); }
     private async void BoardPhoneProfileClick(object sender, RoutedEventArgs e) { SelectProfile(MotionProfile.BoardPhone); await ScanAsync(); }
     private async void HandTrackingChanged(object sender, RoutedEventArgs e)
