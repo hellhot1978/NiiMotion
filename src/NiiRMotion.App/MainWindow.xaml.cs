@@ -812,6 +812,14 @@ public partial class MainWindow : Window
     private async void PhoneProfileClick(object sender, RoutedEventArgs e) { SelectProfile(MotionProfile.PhoneOnly); await ScanAsync(); }
     private async void BoardOnlyProfileClick(object sender, RoutedEventArgs e) { SelectProfile(MotionProfile.BoardOnly); await ScanAsync(); }
     private void OpenBoardLabClick(object sender, RoutedEventArgs e) => new BoardLabWindow { Owner = this }.ShowDialog();
+    private async void OpenRecoveryCenterClick(object sender, RoutedEventArgs e)
+    {
+        if (new RecoveryCenterWindow { Owner = this }.ShowDialog() == true)
+        {
+            await EnsureHardwareInventoryAsync(); HandTrackingToggle.IsChecked = _inventory.UsesHandTracking; RebuildProfileMenu(); await ScanAsync();
+            CalibrationLiveResult.Text = "✓ Seçili yedek geri yüklendi; cihazlar ve kişisel ayarlar yeniden okundu.";
+        }
+    }
     private async void BoardJoyConProfileClick(object sender, RoutedEventArgs e) { SelectProfile(MotionProfile.BoardJoyCon); await ScanAsync(); }
     private async void BoardPhoneProfileClick(object sender, RoutedEventArgs e) { SelectProfile(MotionProfile.BoardPhone); await ScanAsync(); }
     private async void HandTrackingChanged(object sender, RoutedEventArgs e)

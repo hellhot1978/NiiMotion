@@ -107,7 +107,7 @@ Ayrıntı: `phase-2-psmove-status.md`.
 
 ### Faz 5–8 — Hybrid ve non-HMD Full Fusion
 
-**NOT IMPLEMENTED**
+**SOFTWARE IMPLEMENTED / COMBINED HARDWARE CALIBRATION PENDING**
 
 - 2 Move + 2 Joy-Con saat hizalama ve gecikme ölçümü.
 - Aynı bacak phase/amplitude/flexion proxy; kesin anatomik açı iddiası yok.
@@ -116,7 +116,7 @@ Ayrıntı: `phase-2-psmove-status.md`.
 
 ### Faz 9–10 — Sürümlü eğitim ve augmentation
 
-**PARTIAL**
+**SOFTWARE IMPLEMENTED / CLEAN OWNER RECORDINGS PENDING**
 
 - Mevcut JSONL/replay ve 24×5 dk Joy-Con programı temel alınır.
 - Ortak session manifest, bütün aktif stream'ler, quality metrics ve segment redo eklenir.
@@ -125,7 +125,7 @@ Ayrıntı: `phase-2-psmove-status.md`.
 
 ### Faz 11–14 — Oyunlar ve non-HMD regresyon
 
-**PARTIAL**
+**IMPLEMENTED / GAME-SPECIFIC HARDWARE VALIDATION PARTIAL**
 
 - Alyx ve Arizona 2 seçilebilir oyun adaptörleri olarak ayrıldı; yalnız seçili oyunun geri alınabilir giriş eşlemesi uygulanıyor.
 - Oyunlar sayfası gerçek Steam manifestlerini tarıyor; kurulu olma ile NiiMotion desteğini birbirine karıştırmıyor.
@@ -174,4 +174,8 @@ Move Only yazılım zinciri tamamlandı. Bir sonraki kapı, iki atanmış Move B
 - Yapay zekâ gerektirmeyen Oyun Ekleme Sihirbazı eklendi: kurulu Steam oyunlarını listeliyor, yerel JSON dosyalarındaki SteamVR action yollarını salt-okunur tarıyor, kullanıcı onayından sonra ayrı bir NiiMotion binding'i ve sürücü profil kaydı üretiyor. Oyun dosyalarına dokunulmuyor; sürücü profili ilk değişiklikten önce yedekleniyor. Oyun hız çarpanı gerçek analog çıkış katmanına bağlandı.
 - Oyun kütüphanesi tek seçimli açılır listeye taşındı; oyun sayısı arttıkça kart/scroll üretmiyor. Oyun yalnız profil, temel kalibrasyon, sensörler, Quest/Virtual Desktop ve SteamVR sırasıyla doğrulandıktan sonra açılıyor. Aynı ekranda NiiMotion yürüyüşü açık/kapalı seçilebiliyor. Normal oyunlar otomatik eklenmiyor; VR modlu bir oyun ancak kullanıcı VR zincirini açıkça doğrularsa ekleniyor.
 - Oyun metadata katmanı kapak ve açıklamayı yerel önbelleğe alıyor. Güvenli `NIIRMOTION_IGDB_PROXY_URL` yapılandırıldığında IGDB aracısını önceliklendiriyor, aksi halde Steam mağaza verisine düşüyor; IGDB/Twitch istemci sırrı açık kaynak masaüstü paketine gömülmüyor.
-- Sıradaki fiziksel olmayan iş: segment bazlı kalite/redo; ardından oyun adaptör sözleşmesini ortak şemaya taşıma.
+- Kullanıcı oyun adaptörleri şema 2 ortak sözleşmesine taşındı. Eski düz liste otomatik migrate ediliyor; runtime, mapping sürümü ve geri alınabilirlik doğrulanıyor. OpenXR oyununa yanlış SteamVR action eşlemesi kurulması engelleniyor.
+- Non-HMD regresyon matrisi bütün cihaz envanteri alt kümelerini ve üretilen profilleri; hazır, her zorunlu cihaz eksik, isteğe bağlı el kontrolü ve Normal VR hareket politikası senaryolarıyla otomatik doğruluyor.
+- Bekleyen bozuk kalibrasyon segmenti uygulama kapanıp açılsa da geri geliyor. Başarılı onarım eski kaydı koruyup birleşik kaydı modele uyguluyor.
+- Test ve Kalibrasyon sayfasına kişisel modelleri, cihaz tercihlerini ve oyun ayarlarını sınırlı sayıda sürümlü anlık görüntüyle yedekleyip geri yükleyen merkez eklendi. Geri yükleme öncesi mevcut durum ayrıca saklanıyor.
+- Self-contained Windows paketi korunuyor. Açılış bakımı yalnız yeniden üretilebilir log/metadata önbelleğini ve eski `.tmp` dosyalarını sınırlandırıyor; ham kişisel sensör kayıtlarını silmiyor.

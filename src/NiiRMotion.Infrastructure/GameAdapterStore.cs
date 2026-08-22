@@ -6,6 +6,7 @@ namespace NiiRMotion.Infrastructure;
 
 public sealed class GameAdapterStore
 {
+    private sealed record AdapterDocument(int SchemaVersion, DateTimeOffset UpdatedAtUtc, IReadOnlyList<UserGameAdapter> Adapters);
     private readonly string _root;
     private string ConfigDirectory => Path.Combine(_root, "config");
     private string StorePath => Path.Combine(ConfigDirectory, "game-adapters.json");
@@ -18,7 +19,15 @@ public sealed class GameAdapterStore
 
     public IReadOnlyList<UserGameAdapter> Load()
     {
-        try { return File.Exists(StorePath) ? JsonSerializer.Deserialize<UserGameAdapter[]>(File.ReadAllText(StorePath)) ?? [] : []; }
+        try
+        {
+            if (!File.Exists(StorePath)) return [];
+            var text = File.ReadAllText(StorePath); using var json = JsonDocument.Parse(text);
+            var adapters = json.RootElement.ValueKind == JsonValueKind.Array
+                ? JsonSerializer.Deserialize<UserGameAdapter[]>(text) ?? []
+                : JsonSerializer.Deserialize<AdapterDocument>(text)?.Adapters?.ToArray() ?? [];
+            return adapters.Select(Migrate).ToArray();
+        }
         catch (JsonException) { return []; }
         catch (IOException) { return []; }
     }
@@ -36,7 +45,7 @@ public sealed class GameAdapterStore
         var adapters = Load().Where(x => !x.SteamAppId.Equals(adapter.SteamAppId, StringComparison.OrdinalIgnoreCase)).Append(adapter).ToArray();
         InstallBinding(adapter);
         Directory.CreateDirectory(ConfigDirectory);
-        AtomicWrite(StorePath, JsonSerializer.Serialize(adapters, JsonOptions));
+        WriteStore(adapters);
     }
 
     public bool Remove(string steamAppId)
@@ -44,7 +53,7 @@ public sealed class GameAdapterStore
         var before = Load(); var remaining = before.Where(x => !x.SteamAppId.Equals(steamAppId, StringComparison.OrdinalIgnoreCase)).ToArray();
         if (remaining.Length == before.Count) return false;
         RemoveProfileEntry(steamAppId); var binding = Path.Combine(BindingsDirectory, $"steam.app.{steamAppId}_niirmotion.json"); if (File.Exists(binding)) File.Delete(binding);
-        AtomicWrite(StorePath, JsonSerializer.Serialize(remaining, JsonOptions));
+        WriteStore(remaining);
         if (new GameSelectionStore(ConfigDirectory).Load() == $"user-steam-{steamAppId}") new GameSelectionStore(ConfigDirectory).Save("half-life-alyx");
         return true;
     }
@@ -56,7 +65,7 @@ public sealed class GameAdapterStore
         var safetyCopy = ProfilePath + $".before-restore-{DateTime.Now:yyyyMMdd-HHmmss}.json"; if (File.Exists(ProfilePath)) File.Copy(ProfilePath, safetyCopy, true);
         AtomicWrite(ProfilePath, File.ReadAllText(backup));
         foreach (var adapter in adapters) { var binding = Path.Combine(BindingsDirectory, $"steam.app.{adapter.SteamAppId}_niirmotion.json"); if (File.Exists(binding)) File.Delete(binding); }
-        Directory.CreateDirectory(ConfigDirectory); AtomicWrite(StorePath, "[]"); new GameSelectionStore(ConfigDirectory).Save("half-life-alyx");
+        Directory.CreateDirectory(ConfigDirectory); WriteStore([]); new GameSelectionStore(ConfigDirectory).Save("half-life-alyx");
         return new GameAdapterRestoreResult(adapters.Count, safetyCopy);
     }
 
@@ -103,6 +112,20 @@ public sealed class GameAdapterStore
     {
         var temp = path + ".tmp"; File.WriteAllText(temp, content); File.Move(temp, path, true);
     }
+
+    private void WriteStore(IReadOnlyList<UserGameAdapter> adapters)
+    {
+        Directory.CreateDirectory(ConfigDirectory);
+        AtomicWrite(StorePath, JsonSerializer.Serialize(new AdapterDocument(2, DateTimeOffset.UtcNow, adapters.Select(Migrate).ToArray()), JsonOptions));
+    }
+
+    private static UserGameAdapter Migrate(UserGameAdapter adapter) => adapter with
+    {
+        SchemaVersion = 2,
+        Runtime = string.IsNullOrWhiteSpace(adapter.Runtime) ? "SteamVR" : adapter.Runtime,
+        MappingVersion = string.IsNullOrWhiteSpace(adapter.MappingVersion) ? "user-steamvr-v1" : adapter.MappingVersion,
+        Reversible = true
+    };
 }
 
 public sealed record GameAdapterRestoreResult(int RemovedAdapterCount, string SafetyCopyPath);

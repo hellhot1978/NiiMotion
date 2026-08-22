@@ -16,6 +16,7 @@ public partial class App : Application
         if (!firstInstance) { Shutdown(); return; }
         base.OnStartup(e);
         NiiMotionPaths.Initialize();
+        _ = new WorkspaceMaintenanceService().Run();
         var deviceCalibrationScreenshotArg = e.Args.FirstOrDefault(x => x.StartsWith("--device-calibration-screenshot=", StringComparison.OrdinalIgnoreCase));
         if (deviceCalibrationScreenshotArg is not null)
         {

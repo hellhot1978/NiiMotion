@@ -11,6 +11,7 @@ public partial class DeviceCalibrationWindow : Window
     private static readonly TimeSpan PhaseDuration = TimeSpan.FromMinutes(5);
     private readonly SensorFamily _sensor;
     private readonly UserSetupStore _store = new();
+    private readonly PendingCalibrationRepairStore _repairStore = new();
     private DeviceCalibrationProgress _progress;
     private bool _connected;
     private bool _recording;
@@ -42,6 +43,8 @@ public partial class DeviceCalibrationWindow : Window
     {
         var document = await _store.LoadCalibrationAsync();
         _progress = document.Devices.FirstOrDefault(x => x.Sensor == _sensor) ?? _progress;
+        _pendingResult = _repairStore.Load(_sensor);
+        if (_pendingResult is not null) { _connected = true; RepairSegmentButton.Visibility = Visibility.Visible; ShowPendingRepair(); }
         RefreshPhaseButtons();
     }
 
@@ -86,6 +89,7 @@ public partial class DeviceCalibrationWindow : Window
             if (!result.Quality.IsClean)
             {
                 _pendingResult = result; RepairSegmentButton.Visibility = Visibility.Visible;
+                _repairStore.Save(result);
                 ShowPendingRepair();
             }
             else await CompleteCleanPhaseAsync(result);
@@ -106,6 +110,7 @@ public partial class DeviceCalibrationWindow : Window
         {
             var repair = await new GuidedCalibrationRecorder().RecordAsync(_sensor, _pendingResult.Phase, duration, progress, "segment-repair");
             _pendingResult = await new CalibrationSegmentRepairService().ReplaceAsync(_pendingResult, segment, repair);
+            _repairStore.Save(_pendingResult);
             if (_pendingResult.Quality.IsClean) await CompleteCleanPhaseAsync(_pendingResult);
             else ShowPendingRepair();
         }
@@ -134,6 +139,7 @@ public partial class DeviceCalibrationWindow : Window
             ? $"✓ Faz {result.Phase} tamamlandı · {result.TotalSamples:N0} örnek · kalite %{result.Quality.Score * 100:0} · kişisel profil oyuna uygulandı."
             : $"✓ Faz {result.Phase} tamamlandı · {result.TotalSamples:N0} örnek · kalite %{result.Quality.Score * 100:0}.";
         _pendingResult = null; RepairSegmentButton.Visibility = Visibility.Collapsed;
+        _repairStore.Clear();
     }
 
     private async Task SaveProgressAsync(int completed, CalibrationStage stage)
@@ -153,6 +159,7 @@ public partial class DeviceCalibrationWindow : Window
         try
         {
             new CalibrationDataManager().DeleteDevicePhases(_sensor, phase);
+            _repairStore.Clear(); _pendingResult = null; RepairSegmentButton.Visibility = Visibility.Collapsed;
             var completed = phase - 1;
             var stage = completed switch { 0 => CalibrationStage.ConnectionReady, 1 => CalibrationStage.Phase1, _ => CalibrationStage.Phase2 };
             _progress = new(_sensor, stage, completed, DateTimeOffset.UtcNow);

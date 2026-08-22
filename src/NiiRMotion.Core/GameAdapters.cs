@@ -8,7 +8,13 @@ public sealed record UserGameAdapter(
     string MovementAction,
     string? ActivationAction,
     double SpeedMultiplier,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt)
+{
+    public int SchemaVersion { get; init; } = 2;
+    public string Runtime { get; init; } = "SteamVR";
+    public string MappingVersion { get; init; } = "user-steamvr-v1";
+    public bool Reversible { get; init; } = true;
+}
 
 public static class GameAdapterValidator
 {
@@ -21,6 +27,9 @@ public static class GameAdapterValidator
         if (!ValidAction(adapter.MovementAction)) errors.Add("Analog hareket action'ı /actions/... biçiminde olmalı.");
         if (!string.IsNullOrWhiteSpace(adapter.ActivationAction) && !ValidAction(adapter.ActivationAction)) errors.Add("Koşma/yürüme action'ı /actions/... biçiminde olmalı.");
         if (adapter.SpeedMultiplier is < 0.25 or > 3.0) errors.Add("Hız çarpanı 0,25 ile 3,00 arasında olmalı.");
+        if (adapter.SchemaVersion != 2) errors.Add("Desteklenmeyen oyun adaptörü sürümü.");
+        if (!adapter.Runtime.Equals("SteamVR", StringComparison.OrdinalIgnoreCase)) errors.Add("Otomatik eşleme şu anda yalnız doğrulanmış SteamVR action oyunlarında kullanılabilir.");
+        if (!adapter.Reversible) errors.Add("Geri alınamayan oyun eşlemesi kurulamaz.");
         return errors;
     }
 
