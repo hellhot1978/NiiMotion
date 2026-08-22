@@ -177,6 +177,34 @@ public sealed class PsMoveDiagnosticsService
         }
     }
 
+    public async Task ShowControllerColorAsync(
+        string stableId,
+        LegSide side,
+        TimeSpan duration,
+        CancellationToken cancellationToken = default)
+    {
+        var probe = Discover()
+            .Where(x => x.SensorReportsPossible)
+            .SingleOrDefault(x => string.Equals(x.Device.StableId, stableId, StringComparison.OrdinalIgnoreCase));
+        if (probe is null) throw new InvalidOperationException("Tanıtılan PS Move Bluetooth üzerinden bulunamadı.");
+
+        await using var stream = OpenOutput(probe);
+        var color = side == LegSide.Left
+            ? PsMoveZcm1OutputReport.CreateLed(255, 0, 0, probe.OutputReportBytes)
+            : PsMoveZcm1OutputReport.CreateLed(0, 80, 255, probe.OutputReportBytes);
+        var off = PsMoveZcm1OutputReport.CreateLed(0, 0, 0, probe.OutputReportBytes);
+        var until = DateTimeOffset.UtcNow + duration;
+        try
+        {
+            while (DateTimeOffset.UtcNow < until)
+            {
+                await stream.WriteAsync(color, cancellationToken);
+                await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
+            }
+        }
+        finally { await stream.WriteAsync(off, CancellationToken.None); }
+    }
+
     public async Task<IReadOnlyList<PsMoveCalibratedHealth>> CaptureCalibratedHealthAsync(
         IReadOnlyList<StoredPsMoveCalibration> storedCalibrations,
         TimeSpan duration,

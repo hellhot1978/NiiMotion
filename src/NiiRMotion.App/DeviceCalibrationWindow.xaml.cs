@@ -221,7 +221,7 @@ public partial class DeviceCalibrationWindow : Window
     private string SetupHelp() => _sensor switch
     {
         SensorFamily.JoyCon => "1. İki Joy-Con'u Windows Bluetooth'a bağla.\n2. Solu sol, sağı sağ uyluğa; kalça ile diz arasına sabitle.\n3. Düğmeler dışa, analog çubuklar yukarı baksın.",
-        SensorFamily.PsMove => "1. İlk kullanımda sol/sağ tanıtma ve USB fabrika kalibrasyonunu tamamla.\n2. Bluetooth ile bağla.\n3. Küre yukarı bakacak şekilde diz altına/baldıra sabitle.",
+        SensorFamily.PsMove => "1. Sol Move'u tek başına USB ile bağla; NiiMotion eşleştirip kırmızı atar.\n2. Aynı işlemi sağ Move için yap; otomatik mavi atanır.\n3. Kabloları çıkarıp Move düğmelerine bas, sonra küre yukarı bakacak şekilde diz altına/baldıra sabitle.",
         SensorFamily.Phone => "1. Android telefona owoTrack kur ve aç.\n2. Telefon ile bilgisayarı aynı ağa bağla.\n3. Göğüste yatay; ekran sana, üst kenar sola bakacak şekilde sabitle.",
         _ => "1. Windows Bluetooth'tan Nintendo RVL-WBC-01 olarak eşleştir.\n2. Gerekirse karttaki SYNC ve güç düğmesini kullan.\n3. İlk kontrol sırasında kart boş ve düz zeminde olsun."
     };

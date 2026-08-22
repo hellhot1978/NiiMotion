@@ -10,10 +10,12 @@ namespace NiiRMotion.App;
 public partial class App : Application
 {
     private Mutex? _singleInstanceMutex;
+    private bool _ownsSingleInstanceMutex;
     protected override void OnStartup(StartupEventArgs e)
     {
         _singleInstanceMutex = new Mutex(true, @"Local\NiiMotion.App.Singleton", out var firstInstance);
-        if (!firstInstance) { Shutdown(); return; }
+        _ownsSingleInstanceMutex = firstInstance;
+        if (!firstInstance) { _singleInstanceMutex.Dispose(); _singleInstanceMutex = null; Shutdown(); return; }
         base.OnStartup(e);
         NiiMotionPaths.Initialize();
         _ = new WorkspaceMaintenanceService().Run();
@@ -46,7 +48,8 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
-        _singleInstanceMutex?.ReleaseMutex(); _singleInstanceMutex?.Dispose(); _singleInstanceMutex = null;
+        if (_ownsSingleInstanceMutex) _singleInstanceMutex?.ReleaseMutex();
+        _singleInstanceMutex?.Dispose(); _singleInstanceMutex = null; _ownsSingleInstanceMutex = false;
         base.OnExit(e);
     }
 
