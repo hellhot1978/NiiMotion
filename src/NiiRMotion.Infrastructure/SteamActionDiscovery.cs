@@ -7,6 +7,8 @@ public sealed record SteamActionCandidate(string ActionSet, string Path)
 {
     public override string ToString() => Path;
 }
+public enum VrInputRuntime { SteamVrActions, OpenXr, Unknown }
+public sealed record SteamInputInspection(VrInputRuntime Runtime, IReadOnlyList<SteamActionCandidate> Actions, string Message);
 
 public sealed class SteamActionDiscovery
 {
@@ -35,6 +37,15 @@ public sealed class SteamActionDiscovery
             .OrderByDescending(x => IsLikelyMovement(x.Path)).ThenBy(x => x.Path).ToArray();
     }
 
+    public SteamInputInspection Inspect(string installPath)
+    {
+        var actions = Discover(installPath);
+        if (actions.Count > 0) return new SteamInputInspection(VrInputRuntime.SteamVrActions, actions, $"{actions.Count} SteamVR girdisi bulundu.");
+        if (ContainsFile(installPath, "openxr_loader.dll") || ContainsFile(installPath, "OVRPlugin.dll"))
+            return new SteamInputInspection(VrInputRuntime.OpenXr, actions, "Bu oyun OpenXR kullanıyor; SteamVR action dosyası bulunmaması normal. Genel eşleme yerine oyuna özel OpenXR adaptörü gerekir.");
+        return new SteamInputInspection(VrInputRuntime.Unknown, actions, "Desteklenen SteamVR action dosyası bulunamadı. Girdi sistemi doğrulanmadan eşleme oluşturulamaz.");
+    }
+
     private static bool Relevant(string path)
     {
         var name = Path.GetFileName(path);
@@ -47,4 +58,10 @@ public sealed class SteamActionDiscovery
         if (element.ValueKind == JsonValueKind.Object) foreach (var property in element.EnumerateObject()) { if (ActionPath.IsMatch(property.Name)) found.Add(property.Name); Collect(property.Value, found); }
     }
     private static bool IsLikelyMovement(string value) => new[] { "move", "walk", "locomotion", "axis0", "joystick" }.Any(x => value.Contains(x, StringComparison.OrdinalIgnoreCase));
+    private static bool ContainsFile(string root, string fileName)
+    {
+        try { return Directory.Exists(root) && Directory.EnumerateFiles(root, fileName, SearchOption.AllDirectories).Take(1).Any(); }
+        catch (UnauthorizedAccessException) { return false; }
+        catch (IOException) { return false; }
+    }
 }

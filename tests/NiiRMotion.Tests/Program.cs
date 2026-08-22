@@ -228,6 +228,8 @@ static void SteamActionDiscoveryTest()
         Assert(actions.Count == 2, "Steam action paths were not discovered.");
         Assert(actions[0].Path.EndsWith("/move", StringComparison.OrdinalIgnoreCase), "Movement candidate was not prioritized.");
         Assert(actions[0].ActionSet == "/actions/main", "Action set was not derived correctly.");
+        File.Delete(Path.Combine(root, "actions.json")); var runtime = Path.Combine(root, "Engine", "Binaries"); Directory.CreateDirectory(runtime); File.WriteAllBytes(Path.Combine(runtime, "openxr_loader.dll"), [1]);
+        var inspection = new SteamActionDiscovery().Inspect(root); Assert(inspection.Runtime == VrInputRuntime.OpenXr && inspection.Actions.Count == 0, "OpenXR-only game was misreported as a missing SteamVR action game.");
     }
     finally { Directory.Delete(root, true); }
 }

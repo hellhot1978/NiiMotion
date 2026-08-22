@@ -60,7 +60,7 @@ public sealed class SteamGameCatalog
 
 public sealed record SteamAppCandidate(string AppId, string Name, string InstallPath)
 {
-    public override string ToString() => $"{Name}  ·  {AppId}";
+    public override string ToString() => Name;
 }
 
 public sealed class GameSelectionStore

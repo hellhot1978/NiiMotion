@@ -318,11 +318,11 @@ public partial class MainWindow : Window
         var root = new Grid { Margin = new Thickness(28) }; root.RowDefinitions.Add(new RowDefinition()); root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         var body = new StackPanel();
         body.Children.Add(Label("Oyun Ekleme Sihirbazı", "#F5F8FA", 25, FontWeights.SemiBold));
-        body.Children.Add(Label("1  Oyunu seç   →   2  Action'ları tara   →   3  Eşlemeyi doğrula", "#55DDB8", 11, FontWeights.SemiBold, new Thickness(0, 5, 0, 18)));
+        body.Children.Add(Label("1  Oyunu seç   →   2  Girdileri tara   →   3  Eşlemeyi doğrula", "#55DDB8", 11, FontWeights.SemiBold, new Thickness(0, 5, 0, 18)));
         body.Children.Add(Label("KURULU STEAM OYUNU", "#4ABCF4", 9, FontWeights.Bold));
         var game = new ComboBox { ItemsSource = candidates, SelectedIndex = candidates.Count > 0 ? 0 : -1, Height = 38, Margin = new Thickness(0, 6, 0, 15) }; body.Children.Add(game);
         var scan = new Button { Content = "OYUN GİRDİLERİNİ TARA", Height = 40, Margin = new Thickness(0, 0, 0, 17) }; body.Children.Add(scan);
-        body.Children.Add(Label("İLERİ HAREKET ACTION'I", "#4ABCF4", 9, FontWeights.Bold));
+        body.Children.Add(Label("İLERİ HAREKET GİRDİSİ", "#4ABCF4", 9, FontWeights.Bold));
         var movement = new ComboBox { IsEditable = true, Height = 38, Margin = new Thickness(0, 6, 0, 4) }; body.Children.Add(movement);
         var discoveryStatus = Label("Tarama, oyunun yerel SteamVR action dosyalarını okur; hiçbir oyun dosyasını değiştirmez.", "#8FA1AD", 9, FontWeights.Normal, new Thickness(0, 0, 0, 14)); body.Children.Add(discoveryStatus);
         body.Children.Add(Label("KOŞMA DÜĞMESİ  ·  İSTEĞE BAĞLI", "#4ABCF4", 9, FontWeights.Bold));
@@ -332,19 +332,20 @@ public partial class MainWindow : Window
         var speedLine = new Grid { Margin = new Thickness(0, 6, 0, 14) }; speedLine.ColumnDefinitions.Add(new ColumnDefinition()); speedLine.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });
         var speed = new Slider { Minimum = .25, Maximum = 3, Value = 1, TickFrequency = .05, IsSnapToTickEnabled = true, VerticalAlignment = VerticalAlignment.Center };
         var speedValue = Label("1,00×", "#55DDB8", 13, FontWeights.Bold); speed.ValueChanged += (_, _) => speedValue.Text = $"{speed.Value:0.00}×"; speedLine.Children.Add(speed); Grid.SetColumn(speedValue, 1); speedLine.Children.Add(speedValue); body.Children.Add(speedLine);
-        var vrConfirmed = new CheckBox { Content = "Bu oyun SteamVR/OpenXR kullanıyor veya çalışan bir VR modu kurulu", Foreground = Brush("#E8F0F5"), Margin = new Thickness(0, 0, 0, 12), FontWeight = FontWeights.SemiBold }; body.Children.Add(vrConfirmed);
+        var vrConfirmed = new CheckBox { Content = "Bu oyun SteamVR action sistemi kullanıyor veya bu sistemi sağlayan bir VR modu kurulu", Foreground = Brush("#E8F0F5"), Margin = new Thickness(0, 0, 0, 12), FontWeight = FontWeights.SemiBold }; body.Children.Add(vrConfirmed);
         var safety = new Border { Background = Brush("#0D1820"), BorderBrush = Brush("#29404D"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(7), Padding = new Thickness(13) };
         safety.Child = Label("GÜVENLİ KURULUM · Oyun dosyaları değiştirilmez. NiiMotion eşlemesi ayrı oluşturulur; mevcut sürücü profili ilk değişiklikten önce yedeklenir.", "#A9BBC5", 10, FontWeights.Normal); body.Children.Add(safety); root.Children.Add(body);
         var footer = new Grid { Margin = new Thickness(0, 20, 0, 0) }; footer.ColumnDefinitions.Add(new ColumnDefinition()); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(10) }); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var cancel = new Button { Content = "VAZGEÇ", Padding = new Thickness(20, 10, 20, 10) }; cancel.Click += (_, _) => window.Close(); Grid.SetColumn(cancel, 1); footer.Children.Add(cancel);
-        var save = new Button { Content = "EŞLEMEYİ OLUŞTUR", Padding = new Thickness(22, 10, 22, 10) }; Grid.SetColumn(save, 3); footer.Children.Add(save); Grid.SetRow(footer, 1); root.Children.Add(footer);
+        var save = new Button { Content = "EŞLEMEYİ OLUŞTUR", IsEnabled = false, Padding = new Thickness(22, 10, 22, 10) }; Grid.SetColumn(save, 3); footer.Children.Add(save); Grid.SetRow(footer, 1); root.Children.Add(footer);
+        game.SelectionChanged += (_, _) => { movement.ItemsSource = null; movement.Text = ""; activation.ItemsSource = null; activation.Text = ""; save.IsEnabled = false; discoveryStatus.Text = "Önce oyun girdilerini tara."; discoveryStatus.Foreground = Brush("#8FA1AD"); };
         scan.Click += (_, _) =>
         {
             if (game.SelectedItem is not SteamAppCandidate selected) return;
-            var actions = new SteamActionDiscovery().Discover(selected.InstallPath); movement.ItemsSource = actions; movement.SelectedIndex = actions.Count > 0 ? 0 : -1;
+            var inspection = new SteamActionDiscovery().Inspect(selected.InstallPath); var actions = inspection.Actions; movement.ItemsSource = actions; movement.SelectedIndex = actions.Count > 0 ? 0 : -1;
             var runActions = actions.Where(x => new[] { "run", "sprint", "walk", "press", "click" }.Any(term => x.Path.Contains(term, StringComparison.OrdinalIgnoreCase))).ToArray(); activation.ItemsSource = runActions; activation.SelectedIndex = runActions.Length > 0 ? 0 : -1;
-            discoveryStatus.Text = actions.Count > 0 ? $"{actions.Count} action bulundu. En olası hareket girdileri listenin başına getirildi; seçimi kontrol et." : "Action bulunamadı. Oyunun SteamVR bağlama ekranındaki /actions/.../in/... yolunu elle girebilirsin.";
-            discoveryStatus.Foreground = Brush(actions.Count > 0 ? "#55DDB8" : "#F1C566");
+            discoveryStatus.Text = inspection.Message; discoveryStatus.Foreground = Brush(actions.Count > 0 ? "#55DDB8" : inspection.Runtime == VrInputRuntime.OpenXr ? "#F1C566" : "#FF8AA5");
+            save.IsEnabled = actions.Count > 0;
         };
         save.Click += async (_, _) =>
         {
