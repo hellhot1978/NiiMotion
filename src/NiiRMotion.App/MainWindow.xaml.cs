@@ -284,14 +284,25 @@ public partial class MainWindow : Window
         walkingButton.Click += (_, _) => OpenWalkingCalibrationForInventory(); Grid.SetColumn(walkingButton, 1); walkingGrid.Children.Add(walkingButton); walking.Child = walkingGrid; root.Children.Add(walking);
 
         var advanced = new Border { Background = Brush("#09121A"), BorderBrush = Brush("#1F303C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(18) };
-        var advancedGrid = new Grid(); advancedGrid.ColumnDefinitions.Add(new ColumnDefinition()); advancedGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(380) });
+        var advancedGrid = new Grid(); advancedGrid.ColumnDefinitions.Add(new ColumnDefinition()); advancedGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(520) });
         var advancedText = new StackPanel(); advancedText.Children.Add(Label("İSTEĞE BAĞLI · İLERİ SEVİYE", "#8AA0AF", 9, FontWeights.Bold)); advancedText.Children.Add(Label("Modeli yeni kayıtlarla geliştir", "#F4F7FA", 17, FontWeights.SemiBold, new Thickness(0, 7, 0, 4)));
-        advancedText.Children.Add(Label("Temel kalibrasyondan ayrıdır. Cihazların zaten kullanılabilir durumdaysa ek kayıtlarla kişisel modeli zaman içinde güçlendirir.", "#94A1AD", 11, FontWeights.Normal)); advancedGrid.Children.Add(advancedText);
+        advancedText.Children.Add(Label("Temel kalibrasyondan ayrıdır. Sahip olduğun cihazları tek başına veya birlikte kaydederek kişisel modeli zaman içinde güçlendirir.", "#94A1AD", 11, FontWeights.Normal)); advancedGrid.Children.Add(advancedText);
         var advancedChoices = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
-        foreach (var sensor in selected)
+        var combinations = _profileRecommendations
+            .Where(x => x.Profile.LocomotionAllowed)
+            .Select(x => new { x.Profile, Sensors = ProfileSensors(x.Profile).Distinct().OrderBy(s => s).ToArray() })
+            .Where(x => x.Sensors.Length > 0 && x.Sensors.All(selected.Contains))
+            .GroupBy(x => string.Join("-", x.Sensors))
+            .Select(x => x.First())
+            .OrderBy(x => x.Sensors.Length)
+            .ThenBy(x => x.Profile.Name)
+            .ToArray();
+        foreach (var combination in combinations)
         {
-            var choice = new Button { Content = SensorDisplayName(sensor), Margin = new Thickness(6, 3, 0, 3), Padding = new Thickness(13, 9, 13, 9) };
-            choice.Click += (_, _) => OpenAdvancedTraining(sensor); advancedChoices.Children.Add(choice);
+            var ready = combination.Sensors.All(x => progress.Devices.FirstOrDefault(p => p.Sensor == x)?.IsReady == true);
+            var choice = new Button { Content = string.Join(" + ", combination.Sensors.Select(SensorDisplayName)), IsEnabled = ready, ToolTip = ready ? "Bu kombinasyonla yeni 5 dakikalık kayıt ekle" : "Önce bu cihazların temel kalibrasyonlarını tamamla", Margin = new Thickness(6, 3, 0, 3), Padding = new Thickness(13, 9, 13, 9) };
+            var profile = combination.Profile; var sensors = combination.Sensors;
+            choice.Click += (_, _) => OpenAdvancedTraining(profile, sensors); advancedChoices.Children.Add(choice);
         }
         Grid.SetColumn(advancedChoices, 1); advancedGrid.Children.Add(advancedChoices); advanced.Child = advancedGrid; root.Children.Add(advanced);
     }
@@ -356,17 +367,12 @@ public partial class MainWindow : Window
         if (profile.Required.Contains(DeviceKind.BalanceBoard)) yield return SensorFamily.BalanceBoard;
     }
 
-    private async void OpenAdvancedTraining(SensorFamily sensor)
+    private async void OpenAdvancedTraining(MotionProfile profile, SensorFamily[] sensors)
     {
-        if (sensor == SensorFamily.JoyCon) new GaitLabWindow { Owner = this }.ShowDialog();
-        else if (sensor == SensorFamily.PsMove) new PsMoveLabWindow { Owner = this }.ShowDialog();
-        else if (sensor == SensorFamily.Phone)
-        {
-            var resume = _phoneMonitor is not null; await StopPhoneMonitorAsync();
-            try { new PhoneLabWindow { Owner = this }.ShowDialog(); }
-            finally { if (resume || ProfileUsesPhone()) try { await EnsurePhoneMonitorAsync(); } catch { } }
-        }
-        else new BoardLabWindow { Owner = this }.ShowDialog();
+        var resume = sensors.Contains(SensorFamily.Phone) && _phoneMonitor is not null;
+        if (sensors.Contains(SensorFamily.Phone)) await StopPhoneMonitorAsync();
+        try { new AdvancedTrainingWindow(profile, sensors) { Owner = this }.ShowDialog(); }
+        finally { if (resume || ProfileUsesPhone()) try { await EnsurePhoneMonitorAsync(); } catch { } }
     }
     private void ShowPage(UIElement page, string title, string subtitle, Button selectedNav)
     {
