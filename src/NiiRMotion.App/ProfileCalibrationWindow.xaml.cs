@@ -36,6 +36,8 @@ public partial class ProfileCalibrationWindow : Window
             catch { linked.Cancel(); try { await Task.WhenAll(tasks); } catch { } throw; }
             await File.WriteAllTextAsync(Path.Combine(sessionRoot, "profile-manifest.json"), System.Text.Json.JsonSerializer.Serialize(new { version = 1, profile = _profile.Id, phase, sensors = _sensors, results = results.Select(x => new { x.Sensor, x.TotalSamples, x.Folder }), completedAtUtc = DateTimeOffset.UtcNow }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
             _completed = phase; await SaveAsync(); InstructionText.Text = $"✓ Faz {phase} tamamlandı · {results.Sum(x => x.TotalSamples):N0} eşzamanlı örnek.";
+            var analysis = await new OfflineCalibrationPipeline().ApplyAvailableAsync();
+            if (analysis.UpdatedProfiles.Count > 0) InstructionText.Text += $" Profiller yenilendi: {string.Join(", ", analysis.UpdatedProfiles)}.";
         }
         catch (Exception ex)
         {

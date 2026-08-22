@@ -36,7 +36,9 @@ public partial class AdvancedTrainingWindow : Window
             try { results = await Task.WhenAll(tasks); }
             catch { linked.Cancel(); try { await Task.WhenAll(tasks); } catch { } throw; }
             await File.WriteAllTextAsync(Path.Combine(root, "training-manifest.json"), JsonSerializer.Serialize(new { version = 1, profile = _profile.Id, sensors = _sensors, results = results.Select(x => new { x.Sensor, x.TotalSamples, x.Folder }), completedAtUtc = DateTimeOffset.UtcNow }, new JsonSerializerOptions { WriteIndented = true }));
-            InstructionText.Text = $"✓ Kayıt tamamlandı · {results.Sum(x => x.TotalSamples):N0} eşzamanlı örnek kişisel veri havuzuna eklendi.";
+            var analysis = await new OfflineCalibrationPipeline().ApplyAvailableAsync();
+            InstructionText.Text = $"✓ Kayıt tamamlandı · {results.Sum(x => x.TotalSamples):N0} eşzamanlı örnek analiz edildi."
+                + (analysis.UpdatedProfiles.Count > 0 ? $" Oyuna uygulanan profiller: {string.Join(", ", analysis.UpdatedProfiles)}." : " Temel üç faz tamamlandığında otomatik uygulanacak.");
             StartButton.Content = "✓ YENİ KAYIT EKLENDİ";
         }
         catch (Exception ex)

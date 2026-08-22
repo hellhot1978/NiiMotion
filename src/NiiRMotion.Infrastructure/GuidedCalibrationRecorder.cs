@@ -22,7 +22,8 @@ public sealed class GuidedCalibrationRecorder
         string? sessionRoot = null,
         CancellationToken cancellationToken = default)
     {
-        if (phase is < 1 or > 3) throw new ArgumentOutOfRangeException(nameof(phase));
+        // Phase 0 is reserved for optional post-calibration combination training.
+        if (phase is < 0 or > 3) throw new ArgumentOutOfRangeException(nameof(phase));
         var folder = sessionRoot is null
             ? Path.Combine(NiiMotionPaths.Data, "calibration", sensor.ToString().ToLowerInvariant(), $"phase-{phase}-{DateTime.Now:yyyyMMdd-HHmmss}")
             : Path.Combine(sessionRoot, sensor.ToString().ToLowerInvariant());

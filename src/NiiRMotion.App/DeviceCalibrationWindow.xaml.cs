@@ -82,7 +82,11 @@ public partial class DeviceCalibrationWindow : Window
         {
             var result = await new GuidedCalibrationRecorder().RecordAsync(_sensor, phase, PhaseDuration, progress);
             await SaveProgressAsync(phase, phase == 3 ? CalibrationStage.Ready : (CalibrationStage)((int)CalibrationStage.Phase1 + phase - 1));
-            InstructionText.Text = $"✓ Faz {phase} tamamlandı · {result.TotalSamples:N0} örnek güvenle kaydedildi.";
+            var analysis = await new OfflineCalibrationPipeline().ApplyAvailableAsync();
+            var applied = analysis.UpdatedProfiles.Contains(DisplayName(_sensor));
+            InstructionText.Text = applied
+                ? $"✓ Faz {phase} tamamlandı · {result.TotalSamples:N0} örnek analiz edildi ve kişisel profil oyuna uygulandı."
+                : $"✓ Faz {phase} tamamlandı · {result.TotalSamples:N0} örnek güvenle kaydedildi.";
         }
         catch (Exception ex) { InstructionText.Text = $"Faz tamamlanmadı: {ex.GetBaseException().Message}"; }
         finally { _recording = false; PhaseProgress.Value = 0; TimerText.Text = "00:00 / 05:00"; RefreshPhaseButtons(); }
@@ -93,7 +97,7 @@ public partial class DeviceCalibrationWindow : Window
         _progress = new(_sensor, stage, completed, DateTimeOffset.UtcNow);
         var document = await _store.LoadCalibrationAsync();
         var devices = document.Devices.Where(x => x.Sensor != _sensor).Append(_progress).OrderBy(x => x.Sensor).ToArray();
-        await _store.SaveCalibrationAsync(new(1, devices));
+        await _store.SaveCalibrationAsync(new(1, devices, document.Profiles));
     }
 
     private void RefreshPhaseButtons()
@@ -132,6 +136,8 @@ public partial class DeviceCalibrationWindow : Window
         (2, _) => "FAZ 2 · Doğal hızda yerinde yürü; kısa duruşlar ve yeniden başlangıçlar yap.",
         _ => "FAZ 3 · Yavaş, doğal ve hızlı yürüyüşü; dönüş, eğilme ve sabit duruşları sırayla uygula."
     };
+
+    private static string DisplayName(SensorFamily sensor) => sensor switch { SensorFamily.JoyCon => "Joy-Con", SensorFamily.PsMove => "PS Move", SensorFamily.Phone => "Telefon", _ => "Balance Board" };
 
     private void CloseClick(object sender, RoutedEventArgs e) => Close();
 }
