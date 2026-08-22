@@ -19,22 +19,22 @@ public sealed class OfflineCalibrationPipeline
         var counts = new Dictionary<string, long>();
         var captures = FindCompletedCaptures();
 
-        if (TryBuildJoyCon(captures, out var gait, out var joyCount))
+        if (HasCompleteBase(captures, SensorFamily.JoyCon) && TryBuildJoyCon(captures, out var gait, out var joyCount))
         {
             await WriteAtomicAsync(Path.Combine(NiiMotionPaths.Config, "personal-gait-pace.json"), gait, token);
             updated.Add("Joy-Con"); counts["Joy-Con"] = joyCount;
         }
-        if (TryBuildPhone(captures, out var phone, out var phoneCount))
+        if (HasCompleteBase(captures, SensorFamily.Phone) && TryBuildPhone(captures, out var phone, out var phoneCount))
         {
             await WriteAtomicAsync(Path.Combine(NiiMotionPaths.Config, "personal-phone-motion.json"), phone, token);
             updated.Add("Telefon"); counts["Telefon"] = phoneCount;
         }
-        if (TryBuildBoard(captures, out var board, out var boardCount))
+        if (HasCompleteBase(captures, SensorFamily.BalanceBoard) && TryBuildBoard(captures, out var board, out var boardCount))
         {
             await WriteAtomicAsync(Path.Combine(NiiMotionPaths.Config, "personal-board-motion.json"), board, token);
             updated.Add("Balance Board"); counts["Balance Board"] = boardCount;
         }
-        if (TryBuildPsMove(captures, out var move, out var moveCount))
+        if (HasCompleteBase(captures, SensorFamily.PsMove) && TryBuildPsMove(captures, out var move, out var moveCount))
         {
             await WriteAtomicAsync(NiiMotionPaths.PsMoveTrainingProfile, move, token);
             updated.Add("PS Move"); counts["PS Move"] = moveCount;
@@ -56,15 +56,19 @@ public sealed class OfflineCalibrationPipeline
                 using var document = JsonDocument.Parse(File.ReadAllText(manifest));
                 var root = document.RootElement;
                 if (!TryEnum(root, "sensor", out SensorFamily sensor) || !TryInt(root, "phase", out var phase)) continue;
+                var purpose = root.TryGetProperty("purpose", out var purposeValue) ? purposeValue.GetString() ?? "" : "";
                 var folder = Path.GetDirectoryName(manifest)!;
                 if (!ExpectedFiles(sensor).All(name => File.Exists(Path.Combine(folder, name)))) continue;
-                captures.Add(new(sensor, phase, folder));
+                captures.Add(new(sensor, phase, purpose, folder));
             }
             catch (JsonException) { }
             catch (IOException) { }
         }
         return captures.ToArray();
     }
+
+    private static bool HasCompleteBase(IEnumerable<Capture> captures, SensorFamily sensor) => Enumerable.Range(1, 3)
+        .All(phase => captures.Any(x => x.Sensor == sensor && x.Phase == phase && x.Purpose.Equals("base-calibration", StringComparison.OrdinalIgnoreCase)));
 
     private static bool TryBuildJoyCon(IEnumerable<Capture> captures, out PersonalGaitPace profile, out long count)
     {
@@ -185,5 +189,5 @@ public sealed class OfflineCalibrationPipeline
         await File.WriteAllTextAsync(temporary, content, token);
         File.Move(temporary, path, true);
     }
-    private sealed record Capture(SensorFamily Sensor, int Phase, string Folder);
+    private sealed record Capture(SensorFamily Sensor, int Phase, string Purpose, string Folder);
 }

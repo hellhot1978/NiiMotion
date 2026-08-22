@@ -101,15 +101,43 @@ public partial class DeviceCalibrationWindow : Window
         await _store.SaveCalibrationAsync(new(1, devices, document.Profiles));
     }
 
+    private async void ResetPhaseClick(object sender, RoutedEventArgs e)
+    {
+        if (_recording || sender is not Button button || !int.TryParse(button.Tag?.ToString(), out var phase) || _progress.CompletedPhases < phase) return;
+        var consequence = phase < 3 ? $"Faz {phase} ve sonraki tamamlanmış fazlar silinecek." : "Yalnız Faz 3 silinecek.";
+        if (MessageBox.Show($"Bu fazı yeniden kaydetmek istiyor musun?\n\n{consequence}\nEk model geliştirme kayıtların korunacak.", "Fazı yeniden çek", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        _recording = true; RefreshPhaseButtons();
+        try
+        {
+            new CalibrationDataManager().DeleteDevicePhases(_sensor, phase);
+            var completed = phase - 1;
+            var stage = completed switch { 0 => CalibrationStage.ConnectionReady, 1 => CalibrationStage.Phase1, _ => CalibrationStage.Phase2 };
+            _progress = new(_sensor, stage, completed, DateTimeOffset.UtcNow);
+            var document = await _store.LoadCalibrationAsync();
+            var devices = document.Devices.Where(x => x.Sensor != _sensor).Append(_progress).OrderBy(x => x.Sensor).ToArray();
+            await _store.SaveCalibrationAsync(new(1, devices, Array.Empty<ProfileCalibrationProgress>()));
+            await new OfflineCalibrationPipeline().ApplyAvailableAsync();
+            InstructionText.Text = $"↻ Faz {phase} yeniden kayda açıldı. Bu cihazı kullanan birlikte-kalibrasyonlar güvenlik için sıfırlandı.";
+            ConnectionText.Text = "✓ Bağlantı hazır · yeniden kayıt bekleniyor"; ConnectionText.Foreground = MainWindow.Brush("#F1C566"); _connected = true;
+        }
+        catch (Exception ex) { InstructionText.Text = "Faz silinemedi: " + ex.GetBaseException().Message; }
+        finally { _recording = false; RefreshPhaseButtons(); }
+    }
+
     private void RefreshPhaseButtons()
     {
         var buttons = new[] { Phase1Button, Phase2Button, Phase3Button };
+        var resetButtons = new[] { Phase1ResetButton, Phase2ResetButton, Phase3ResetButton };
         for (var i = 0; i < buttons.Length; i++)
         {
             var phase = i + 1; var done = _progress.CompletedPhases >= phase; var next = _connected && _progress.CompletedPhases + 1 == phase;
             buttons[i].Content = done ? $"✓  FAZ {phase} TAMAMLANDI" : next ? $"▶  FAZ {phase}'Ü BAŞLAT · 5 DK" : $"○  FAZ {phase} · 5 DK";
             buttons[i].IsEnabled = !_recording && next;
             buttons[i].Background = MainWindow.Brush(done ? "#143A31" : next ? "#0F77B6" : "#101820");
+            resetButtons[i].Visibility = done ? Visibility.Visible : Visibility.Hidden;
+            resetButtons[i].IsEnabled = !_recording && done;
+            resetButtons[i].Background = MainWindow.Brush(done ? "#39242A" : "#101820");
+            resetButtons[i].Foreground = MainWindow.Brush("#FF9AAF");
         }
         if (_progress.IsReady) { ConnectionText.Text = "✓ Kalibre edildi ve kullanıma hazır"; ConnectionText.Foreground = MainWindow.Brush("#55DDB8"); _connected = true; }
     }
