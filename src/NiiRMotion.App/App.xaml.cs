@@ -16,6 +16,20 @@ public partial class App : Application
         if (!firstInstance) { Shutdown(); return; }
         base.OnStartup(e);
         NiiMotionPaths.Initialize();
+        var deviceCalibrationScreenshotArg = e.Args.FirstOrDefault(x => x.StartsWith("--device-calibration-screenshot=", StringComparison.OrdinalIgnoreCase));
+        if (deviceCalibrationScreenshotArg is not null)
+        {
+            var raw = deviceCalibrationScreenshotArg[(deviceCalibrationScreenshotArg.IndexOf('=') + 1)..].Split('|', 2);
+            if (!Enum.TryParse<NiiRMotion.Core.SensorFamily>(raw[0], true, out var sensor)) sensor = NiiRMotion.Core.SensorFamily.JoyCon;
+            var calibrationWindow = new DeviceCalibrationWindow(sensor); MainWindow = calibrationWindow; calibrationWindow.Show(); SaveScreenshotAndExit(calibrationWindow, raw.Length > 1 ? raw[1] : Path.Combine(NiiMotionPaths.Logs, "device-calibration-preview.png")); return;
+        }
+        var hardwareSetupScreenshotArg = e.Args.FirstOrDefault(x => x.StartsWith("--hardware-setup-screenshot=", StringComparison.OrdinalIgnoreCase));
+        if (hardwareSetupScreenshotArg is not null)
+        {
+            var hardwarePath = hardwareSetupScreenshotArg[(hardwareSetupScreenshotArg.IndexOf('=') + 1)..];
+            var previewInventory = new NiiRMotion.Core.UserHardwareInventory(1, true, true, true, true, true, DateTimeOffset.UtcNow);
+            var setupWindow = new HardwareSetupWindow(previewInventory); MainWindow = setupWindow; setupWindow.Show(); SaveScreenshotAndExit(setupWindow, hardwarePath); return;
+        }
         var boardLabScreenshotArg = e.Args.FirstOrDefault(x => x.StartsWith("--board-lab-screenshot=", StringComparison.OrdinalIgnoreCase));
         Window window = boardLabScreenshotArg is null ? new MainWindow() : new BoardLabWindow(); MainWindow = window; window.Show();
         if (boardLabScreenshotArg is not null)

@@ -14,6 +14,8 @@ public static class NiiMotionPaths
     public static string PsMoveFactoryCalibration => Path.Combine(Config, "psmove-calibrations.json");
     public static string PsMovePlacementCalibration => Path.Combine(Config, "personal-psmove-placement.json");
     public static string PsMoveTrainingProfile => Path.Combine(Config, "personal-psmove-training.json");
+    public static string HardwareInventory => Path.Combine(Config, "user-hardware.json");
+    public static string CalibrationProgress => Path.Combine(Config, "calibration-progress.json");
 
     public static void Initialize()
     {

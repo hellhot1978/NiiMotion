@@ -23,15 +23,15 @@ public partial class MainWindow : Window
     private OwoTrackSensorSource? _phoneMonitor;
     private SessionReadiness? _readiness;
     private MotionProfile _profile = MotionProfile.AlyxFullFusion;
+    private UserHardwareInventory _inventory = UserHardwareInventory.Empty;
+    private IReadOnlyList<ProfileRecommendation> _profileRecommendations = Array.Empty<ProfileRecommendation>();
     private double _demoPhase;
     private long _demoSteps;
     public MainWindow()
     {
         InitializeComponent();
-        var profilePanel = (StackPanel)((Border)ProfilePopup.Child).Child;
-        var moveProfileButton = new Button { Content = "Sadece PS Move", Style = (Style)FindResource("ProfileOption") };
-        moveProfileButton.Click += PsMoveProfileClick;
-        profilePanel.Children.Insert(5, moveProfileButton);
+        var profileBorder = (Border)ProfilePopup.Child;
+        profileBorder.Child = new ScrollViewer { Content = profileBorder.Child, MaxHeight = 520, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
         DevicesList.PreviewMouseLeftButtonUp += DeviceCardClick;
         DevicesList.Cursor = System.Windows.Input.Cursors.Hand;
         TelemetryMode.TextAlignment = TextAlignment.Right;
@@ -40,6 +40,8 @@ public partial class MainWindow : Window
         _scanTimer.Tick += AutoScanTick;
         Loaded += async (_, _) =>
         {
+            await EnsureHardwareInventoryAsync();
+            RebuildProfileMenu();
             ShowPage(OverviewPage, "Genel Bakış", "Sistem durumu ve hızlı başlangıç", OverviewNav);
             RefreshSystemMode();
             var arguments = Environment.GetCommandLineArgs();
@@ -49,9 +51,11 @@ public partial class MainWindow : Window
             }
             else
             {
-                SelectProfile(_systemMode.CurrentMode == SystemMode.Original ? MotionProfile.ClassicVr : MotionProfile.JoyConPhone); await ScanAsync();
+                var recommended = _profileRecommendations.FirstOrDefault(x => x.Profile.LocomotionAllowed && !x.Experimental)?.Profile ?? MotionProfile.ClassicVr;
+                SelectProfile(_systemMode.CurrentMode == SystemMode.Original ? MotionProfile.ClassicVr : recommended); await ScanAsync();
                 if (arguments.Contains("--autostart", StringComparer.OrdinalIgnoreCase)) StartClick(this, new RoutedEventArgs());
             }
+            if (arguments.Contains("--calibration-page", StringComparer.OrdinalIgnoreCase)) ToolsNavClick(this, new RoutedEventArgs());
             _scanTimer.Start();
         };
         Closed += async (_, _) => { _demoTimer.Stop(); _scanTimer.Stop(); await StopPhoneMonitorAsync(); await _locomotion.DisposeAsync(); };
@@ -210,11 +214,159 @@ public partial class MainWindow : Window
         ProfilePopup.IsOpen = !ProfilePopup.IsOpen;
     }
     private void ModesNavClick(object sender, RoutedEventArgs e) => ShowPage(ModesPage, "Oyun Modları", "Nasıl hareket etmek istediğini seç", ModesNav);
-    private void DevicesNavClick(object sender, RoutedEventArgs e) => ShowPage(DevicesPage, "Cihazlar", "Canlı bağlantı ve sensör durumu", DevicesNav);
+    private async void DevicesNavClick(object sender, RoutedEventArgs e)
+    {
+        var setup = new HardwareSetupWindow(_inventory) { Owner = this };
+        if (setup.ShowDialog() != true) return;
+        _inventory = setup.Inventory;
+        await new UserSetupStore().SaveInventoryAsync(_inventory);
+        RebuildProfileMenu();
+        if (!_profileRecommendations.Any(x => x.Profile.Id == _profile.Id)) SelectProfile(MotionProfile.ClassicVr);
+        await ScanAsync();
+    }
+
+    private async Task EnsureHardwareInventoryAsync()
+    {
+        var store = new UserSetupStore();
+        var loaded = await store.LoadInventoryAsync();
+        if (loaded is not null) { _inventory = loaded; return; }
+        var setup = new HardwareSetupWindow { Owner = this };
+        if (setup.ShowDialog() == true) _inventory = setup.Inventory;
+        await store.SaveInventoryAsync(_inventory);
+    }
+
+    private void RebuildProfileMenu()
+    {
+        _profileRecommendations = MotionProfileCatalog.For(_inventory);
+        var panel = (StackPanel)((ScrollViewer)((Border)ProfilePopup.Child).Child).Content;
+        panel.Children.Clear();
+        panel.Children.Add(new TextBlock { Text = "SANA UYGUN PROFİLLER", Foreground = Brush("#6F8493"), FontSize = 9, FontWeight = FontWeights.SemiBold, Margin = new Thickness(8, 5, 8, 7) });
+        foreach (var recommendation in _profileRecommendations)
+        {
+            var button = new Button { Style = (Style)FindResource("ProfileOption"), HorizontalContentAlignment = HorizontalAlignment.Stretch };
+            var grid = new Grid(); grid.ColumnDefinitions.Add(new ColumnDefinition()); grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var text = new StackPanel();
+            text.Children.Add(new TextBlock { Text = recommendation.Profile.Name, FontWeight = FontWeights.SemiBold });
+            text.Children.Add(new TextBlock { Text = recommendation.Summary, Foreground = Brush("#8EA0AD"), FontSize = 9, Margin = new Thickness(0, 2, 0, 0) });
+            grid.Children.Add(text);
+            var score = new TextBlock { Text = recommendation.Experimental ? "DENEYSEL" : $"{recommendation.PerformanceScore}/100", Foreground = Brush(recommendation.Experimental ? "#E6B85A" : "#55DDB8"), FontSize = 9, FontWeight = FontWeights.Bold, VerticalAlignment = VerticalAlignment.Center };
+            Grid.SetColumn(score, 1); grid.Children.Add(score); button.Content = grid;
+            var profile = recommendation.Profile; button.Click += async (_, _) => { SelectProfile(profile); await ScanAsync(); };
+            panel.Children.Add(button);
+        }
+    }
     private void ToolsNavClick(object sender, RoutedEventArgs e)
     {
         RefreshCalibrationProgress();
+        _ = BuildCalibrationCenterAsync();
         ShowPage(ToolsPage, "Test ve Kalibrasyon", "Kişisel ölçüm, doğrulama ve veri kaydı", ToolsNav);
+    }
+
+    private async Task BuildCalibrationCenterAsync()
+    {
+        if (ToolsPage.Content is not StackPanel root) return;
+        root.Children.Clear();
+        var progress = await new UserSetupStore().LoadCalibrationAsync();
+        var selected = _inventory.Sensors.OrderBy(x => x).ToArray();
+        var activeProfileSensors = ProfileSensors(_profile).ToArray();
+
+        root.Children.Add(SectionHeader("KALİBRASYON MERKEZİ", "Önce cihazlarını hazırla", "Her cihaz bağlantıdan sonra üç adet 5 dakikalık temel fazı tamamlar. Bu kayıtlar cihazı kullanıma açar."));
+        var devicePanel = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) };
+        if (selected.Length == 0) devicePanel.Children.Add(new TextBlock { Text = "Henüz hareket cihazı seçmedin. Sol menüden Cihazlarım'ı aç.", Foreground = Brush("#F1C566"), Margin = new Thickness(4, 18, 0, 22) });
+        foreach (var sensor in selected) devicePanel.Children.Add(CreateCalibrationCard(sensor, progress.Devices.FirstOrDefault(x => x.Sensor == sensor)));
+        root.Children.Add(devicePanel);
+
+        var walking = new Border { Background = Brush("#0D151D"), BorderBrush = Brush("#273945"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(18), Margin = new Thickness(0, 8, 0, 12) };
+        var walkingGrid = new Grid(); walkingGrid.ColumnDefinitions.Add(new ColumnDefinition()); walkingGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(210) });
+        var walkingText = new StackPanel(); walkingText.Children.Add(Label("AKTİF CİHAZLARLA YÜRÜYÜŞ", "#35B8F5", 9, FontWeights.Bold)); walkingText.Children.Add(Label("Birlikte çalışma kalibrasyonu", "#F4F7FA", 18, FontWeights.SemiBold, new Thickness(0, 7, 0, 4)));
+        walkingText.Children.Add(Label($"Aktif profil: {_profile.Name}. Cihazların tek tek temel kalibrasyonları bittikten sonra ritim, hız ve duruş uyumunu birlikte ölçer.", "#94A1AD", 11, FontWeights.Normal)); walkingGrid.Children.Add(walkingText);
+        var walkingButton = new Button { Content = "YÜRÜYÜŞÜ KALİBRE ET  →", IsEnabled = activeProfileSensors.Length > 0 && activeProfileSensors.All(x => progress.Devices.FirstOrDefault(p => p.Sensor == x)?.IsReady == true), VerticalAlignment = VerticalAlignment.Center };
+        walkingButton.Click += (_, _) => OpenWalkingCalibrationForInventory(); Grid.SetColumn(walkingButton, 1); walkingGrid.Children.Add(walkingButton); walking.Child = walkingGrid; root.Children.Add(walking);
+
+        var advanced = new Border { Background = Brush("#09121A"), BorderBrush = Brush("#1F303C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(18) };
+        var advancedGrid = new Grid(); advancedGrid.ColumnDefinitions.Add(new ColumnDefinition()); advancedGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(380) });
+        var advancedText = new StackPanel(); advancedText.Children.Add(Label("İSTEĞE BAĞLI · İLERİ SEVİYE", "#8AA0AF", 9, FontWeights.Bold)); advancedText.Children.Add(Label("Modeli yeni kayıtlarla geliştir", "#F4F7FA", 17, FontWeights.SemiBold, new Thickness(0, 7, 0, 4)));
+        advancedText.Children.Add(Label("Temel kalibrasyondan ayrıdır. Cihazların zaten kullanılabilir durumdaysa ek kayıtlarla kişisel modeli zaman içinde güçlendirir.", "#94A1AD", 11, FontWeights.Normal)); advancedGrid.Children.Add(advancedText);
+        var advancedChoices = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
+        foreach (var sensor in selected)
+        {
+            var choice = new Button { Content = SensorDisplayName(sensor), Margin = new Thickness(6, 3, 0, 3), Padding = new Thickness(13, 9, 13, 9) };
+            choice.Click += (_, _) => OpenAdvancedTraining(sensor); advancedChoices.Children.Add(choice);
+        }
+        Grid.SetColumn(advancedChoices, 1); advancedGrid.Children.Add(advancedChoices); advanced.Child = advancedGrid; root.Children.Add(advanced);
+    }
+
+    private FrameworkElement CreateCalibrationCard(SensorFamily sensor, DeviceCalibrationProgress? progress)
+    {
+        var (name, detail, icon) = sensor switch
+        {
+            SensorFamily.JoyCon => ("Joy-Con", "İki uyluk sensörü", "device-v3-joycon-left.png"),
+            SensorFamily.PsMove => ("PS Move", "İki baldır sensörü", "device-v3-psmove-left.png"),
+            SensorFamily.Phone => ("Telefon", "Göğüs sensörü", "device-v3-phone.png"),
+            _ => ("Balance Board", "Basınç ve denge", "device-v3-board.png")
+        };
+        var done = progress?.CompletedPhases ?? 0; var ready = progress?.IsReady == true;
+        var button = new Button { Width = 218, Height = 190, Margin = new Thickness(0, 0, 12, 12), Padding = new Thickness(14), HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Stretch };
+        var grid = new Grid(); grid.RowDefinitions.Add(new RowDefinition()); grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var image = new Image { Source = new System.Windows.Media.Imaging.BitmapImage(new Uri($"pack://application:,,,/NiiRMotion.App;component/Assets/{icon}")), Height = 88, Stretch = Stretch.Uniform };
+        grid.Children.Add(image);
+        var bottom = new Grid { Margin = new Thickness(0, 8, 0, 0) }; bottom.ColumnDefinitions.Add(new ColumnDefinition()); bottom.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var texts = new StackPanel(); texts.Children.Add(Label(name, "#F4F7FA", 14, FontWeights.SemiBold)); texts.Children.Add(Label(detail, "#8FA0AD", 9, FontWeights.Normal, new Thickness(0, 2, 0, 0))); texts.Children.Add(Label(ready ? "✓ KULLANIMA HAZIR" : $"TEMEL FAZ  {done}/3", ready ? "#55DDB8" : "#F1C566", 9, FontWeights.Bold, new Thickness(0, 7, 0, 0))); bottom.Children.Add(texts);
+        var arrow = Label("→", "#35B8F5", 20, FontWeights.SemiBold); arrow.VerticalAlignment = VerticalAlignment.Bottom; Grid.SetColumn(arrow, 1); bottom.Children.Add(arrow); Grid.SetRow(bottom, 1); grid.Children.Add(bottom); button.Content = grid;
+        button.Click += async (_, _) =>
+        {
+            var resumePhone = sensor == SensorFamily.Phone && _phoneMonitor is not null;
+            if (sensor == SensorFamily.Phone) await StopPhoneMonitorAsync();
+            try { new DeviceCalibrationWindow(sensor) { Owner = this }.ShowDialog(); }
+            finally
+            {
+                if (resumePhone || ProfileUsesPhone()) try { await EnsurePhoneMonitorAsync(); } catch { }
+                await BuildCalibrationCenterAsync();
+            }
+        };
+        return button;
+    }
+
+    private static Border SectionHeader(string eyebrow, string title, string detail)
+    {
+        var panel = new StackPanel(); panel.Children.Add(Label(eyebrow, "#35B8F5", 9, FontWeights.Bold)); panel.Children.Add(Label(title, "#F4F7FA", 20, FontWeights.SemiBold, new Thickness(0, 6, 0, 3))); panel.Children.Add(Label(detail, "#94A1AD", 11, FontWeights.Normal));
+        return new Border { Child = panel, Background = Brush("#0B141D"), BorderBrush = Brush("#263946"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(18, 14, 18, 14), Margin = new Thickness(0, 0, 0, 14) };
+    }
+
+    private static TextBlock Label(string text, string color, double size, FontWeight weight, Thickness? margin = null) => new() { Text = text, Foreground = Brush(color), FontSize = size, FontWeight = weight, Margin = margin ?? new Thickness(), TextWrapping = TextWrapping.Wrap };
+
+    private async void OpenWalkingCalibrationForInventory()
+    {
+        var sensors = ProfileSensors(_profile).ToArray();
+        var resumePhone = sensors.Contains(SensorFamily.Phone) && _phoneMonitor is not null;
+        if (sensors.Contains(SensorFamily.Phone)) await StopPhoneMonitorAsync();
+        try { if (sensors.Length > 0) new ProfileCalibrationWindow(_profile, sensors) { Owner = this }.ShowDialog(); }
+        finally
+        {
+            if (resumePhone || ProfileUsesPhone()) try { await EnsurePhoneMonitorAsync(); } catch { }
+            await BuildCalibrationCenterAsync();
+        }
+    }
+
+    private static IEnumerable<SensorFamily> ProfileSensors(MotionProfile profile)
+    {
+        if (profile.Required.Contains(DeviceKind.JoyConLeft)) yield return SensorFamily.JoyCon;
+        if (profile.Required.Contains(DeviceKind.PsMoveLeft)) yield return SensorFamily.PsMove;
+        if (profile.Required.Contains(DeviceKind.Phone)) yield return SensorFamily.Phone;
+        if (profile.Required.Contains(DeviceKind.BalanceBoard)) yield return SensorFamily.BalanceBoard;
+    }
+
+    private async void OpenAdvancedTraining(SensorFamily sensor)
+    {
+        if (sensor == SensorFamily.JoyCon) new GaitLabWindow { Owner = this }.ShowDialog();
+        else if (sensor == SensorFamily.PsMove) new PsMoveLabWindow { Owner = this }.ShowDialog();
+        else if (sensor == SensorFamily.Phone)
+        {
+            var resume = _phoneMonitor is not null; await StopPhoneMonitorAsync();
+            try { new PhoneLabWindow { Owner = this }.ShowDialog(); }
+            finally { if (resume || ProfileUsesPhone()) try { await EnsurePhoneMonitorAsync(); } catch { } }
+        }
+        else new BoardLabWindow { Owner = this }.ShowDialog();
     }
     private void ShowPage(UIElement page, string title, string subtitle, Button selectedNav)
     {
@@ -533,8 +685,7 @@ public partial class MainWindow : Window
         selected.Background = Brush("#12283A"); selected.BorderBrush = Brush("#38A8F3"); selected.BorderThickness = new Thickness(2); selected.Opacity = 1;
         selectedBadge.Visibility = Visibility.Visible;
         foreach (var tile in tiles.Where(x => x != selected)) tile.BorderThickness = new Thickness(1);
-        var profileName = profile == MotionProfile.ClassicVr ? "Normal VR" : profile == MotionProfile.JoyConOnly ? "Sadece Joy-Con" : profile == MotionProfile.PsMoveOnly ? "Sadece PS Move" : profile == MotionProfile.JoyConPhone ? "Joy-Con + Telefon" : profile == MotionProfile.PhoneOnly ? "Sadece Telefon" : profile == MotionProfile.BoardOnly ? "Balance Board" : profile == MotionProfile.BoardJoyCon ? "Board + Joy-Con" : profile == MotionProfile.BoardPhone ? "Board + Telefon" : "Tüm Cihazlar";
-        SidebarProfileName.Text = ActiveProfileName.Text = profileName;
+        SidebarProfileName.Text = ActiveProfileName.Text = profile.Name;
         ActiveProfileDetail.Text = profile.LocomotionAllowed ? "Yerinde yürüyüş çıkışı" : "Özgün kontrolcü hareketi";
         UpdateProfileInformation(profile);
     }
@@ -551,18 +702,27 @@ public partial class MainWindow : Window
             "board-only" => ("◇  BALANCE BOARD", "  ·  Basınçla yürüyüş ve dönüş", "Ağırlık aktarımı hareket ve dönüşe çevrilir. Karttan inildiğinde ya da bağlantı kesildiğinde çıkış sıfırlanır."),
             "board-joycon" => ("✓  BOARD + JOY-CON", "  ·  Bacak ve basınç füzyonu", "Joy-Con'lar adımı, Balance Board ağırlık aktarımını izler. Telefon kullanmadan daha kararlı hareket sağlar."),
             "board-phone" => ("◇  BOARD + TELEFON", "  ·  Basınç ve gövde füzyonu", "Balance Board ağırlığı, telefon gövde hareketini izler. Joy-Con gerekmez; bu profil deneyseldir."),
-            _ => ("✓  TAM FÜZYON", "  ·  Tüm hareket sensörleri birlikte", "Joy-Con, telefon ve Balance Board verileri birleştirilir. Zorunlu bir cihaz kesilirse hareket güvenle sıfırlanır.")
+            _ => ("✓  " + profile.Name.ToUpperInvariant(), "  ·  Cihazların birlikte doğrulanır", $"{string.Join(", ", profile.Required.Where(x => x != DeviceKind.Quest3).Select(x => new DeviceStatus(x, "", DeviceState.Unknown, "", "").IconGlyph + " " + x))} verileri seçili profil içinde birleştirilir. Zorunlu bir cihaz kesilirse hareket güvenle sıfırlanır.")
         };
 
         ProfileInfoTitle.Text = information.Item1;
         ProfileInfoSummary.Text = information.Item2;
         ProfileInfoDetail.Text = information.Item3;
-        var experimental = profile == MotionProfile.PhoneOnly || profile == MotionProfile.BoardOnly || profile == MotionProfile.BoardPhone;
+        var experimental = _profileRecommendations.FirstOrDefault(x => x.Profile.Id == profile.Id)?.Experimental == true;
         ProfileInfoTitle.Foreground = Brush(experimental ? "#F6C86B" : "#54D4A8");
     }
     private async void LaunchSteamVrClick(object sender, RoutedEventArgs e)
     {
-        if (_profile == MotionProfile.PsMoveOnly)
+        var uncalibrated = await UncalibratedProfileSensorsAsync();
+        if (_profile.LocomotionAllowed && uncalibrated.Count > 0)
+        {
+            ReadinessTitle.Text = "TEMEL KALİBRASYON GEREKİYOR";
+            ReadinessMessage.Text = $"Önce tamamla: {string.Join(", ", uncalibrated.Select(SensorDisplayName))}. SteamVR başlatılmadı.";
+            await BuildCalibrationCenterAsync();
+            ShowPage(ToolsPage, "Test ve Kalibrasyon", "Önce temel cihaz kalibrasyonlarını tamamla", ToolsNav);
+            return;
+        }
+        if (_profile.Required.Contains(DeviceKind.PsMoveLeft))
         {
             var onboarding = await new PsMoveOnboardingService().GetStatusAsync();
             if (!onboarding.IsReady) { ReadinessTitle.Text = "PS MOVE KURULUMU GEREKİYOR"; ReadinessMessage.Text = onboarding.Instruction; new PsMoveLabWindow { Owner = this }.ShowDialog(); await ScanAsync(); return; }
@@ -620,6 +780,19 @@ public partial class MainWindow : Window
         finally { if (sender is Button prepareButton) prepareButton.IsEnabled = true; }
     }
 
+    private async Task<IReadOnlyList<SensorFamily>> UncalibratedProfileSensorsAsync()
+    {
+        var required = new List<SensorFamily>();
+        if (_profile.Required.Contains(DeviceKind.JoyConLeft)) required.Add(SensorFamily.JoyCon);
+        if (_profile.Required.Contains(DeviceKind.PsMoveLeft)) required.Add(SensorFamily.PsMove);
+        if (_profile.Required.Contains(DeviceKind.Phone)) required.Add(SensorFamily.Phone);
+        if (_profile.Required.Contains(DeviceKind.BalanceBoard)) required.Add(SensorFamily.BalanceBoard);
+        var progress = await new UserSetupStore().LoadCalibrationAsync();
+        return required.Where(sensor => progress.Devices.FirstOrDefault(x => x.Sensor == sensor)?.IsReady != true).ToArray();
+    }
+
+    private static string SensorDisplayName(SensorFamily sensor) => sensor switch { SensorFamily.JoyCon => "Joy-Con", SensorFamily.PsMove => "PS Move", SensorFamily.Phone => "Telefon", _ => "Balance Board" };
+
     private static async Task WaitForVirtualDesktopSessionAsync(TimeSpan timeout)
     {
         var deadline = DateTime.UtcNow + timeout;
@@ -672,11 +845,13 @@ public partial class MainWindow : Window
             if (!File.Exists(calibration)) calibration = Path.Combine(Environment.CurrentDirectory, "calibration", "gait-v1.json");
             if (_systemMode.CurrentMode != SystemMode.NiiMotion) await _systemMode.ApplyAsync(SystemMode.NiiMotion);
             else _systemMode.EnsureGameOverrides(SystemMode.NiiMotion);
-            if (_profile == MotionProfile.PsMoveOnly) { await _locomotion.StartPsMoveOnlyAsync(); SetStopControl(true); SetRunningVisuals(_locomotion.ModeDescription); ReadinessMessage.Text = "Hazır. PS Move sensörleriyle yerinde yürüyebilirsin."; return; }
-            var includePhone = _profile is var p && (p == MotionProfile.JoyConPhone || p == MotionProfile.FullFusion || p == MotionProfile.PhoneOnly || p == MotionProfile.BoardPhone);
-            var includeBoard = _profile == MotionProfile.FullFusion || _profile == MotionProfile.BoardOnly || _profile == MotionProfile.BoardJoyCon || _profile == MotionProfile.BoardPhone;
+            var usesJoyCon = _profile.Required.Contains(DeviceKind.JoyConLeft);
+            var usesPsMove = _profile.Required.Contains(DeviceKind.PsMoveLeft);
+            var includePhone = _profile.Required.Contains(DeviceKind.Phone);
+            var includeBoard = _profile.Required.Contains(DeviceKind.BalanceBoard);
+            if (usesPsMove && !usesJoyCon) { if (includePhone) await StopPhoneMonitorAsync(); await _locomotion.StartPsMoveOnlyAsync(includePhone, includeBoard); SetStopControl(true); SetRunningVisuals(_locomotion.ModeDescription); ReadinessMessage.Text = "Hazır. PS Move tabanlı profil çalışıyor."; return; }
             if (includePhone) await StopPhoneMonitorAsync();
-            await _locomotion.StartAsync(calibration, includePhone, phoneOnly: _profile == MotionProfile.PhoneOnly || _profile == MotionProfile.BoardPhone, includeBoard: includeBoard, boardOnly: _profile == MotionProfile.BoardOnly); SetStopControl(true); SetRunningVisuals(_locomotion.ModeDescription); ReadinessMessage.Text = includeBoard ? "Board otomatik sıfırlandı. Üzerine çıkıp yerinde yürüyebilirsin." : "Hazır. Yerinde yürüyerek oyunda ilerleyebilirsin.";
+            await _locomotion.StartAsync(calibration, includePhone, phoneOnly: !usesJoyCon && !usesPsMove && includePhone, includeBoard: includeBoard, boardOnly: !usesJoyCon && !usesPsMove && includeBoard && !includePhone, includePsMove: usesPsMove); SetStopControl(true); SetRunningVisuals(_locomotion.ModeDescription); ReadinessMessage.Text = includeBoard ? "Board otomatik sıfırlandı. Üzerine çıkıp yerinde yürüyebilirsin." : "Hazır. Yerinde yürüyerek oyunda ilerleyebilirsin.";
         }
         catch (Exception ex) { await _locomotion.StopAsync(); if (ProfileUsesPhone()) try { await EnsurePhoneMonitorAsync(); } catch { } SetStopControl(false); StartButton.IsEnabled = _readiness?.State != ReadinessState.NotReady; LocomotionState.Text = "OFF"; LocomotionState.Foreground = Brushes.LightPink; ReadinessMessage.Text = $"Locomotion başlatılamadı: {ex.Message}"; }
     }
@@ -701,6 +876,6 @@ public partial class MainWindow : Window
         TargetSpeedValue.Text = speed.ToString("0.00"); TargetSpeedBar.Value = speed; GaitStateValue.Text = cadence > 2 ? "FAST WALK" : "WALKING"; StepCountValue.Text = $"{_demoSteps} adım · demo";
     }
     private void ResetTelemetry() { CadenceValue.Text = "0.00"; CadenceBar.Value = 0; ConfidenceValue.Text = "0"; ConfidenceBar.Value = 0; TargetSpeedValue.Text = "0.00"; TargetSpeedBar.Value = 0; GaitStateValue.Text = "BEKLİYOR"; StepCountValue.Text = "0 adım"; }
-    private bool ProfileUsesPhone() => _profile == MotionProfile.JoyConPhone || _profile == MotionProfile.FullFusion || _profile == MotionProfile.PhoneOnly || _profile == MotionProfile.BoardPhone;
-    private static SolidColorBrush Brush(string hex) => new((Color)ColorConverter.ConvertFromString(hex));
+    private bool ProfileUsesPhone() => _profile.Required.Contains(DeviceKind.Phone);
+    internal static SolidColorBrush Brush(string hex) => new((Color)ColorConverter.ConvertFromString(hex));
 }

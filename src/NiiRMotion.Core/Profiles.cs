@@ -5,7 +5,7 @@ public sealed record MotionProfile(string Id, string Name, IReadOnlySet<DeviceKi
     public static MotionProfile AlyxFullFusion { get; } = new("alyx-full-fusion", "Half-Life: Alyx / Full Fusion",
         new HashSet<DeviceKind> { DeviceKind.Quest3, DeviceKind.JoyConLeft, DeviceKind.JoyConRight, DeviceKind.Phone, DeviceKind.BalanceBoard },
         new HashSet<DeviceKind> { DeviceKind.VirtualDesktop, DeviceKind.HandTracking }, true);
-    public static MotionProfile ClassicVr { get; } = new("classic-vr", "Classic VR",
+    public static MotionProfile ClassicVr { get; } = new("classic-vr", "Normal VR",
         new HashSet<DeviceKind> { DeviceKind.Quest3 },
         new HashSet<DeviceKind> { DeviceKind.VirtualDesktop, DeviceKind.HandTracking }, false);
     public static MotionProfile JoyConOnly { get; } = new("joycon-only", "Joy-Con Only",
