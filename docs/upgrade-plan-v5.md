@@ -162,6 +162,17 @@ Ayrıntı: `phase-2-psmove-status.md`.
 
 Move Only yazılım zinciri tamamlandı. Bir sonraki kapı, iki atanmış Move Bluetooth ile bağlıyken gerçek SteamVR oyun doğrulamasıdır. Bu doğrulama geçmeden Move + Joy-Con saat hizalama ve hibrit profile başlanmaz.
 
+## 2026-08-22 üretim hazırlığı
+
+- PS Move resmi ve hash doğrulamalı eşleştirme yardımcısı, kalıcı sol/sağ renkleri, pil görünümü, olay günlüğü, yeniden eşleştirme ve kimlik temelli otomatik yeniden bağlanma tamamlandı.
+- Self-contained gerçek Windows kurucusu; masaüstü/Başlat kısayolu, kaldırma sırasında OpenVR sürücüsünü güvenle ayırma ve hash doğrulamalı HTTPS güncelleme temeli tamamlandı.
+- Kişisel model yedekleme/geri dönüş yanında açık çift onaylı öğrenilmiş veri sıfırlama eklendi. Oyun ayarları, uygulama ve cihaz fabrika kalibrasyonu korunuyor.
+- Kullanıcı dostu otomatik tanılama ve gizlilik filtreli destek paketi eklendi. Ham sensör verisi pakete alınmıyor.
+- Metro Awakening'in kurulu OpenXR yapısı salt okunur doğrulandı; SteamVR action uydurulmadı. Skyrim VR kurulu olmadığı için adaptörü güvenli biçimde beklemede. Steam oyun yolları manifestlerden dinamik çözülüyor.
+- HMD pose örnek sözleşmesi, kayıt ve replay altyapısı tamamlandı. Mevcut native sürücü baş dönüş hızını zaten güvenli dönüş bastırma kanıtı olarak okuyor; tam HMD kayıt doğrulaması fiziksel teste bırakıldı.
+- Dört saat/720.000 çevrim hızlandırılmış dayanıklılık regresyonu eklendi; güvenli sıfır ve bellek bütçesi otomatik test ediliyor.
+- İlk kullanım, cihaz kurulumu, sorun giderme, oyun denetimi, dayanıklılık ve üçüncü taraf bildirimleri yazıldı ve kurucuya dahil edildi.
+
 ## 2026-08-22 ilerleme güncellemesi
 
 - Donanım envanterine göre bütün sensör alt kümeleri profil olarak üretiliyor; temel cihaz kalibrasyonu ve aktif kombinasyon kalibrasyonu birbirinden ayrıldı.

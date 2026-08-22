@@ -36,6 +36,10 @@ Name: "desktopicon"; Description: "Masaüstü kısayolu oluştur"; GroupDescript
 
 [Files]
 Source: "..\artifacts\app\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\docs\first-run-guide-tr.md"; DestDir: "{app}\Docs"; Flags: ignoreversion
+Source: "..\docs\device-setup-tr.md"; DestDir: "{app}\Docs"; Flags: ignoreversion
+Source: "..\docs\troubleshooting-tr.md"; DestDir: "{app}\Docs"; Flags: ignoreversion
+Source: "..\THIRD_PARTY_NOTICES.md"; DestDir: "{app}\Docs"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\NiiMotion"; Filename: "{app}\{#MyAppExeName}"
@@ -59,4 +63,3 @@ begin
       Exec(VrPathReg, 'removedriver "' + DriverPath + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   end;
 end;
-

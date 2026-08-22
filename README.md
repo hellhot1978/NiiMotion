@@ -1,24 +1,31 @@
-# NiiRMotion
+# NiiMotion
 
-Windows 11 üzerinde Quest 3, SteamVR, Joy-Con, Android telefon ve Wii Balance Board verilerini düşük gecikmeli, güvenli VR locomotion çıktısına dönüştürmeyi hedefleyen masaüstü uygulaması.
+NiiMotion, yerinde yürüme hareketini Windows üzerinde SteamVR/OpenVR analog hareket girdisine dönüştüren, güvenli duruş öncelikli bir VR locomotion uygulamasıdır. Joy-Con, PS Move, owoTrack kullanan Android telefon ve Wii Balance Board sensörlerini ayrı veya birlikte kullanabilir. Normal VR profili seçildiğinde oyun girdisine müdahale etmez.
 
-## Mevcut durum
+## Son kullanıcı kurulumu
 
-Joy-Con ve isteğe bağlı owoTrack telefon verisiyle yerinde yürüyüş, NiiMotion OpenVR sürücüsü üzerinden Half-Life: Alyx içinde doğrulandı. Portal; Normal VR, Joy-Con, Joy-Con + Telefon, deneysel Telefon ve ileride Balance Board eklenebilecek tam sistem modlarını sunar. Balance Board dışındaki ana geliştirme hattı son dayanıklılık ve farklı oyun doğrulaması aşamasındadır.
+`NiiMotion-Setup-0.5.0-x64.exe` kurucusunu çalıştırın. Paket .NET kurulumu gerektirmez; masaüstü kısayolu, kaldırma kaydı ve NiiMotion OpenVR sürücüsünü içerir. İlk açılışta sahip olduğunuz cihazları seçin, **Test ve Kalibrasyon** sayfasında her cihazın üç temel fazını tamamlayın, ardından Genel Bakış'tan profil ve oyunu seçin.
 
-## Hızlı kullanım
+- [İlk kullanım](docs/first-run-guide-tr.md)
+- [Cihaz kurulumu](docs/device-setup-tr.md)
+- [Sorun giderme](docs/troubleshooting-tr.md)
+- [Mimari](docs/architecture.md)
+- [Üçüncü taraf bileşenleri](THIRD_PARTY_NOTICES.md)
 
-1. Joy-Con'ları bacaklara bağlayıp Windows Bluetooth üzerinden eşleştirin.
-2. İsterseniz telefonda owoTrack'i başlatıp portalda **TELEFONU BAĞLA** düğmesine basın.
-3. Kullanacağınız modu seçin ve **OYUN MODUNU BAŞLAT** düğmesine basın.
-4. SteamVR açıldıktan sonra oyunda yerinizde yürüyün. **NORMAL VR** seçimi NiiMotion'ı tamamen devre dışı bırakır.
+## Güvenlik ve gizlilik
 
-Joy-Con bağlantısı oyun sırasında kesilirse hareket güvenli biçimde sıfırlanır. Telefon isteğe bağlı modlarda koparsa Joy-Con yürüyüşü devam eder.
+- Hareket çıkışı kapalı başlar; kritik sensör kesildiğinde 250 ms içinde sıfırlanır.
+- Normal VR, özgün kontrolcü davranışını korur.
+- Öğrenilmiş veriler sıfırlanmadan önce otomatik yedeklenir; uygulama, oyun ayarları ve cihaz fabrika kalibrasyonları korunur.
+- Tanı paketi ham sensör kayıtlarını içermez; kullanıcı yolu, IP adresi ve Bluetooth kimlikleri maskelenir.
+- Kişisel kayıtlar varsayılan olarak yalnız bilgisayarda tutulur.
 
-## Yerel çalıştırma
+## Geliştirme
 
-Son kullanıcı uygulaması: `C:\NiirMotion\artifacts\app\NiiRMotion.App.exe`
+```powershell
+.\.dotnet\dotnet.exe build NiiRMotion.slnx -c Release
+.\.dotnet\dotnet.exe run --project tests\NiiRMotion.Tests\NiiRMotion.Tests.csproj -c Release
+.\scripts\build-installer.ps1
+```
 
-Uygulama .NET kurulumu gerektirmeyen bağımsız tek dosya olarak yayımlanır.
-
-Depolama bütçesi: proje 15 GB'ı aşmamalı; C: sürücüsünde en az 10 GB boş alan korunmalıdır. Kayıtlar varsayılan olarak kotalı tasarlanacaktır.
+Depolama bütçesi: proje 15 GB'ı aşmamalı ve C: sürücüsünde en az 10 GB boş alan korunmalıdır.
