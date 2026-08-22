@@ -8,7 +8,16 @@ public enum SystemMode { Original, NiiMotion }
 
 public sealed class SystemModeService
 {
-    private const string DriverPath = @"C:\NiirMotion\native\openvr-driver\dist";
+    private static string DriverPath
+    {
+        get
+        {
+            var installed = Path.Combine(AppContext.BaseDirectory, "OpenVRDriver");
+            return File.Exists(Path.Combine(installed, "driver.vrdrivermanifest"))
+                ? installed
+                : @"C:\NiirMotion\native\openvr-driver\dist";
+        }
+    }
     private const string VrPathReg = @"C:\Program Files (x86)\Steam\steamapps\common\SteamVR\bin\win64\vrpathreg.exe";
     private const string SteamVrSettings = @"C:\Program Files (x86)\Steam\config\steamvr.vrsettings";
     private const string AlyxAutoExec = @"F:\SteamLibrary\steamapps\common\Half-Life Alyx\game\hlvr\cfg\autoexec.cfg";
@@ -138,7 +147,7 @@ public sealed class SystemModeService
 
     private static void SaveMode(SystemMode mode)
     {
-        var path = Path.Combine(@"C:\NiirMotion\config", "system-mode.json");
+        var path = Path.Combine(NiiMotionPaths.Config, "system-mode.json");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         AtomicWrite(path, JsonSerializer.Serialize(new { mode = mode.ToString(), changedAt = DateTimeOffset.Now }, new JsonSerializerOptions { WriteIndented = true }));
     }
