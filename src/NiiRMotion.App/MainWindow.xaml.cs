@@ -404,7 +404,7 @@ public partial class MainWindow : Window
     {
         var panel = new StackPanel { Margin = new Thickness(0, 0, 0, 13) }; var heading = new Grid(); heading.ColumnDefinitions.Add(new ColumnDefinition()); heading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         heading.Children.Add(Label(title, "#4ABCF4", 9, FontWeights.Bold)); var valueText = Label(FormatTuningValue(value, format), "#55DDB8", 11, FontWeights.Bold); Grid.SetColumn(valueText, 1); heading.Children.Add(valueText); panel.Children.Add(heading);
-        panel.Children.Add(Label(detail, "#8FA1AD", 9, FontWeights.Normal, new Thickness(0, 2, 0, 4))); var slider = new Slider { Minimum = minimum, Maximum = maximum, Value = value, TickFrequency = tick, IsSnapToTickEnabled = true, Height = 22 };
+        panel.Children.Add(Label(detail, "#8FA1AD", 9, FontWeights.Normal, new Thickness(0, 2, 0, 4))); var slider = new Slider { Minimum = minimum, Maximum = maximum, Value = value, TickFrequency = tick, SmallChange = tick, LargeChange = tick, IsSnapToTickEnabled = true, IsMoveToPointEnabled = true, Height = 22 };
         slider.ValueChanged += (_, _) => valueText.Text = FormatTuningValue(slider.Value, format); panel.Children.Add(slider); parent.Children.Add(panel); return slider;
     }
 
