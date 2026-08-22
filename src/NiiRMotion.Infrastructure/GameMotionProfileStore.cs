@@ -17,6 +17,13 @@ public sealed class GameMotionProfileStore
         return BuiltIn(selected) with { SpeedMultiplier = customSpeed };
     }
 
+    public GameMotionProfile Load(string gameId)
+    {
+        var stored = LoadAll().FirstOrDefault(x => x.GameId == gameId); if (stored is not null) return stored.Safe();
+        var config = Path.GetDirectoryName(_path)!; var customSpeed = new GameAdapterStore(Path.GetDirectoryName(config)).Load().FirstOrDefault(x => x.Id == gameId)?.SpeedMultiplier ?? 1;
+        return BuiltIn(gameId) with { SpeedMultiplier = customSpeed };
+    }
+
     public IReadOnlyList<GameMotionProfile> LoadAll()
     {
         try { return File.Exists(_path) ? JsonSerializer.Deserialize<GameMotionProfile[]>(File.ReadAllText(_path)) ?? [] : []; } catch { return []; }
@@ -27,6 +34,13 @@ public sealed class GameMotionProfileStore
         Directory.CreateDirectory(Path.GetDirectoryName(_path)!); var profiles = LoadAll().Where(x => x.GameId != profile.GameId).Append(profile.Safe()).ToArray();
         if (File.Exists(_path)) File.Copy(_path, _path + $".backup-{DateTime.Now:yyyyMMdd-HHmmss}", true);
         var temp = _path + ".tmp"; File.WriteAllText(temp, JsonSerializer.Serialize(profiles, Options)); File.Move(temp, _path, true);
+    }
+
+    public GameMotionProfile Reset(string gameId)
+    {
+        var profiles = LoadAll().Where(x => x.GameId != gameId).ToArray(); Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+        if (File.Exists(_path)) File.Copy(_path, _path + $".backup-{DateTime.Now:yyyyMMdd-HHmmss}", true);
+        var temp = _path + ".tmp"; File.WriteAllText(temp, JsonSerializer.Serialize(profiles, Options)); File.Move(temp, _path, true); return Load(gameId);
     }
 
     private static GameMotionProfile BuiltIn(string gameId) => gameId switch

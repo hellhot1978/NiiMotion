@@ -65,6 +65,7 @@ public partial class MainWindow : Window
             if (arguments.Contains("--calibration-page", StringComparer.OrdinalIgnoreCase)) ToolsNavClick(this, new RoutedEventArgs());
             if (arguments.Contains("--games-page", StringComparer.OrdinalIgnoreCase)) GamesNavClick(this, new RoutedEventArgs());
             if (arguments.Contains("--game-wizard", StringComparer.OrdinalIgnoreCase)) { GamesNavClick(this, new RoutedEventArgs()); OpenGameAdapterWizard(); }
+            if (arguments.Contains("--game-tuning", StringComparer.OrdinalIgnoreCase)) { GamesNavClick(this, new RoutedEventArgs()); var selectedGame = new SteamGameCatalog().Detect().FirstOrDefault(x => x.IsInstalled && x.State == GameIntegrationState.Ready && x.Definition.Id == _selectedGameId); if (selectedGame is not null) OpenGameTuningWindow(selectedGame); }
             _scanTimer.Start();
         };
         Closed += async (_, _) => { _demoTimer.Stop(); _scanTimer.Stop(); await StopPhoneMonitorAsync(); await _locomotion.DisposeAsync(); };
@@ -304,9 +305,10 @@ public partial class MainWindow : Window
         content.Children.Add(Label("SEÇİLİ VR OYUNU", "#4ABCF4", 9, FontWeights.Bold)); content.Children.Add(Label(selected.Definition.Name, "#F5F8FA", 25, FontWeights.SemiBold, new Thickness(0, 7, 0, 3))); content.Children.Add(Label(selected.Definition.Runtime, "#55DDB8", 10, FontWeights.SemiBold));
         var gameSummary = Label(selected.Definition.Summary, "#A5B4BE", 11, FontWeights.Normal, new Thickness(0, 12, 0, 16)); gameSummary.MaxHeight = 48; content.Children.Add(gameSummary); _ = LoadGameCoverAsync(selected, coverImage, gameSummary);
         var profileLine = new Border { Background = Brush("#101D26"), BorderBrush = Brush("#29404D"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(7), Padding = new Thickness(13, 10, 13, 10) }; profileLine.Child = Label($"YÜRÜYÜŞ PROFİLİ  ·  {_profile.Name}", _profile.LocomotionAllowed ? "#55DDB8" : "#F1C566", 10, FontWeights.Bold); content.Children.Add(profileLine);
-        var controls = new Grid { Margin = new Thickness(0, 14, 0, 0) }; controls.ColumnDefinitions.Add(new ColumnDefinition()); controls.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) }); controls.ColumnDefinitions.Add(new ColumnDefinition());
+        var controls = new Grid { Margin = new Thickness(0, 14, 0, 0) }; controls.ColumnDefinitions.Add(new ColumnDefinition()); controls.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(10) }); controls.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120) }); controls.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(10) }); controls.ColumnDefinitions.Add(new ColumnDefinition());
         var toggle = new CheckBox { Content = "NIIMOTION YÜRÜYÜŞÜ", IsChecked = _gameNiiMotionEnabled, Foreground = Brush(_gameNiiMotionEnabled ? "#55DDB8" : "#A5B4BE"), VerticalContentAlignment = VerticalAlignment.Center, FontWeight = FontWeights.SemiBold, Padding = new Thickness(12), BorderBrush = Brush("#38505E"), BorderThickness = new Thickness(1) }; toggle.Checked += (_, _) => { _gameNiiMotionEnabled = true; toggle.Foreground = Brush("#55DDB8"); }; toggle.Unchecked += (_, _) => { _gameNiiMotionEnabled = false; toggle.Foreground = Brush("#A5B4BE"); }; controls.Children.Add(toggle);
-        var launch = new Button { Content = "▶  DOĞRULA VE OYUNU BAŞLAT", Padding = new Thickness(20, 12, 20, 12) }; launch.Click += async (_, _) => await ValidateAndLaunchGameAsync(selected, launch); Grid.SetColumn(launch, 2); controls.Children.Add(launch); content.Children.Add(controls);
+        var tune = new Button { Content = "⚙  AYARLAR", Padding = new Thickness(10, 12, 10, 12) }; tune.Click += (_, _) => OpenGameTuningWindow(selected); Grid.SetColumn(tune, 2); controls.Children.Add(tune);
+        var launch = new Button { Content = "▶  DOĞRULA VE OYUNU BAŞLAT", Padding = new Thickness(20, 12, 20, 12) }; launch.Click += async (_, _) => await ValidateAndLaunchGameAsync(selected, launch); Grid.SetColumn(launch, 4); controls.Children.Add(launch); content.Children.Add(controls);
         heroGrid.Children.Add(content); hero.Child = heroGrid; GamesPanel.Children.Add(hero);
         var note = new Border { Background = Brush("#09121A"), BorderBrush = Brush("#1F303C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(7), Padding = new Thickness(14) }; _gameLaunchStatus = Label("Başlatma sırası: profil ve kalibrasyon → hareket cihazları → Quest / Virtual Desktop → SteamVR → oyun. Bir adım doğrulanmazsa oyun açılmaz.", "#93A7B3", 10, FontWeights.Normal); note.Child = _gameLaunchStatus; GamesPanel.Children.Add(note);
     }
@@ -373,6 +375,40 @@ public partial class MainWindow : Window
         }
         catch { }
     }
+
+    private void OpenGameTuningWindow(InstalledGame game)
+    {
+        var store = new GameMotionProfileStore(); var profile = store.Load(game.Definition.Id);
+        var window = new Window { Title = $"NiiMotion · {game.Definition.Name} Hareket Ayarları", Owner = this, Width = 680, Height = 690, WindowStartupLocation = WindowStartupLocation.CenterOwner, ResizeMode = ResizeMode.NoResize, Background = Brush("#070D12"), Foreground = Brush("#F4F7FA") };
+        var root = new Grid { Margin = new Thickness(28) }; root.RowDefinitions.Add(new RowDefinition()); root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); var body = new StackPanel(); root.Children.Add(body);
+        body.Children.Add(Label("Oyun Hareket Ayarları", "#F5F8FA", 24, FontWeights.SemiBold)); body.Children.Add(Label(game.Definition.Name, "#4ABCF4", 11, FontWeights.SemiBold, new Thickness(0, 4, 0, 5)));
+        body.Children.Add(Label("Bu ayarlar yalnız oyuna gönderilen analog hareketi değiştirir. Kişisel yürüyüş kayıtların ve kalibrasyonun değiştirilmez.", "#9FB0BA", 10, FontWeights.Normal, new Thickness(0, 0, 0, 18)));
+
+        var speed = AddTuningSlider(body, "GENEL HIZ", "Oyundaki bütün yürüyüş hızlarını birlikte değiştirir.", .25, 3, profile.SpeedMultiplier, .05, "0.00×");
+        var maximum = AddTuningSlider(body, "AZAMİ HIZ", "En hızlı fiziksel yürüyüşte oyuna gönderilecek üst sınır.", .2, 1, profile.MaximumOutput, .05, "0%");
+        var deadzone = AddTuningSlider(body, "KÜÇÜK HAREKET FİLTRESİ", "Çok küçük hareketlerin yanlış yürüyüşe dönüşmesini engeller.", 0, .2, profile.Deadzone, .01, "0%");
+        var acceleration = AddTuningSlider(body, "BAŞLAMA TEPKİSİ", "Yürümeye başlayınca oyun hızının ne kadar çabuk yükseldiği.", .5, 12, profile.AccelerationPerSecond, .5, "0.0");
+        var deceleration = AddTuningSlider(body, "DURMA TEPKİSİ", "Durduğunda analog hareketin ne kadar hızlı sıfırlandığı.", 2, 30, profile.DecelerationPerSecond, 1, "0");
+        var version = new Border { Background = Brush("#0D1820"), BorderBrush = Brush("#29404D"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6), Padding = new Thickness(12), Margin = new Thickness(0, 8, 0, 0) };
+        version.Child = Label($"EŞLEME SÜRÜMÜ  ·  {profile.MappingVersion}    YÖN  ·  OYUNUN KENDİ YÖNÜ", "#8FA4B0", 9, FontWeights.SemiBold); body.Children.Add(version);
+
+        var footer = new Grid { Margin = new Thickness(0, 18, 0, 0) }; footer.ColumnDefinitions.Add(new ColumnDefinition()); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) }); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) }); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); Grid.SetRow(footer, 1); root.Children.Add(footer);
+        Button ActionButton(string text, string background) => new() { Content = text, Foreground = Brush("#F4F7FA"), Background = Brush(background), BorderBrush = Brush("#315066"), BorderThickness = new Thickness(1), Padding = new Thickness(18, 10, 18, 10), FontWeight = FontWeights.SemiBold };
+        var reset = ActionButton("VARSAYILANA DÖN", "#342615"); reset.Click += (_, _) => { if (MessageBox.Show(window, "Bu oyunun kişisel hareket ayarları kaldırılıp güvenli varsayılanlara dönülsün mü?", "Varsayılana dön", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes) { store.Reset(game.Definition.Id); window.DialogResult = true; window.Close(); BuildGamesPage(); } }; footer.Children.Add(reset);
+        var cancel = ActionButton("VAZGEÇ", "#101923"); cancel.Click += (_, _) => window.Close(); Grid.SetColumn(cancel, 3); footer.Children.Add(cancel);
+        var save = ActionButton("AYARLARI KAYDET", "#087DC4"); save.Click += (_, _) => { store.Save(profile with { SpeedMultiplier = speed.Value, MaximumOutput = maximum.Value, Deadzone = deadzone.Value, AccelerationPerSecond = acceleration.Value, DecelerationPerSecond = deceleration.Value }); window.DialogResult = true; window.Close(); BuildGamesPage(); }; Grid.SetColumn(save, 5); footer.Children.Add(save);
+        window.Content = root; window.ShowDialog();
+    }
+
+    private static Slider AddTuningSlider(Panel parent, string title, string detail, double minimum, double maximum, double value, double tick, string format)
+    {
+        var panel = new StackPanel { Margin = new Thickness(0, 0, 0, 13) }; var heading = new Grid(); heading.ColumnDefinitions.Add(new ColumnDefinition()); heading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        heading.Children.Add(Label(title, "#4ABCF4", 9, FontWeights.Bold)); var valueText = Label(FormatTuningValue(value, format), "#55DDB8", 11, FontWeights.Bold); Grid.SetColumn(valueText, 1); heading.Children.Add(valueText); panel.Children.Add(heading);
+        panel.Children.Add(Label(detail, "#8FA1AD", 9, FontWeights.Normal, new Thickness(0, 2, 0, 4))); var slider = new Slider { Minimum = minimum, Maximum = maximum, Value = value, TickFrequency = tick, IsSnapToTickEnabled = true, Height = 22 };
+        slider.ValueChanged += (_, _) => valueText.Text = FormatTuningValue(slider.Value, format); panel.Children.Add(slider); parent.Children.Add(panel); return slider;
+    }
+
+    private static string FormatTuningValue(double value, string format) => format == "0%" ? $"{value * 100:0}%" : value.ToString(format, System.Globalization.CultureInfo.CurrentCulture);
 
     private async Task ValidateAndLaunchGameAsync(InstalledGame game, Button launchButton)
     {

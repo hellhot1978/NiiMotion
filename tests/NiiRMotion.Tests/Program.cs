@@ -190,6 +190,7 @@ static void GameMotionProfileTest()
         Assert(builtIn.MappingVersion == "alyx-openvr-v2" && builtIn.AccelerationPerSecond == 3 && builtIn.DecelerationPerSecond == 12, "Established Alyx response contract changed.");
         store.Save(builtIn with { SpeedMultiplier = 9, MaximumOutput = .1, Deadzone = .5 }); var safe = store.LoadActive();
         Assert(safe.SpeedMultiplier == 3 && safe.MaximumOutput == .2 && safe.Deadzone == .2, "Unsafe game tuning was not bounded.");
+        var reset = store.Reset("half-life-alyx"); Assert(reset.SpeedMultiplier == 1 && reset.MaximumOutput == 1 && store.LoadAll().Count == 0, "Game tuning did not restore its built-in profile.");
     }
     finally { Directory.Delete(config, true); }
 }
