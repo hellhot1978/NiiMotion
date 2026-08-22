@@ -37,7 +37,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
         {
             var source = new PsMoveSensorSource(NiiMotionPaths.PsMoveAssignments, NiiMotionPaths.PsMoveFactoryCalibration);
             _sources.Add(source); await source.StartAsync(token);
-            _vrSession = new VrLocomotionSession(new NamedPipeVrOutputSink(), new GameAdapterStore().LoadActiveSpeedMultiplier()); await _vrSession.StartAsync(token);
+            _vrSession = new VrLocomotionSession(new NamedPipeVrOutputSink(), new GameMotionProfileStore().LoadActive()); await _vrSession.StartAsync(token);
             var logFolder = Path.Combine(NiiMotionPaths.Logs, "live"); Directory.CreateDirectory(logFolder); StorageRetention.EnforceDirectoryBudget(logFolder);
             _diagnosticWriter = new StreamWriter(Path.Combine(logFolder, DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-psmove.csv"));
             _diagnosticWriter.WriteLine("elapsed_ticks;state;target_speed;confidence;cadence_hz;steps;phone_fresh;board_fresh;board_contact;turn_target");
@@ -134,7 +134,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
                 catch { if (board is not null) await board.DisposeAsync(); board = null; }
             }
 
-            _vrSession = new VrLocomotionSession(new NamedPipeVrOutputSink(), new GameAdapterStore().LoadActiveSpeedMultiplier());
+            _vrSession = new VrLocomotionSession(new NamedPipeVrOutputSink(), new GameMotionProfileStore().LoadActive());
             await _vrSession.StartAsync(token);
             var logFolder = @"C:\NiirMotion\logs\live"; Directory.CreateDirectory(logFolder);
             StorageRetention.EnforceDirectoryBudget(logFolder);

@@ -134,6 +134,12 @@ Ayrıntı: `phase-2-psmove-status.md`.
 - Kişisel hareket modeli ile oyun mapping'i kesin ayrılır.
 - Tüm config değişiklikleri backup/apply/revert durumuna sahip olur.
 
+**2026-08-22 Faz 12 başlangıcı — PARTIAL / TESTED**
+
+- Kullanıcı oyun eşlemeleri tek tek kaldırılabiliyor; ilk oyun eklenmeden önceki sürücü profili arayüzden geri yüklenebiliyor. Geri yüklemeden önce mevcut durum ayrıca tarihli güvenlik kopyasına alınıyor.
+- Kişisel hareket modelinden ayrı, şema ve mapping sürümü taşıyan `GameMotionProfile` katmanı eklendi. Hız çarpanı, azami analog çıkış, deadzone, hızlanma, yavaşlama ve yön modu oyun bazında tutuluyor.
+- Alyx `alyx-openvr-v2` başlangıç profili mevcut doğrulanmış 3.0 hızlanma / 12.0 durma tepkisini değiştirmeden yeni katmana taşındı. Fiziksel oyun doğrulaması yapılmadığı için Faz 12 henüz HARDWARE VERIFIED değildir.
+
 ### Faz 15–18 — HMD
 
 **DEFER UNTIL HMD**

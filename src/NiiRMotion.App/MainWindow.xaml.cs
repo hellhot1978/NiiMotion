@@ -286,10 +286,16 @@ public partial class MainWindow : Window
         if (selected is null) { GamesPanel.Children.Add(new Border { Child = Label("Henüz doğrulanmış ve kurulu bir VR oyunu bulunamadı. VR Oyunu Ekle ile yeni bir eşleme oluşturabilirsin.", "#F1C566", 12, FontWeights.SemiBold), Padding = new Thickness(18), Background = Brush("#151B1E"), CornerRadius = new CornerRadius(8) }); return; }
         _selectedGameId = selected.Definition.Id; new GameSelectionStore().Save(_selectedGameId);
 
-        var selector = new Grid { Margin = new Thickness(0, 0, 0, 14) }; selector.ColumnDefinitions.Add(new ColumnDefinition()); selector.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) }); selector.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var selector = new Grid { Margin = new Thickness(0, 0, 0, 14) }; selector.ColumnDefinitions.Add(new ColumnDefinition()); selector.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) }); selector.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); selector.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) }); selector.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var picker = new ComboBox { ItemsSource = available, SelectedItem = selected, Height = 38, FontSize = 12, Padding = new Thickness(10, 6, 10, 6), DisplayMemberPath = "Definition.Name" };
         picker.SelectionChanged += (_, _) => { if (picker.SelectedItem is InstalledGame choice && choice.Definition.Id != _selectedGameId) { _selectedGameId = choice.Definition.Id; new GameSelectionStore().Save(_selectedGameId); BuildGamesPage(); } }; selector.Children.Add(picker);
         var add = new Button { Content = "+ VR OYUNU EKLE", Padding = new Thickness(21, 10, 21, 10), MinWidth = 150 }; add.Click += (_, _) => OpenGameAdapterWizard(); Grid.SetColumn(add, 2); selector.Children.Add(add); GamesPanel.Children.Add(selector);
+        var adapterStore = new GameAdapterStore(); var userAdapters = adapterStore.Load(); var selectedAdapter = userAdapters.FirstOrDefault(x => x.Id == selected.Definition.Id);
+        var manage = new Button { Content = "EŞLEMELER  ▾", FontSize = 11, MinWidth = 116, Padding = new Thickness(15, 9, 15, 9), ToolTip = "Kullanıcı eşlemelerini kaldır veya özgün profili geri yükle", IsEnabled = userAdapters.Count > 0 || adapterStore.HasOriginalProfileBackup }; Grid.SetColumn(manage, 4); selector.Children.Add(manage);
+        var menu = new ContextMenu { Background = Brush("#0D151D"), Foreground = Brush("#F4F7FA") };
+        var remove = new MenuItem { Header = "Seçili kullanıcı eşlemesini kaldır", IsEnabled = selectedAdapter is not null }; remove.Click += async (_, _) => { if (selectedAdapter is not null) await RemoveGameAdapterAsync(selectedAdapter); }; menu.Items.Add(remove);
+        var restore = new MenuItem { Header = "Özgün sürücü profilini geri yükle", IsEnabled = adapterStore.HasOriginalProfileBackup }; restore.Click += async (_, _) => await RestoreOriginalGameProfileAsync(); menu.Items.Add(restore);
+        manage.Click += (_, _) => { menu.PlacementTarget = manage; menu.IsOpen = true; };
 
         var hero = new Border { Height = 300, Background = Brush("#0D151D"), BorderBrush = Brush("#273945"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10), ClipToBounds = true, Margin = new Thickness(0, 0, 0, 14) };
         var heroGrid = new Grid(); heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(220) }); heroGrid.ColumnDefinitions.Add(new ColumnDefinition());
@@ -402,6 +408,23 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(_pendingGameAppId)) return;
         var appId = _pendingGameAppId; _pendingGameAppId = null;
         Process.Start(new ProcessStartInfo($"steam://rungameid/{appId}") { UseShellExecute = true });
+    }
+
+    private async Task RemoveGameAdapterAsync(UserGameAdapter adapter)
+    {
+        if (MessageBox.Show(this, $"{adapter.Name} için oluşturduğun NiiMotion eşlemesi kaldırılacak. Oyun dosyaları değişmeyecek. Devam edilsin mi?", "Oyun eşlemesini kaldır", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        await _systemMode.StopSteamVrAsync(); new GameAdapterStore().Remove(adapter.SteamAppId); _selectedGameId = "half-life-alyx"; BuildGamesPage();
+    }
+
+    private async Task RestoreOriginalGameProfileAsync()
+    {
+        if (MessageBox.Show(this, "İlk oyun eklenmeden önceki özgün NiiMotion sürücü profili geri yüklenecek ve bütün kullanıcı oyun eşlemeleri kaldırılacak. Geri yükleme öncesi mevcut profil ayrıca saklanacak. SteamVR kapatılarak devam edilsin mi?", "Özgün profili geri yükle", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        try
+        {
+            await _locomotion.StopAsync(); await _systemMode.StopSteamVrAsync(); var result = new GameAdapterStore().RestoreOriginalProfile(); _selectedGameId = "half-life-alyx"; BuildGamesPage();
+            MessageBox.Show(this, $"Özgün profil geri yüklendi. {result.RemovedAdapterCount} kullanıcı eşlemesi kaldırıldı. Geri yükleme öncesi durum ayrıca saklandı.", "Geri yükleme tamamlandı", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, "Geri yükleme başarısız", MessageBoxButton.OK, MessageBoxImage.Error); }
     }
 
     private async Task BuildCalibrationCenterAsync()

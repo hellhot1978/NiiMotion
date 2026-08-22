@@ -23,5 +23,7 @@ recordings/
 /config/active-game.txt
 /config/game-adapters.json
 /config/game-metadata/
+/config/game-motion-profiles.json
+/config/game-motion-profiles.json.backup-*
 # Local portable build toolchains/SDKs
 .tools/

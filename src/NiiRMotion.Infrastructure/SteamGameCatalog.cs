@@ -65,7 +65,9 @@ public sealed record SteamAppCandidate(string AppId, string Name, string Install
 
 public sealed class GameSelectionStore
 {
-    private static string PathName => Path.Combine(NiiMotionPaths.Config, "active-game.txt");
+    private readonly string _configDirectory;
+    private string PathName => Path.Combine(_configDirectory, "active-game.txt");
+    public GameSelectionStore(string? configDirectory = null) => _configDirectory = configDirectory ?? NiiMotionPaths.Config;
     public string Load() { try { return File.Exists(PathName) ? File.ReadAllText(PathName).Trim() : "half-life-alyx"; } catch { return "half-life-alyx"; } }
-    public void Save(string gameId) { var temp = PathName + ".tmp"; File.WriteAllText(temp, gameId); File.Move(temp, PathName, true); }
+    public void Save(string gameId) { Directory.CreateDirectory(_configDirectory); var temp = PathName + ".tmp"; File.WriteAllText(temp, gameId); File.Move(temp, PathName, true); }
 }

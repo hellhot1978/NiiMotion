@@ -196,13 +196,13 @@ public sealed class VrLocomotionSession : IAsyncDisposable
     private readonly VrOutputController _output;
     private readonly LocomotionSmoother _smoother = new();
     private readonly LocomotionSmoother _turnSmoother = new();
-    private readonly double _speedMultiplier;
+    private readonly GameMotionProfile _gameProfile;
     private bool _started;
 
-    public VrLocomotionSession(IAnalogLocomotionSink sink, double speedMultiplier = 1)
+    public VrLocomotionSession(IAnalogLocomotionSink sink, GameMotionProfile? gameProfile = null)
     {
         _output = new VrOutputController(sink);
-        _speedMultiplier = Math.Clamp(speedMultiplier, .25, 3);
+        _gameProfile = (gameProfile ?? GameMotionProfile.Default("default")).Safe();
     }
 
     public async ValueTask StartAsync(CancellationToken cancellationToken = default)
@@ -216,8 +216,9 @@ public sealed class VrLocomotionSession : IAsyncDisposable
     public async ValueTask UpdateAsync(FusionSnapshot snapshot, TimeSpan delta, CancellationToken cancellationToken = default)
     {
         if (!_started) throw new InvalidOperationException("Locomotion session is OFF.");
-        var target = Math.Clamp(snapshot.TargetSpeed * _speedMultiplier, 0, 1);
-        var speed = _smoother.Update(target, delta, 3.0, target == 0 ? 12.0 : 2.8);
+        var rawTarget = snapshot.TargetSpeed * _gameProfile.SpeedMultiplier;
+        var target = rawTarget <= _gameProfile.Deadzone ? 0 : Math.Clamp(rawTarget, 0, _gameProfile.MaximumOutput);
+        var speed = _smoother.Update(target, delta, _gameProfile.AccelerationPerSecond, target == 0 ? _gameProfile.DecelerationPerSecond : _gameProfile.AccelerationPerSecond * .93);
         var turn = _turnSmoother.Update(snapshot.TurnTarget, delta, 4.5, snapshot.TurnTarget == 0 ? 10.0 : 4.5);
         await _output.SetAsync(new LocomotionVector((float)turn, (float)speed), cancellationToken);
     }

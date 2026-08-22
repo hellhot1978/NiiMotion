@@ -1,6 +1,7 @@
 using System.Numerics;
 using System.Net.Sockets;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using NiiRMotion.Core;
 using NiiRMotion.Infrastructure;
 if (args.Contains("--hardware-smoke", StringComparer.OrdinalIgnoreCase)) return await HardwareSmokeAsync();
@@ -175,10 +176,23 @@ if (args.Contains("--vr-pace-simulation", StringComparer.OrdinalIgnoreCase)) ret
 if (args.Contains("--vr-pace-simulation-short", StringComparer.OrdinalIgnoreCase)) return await VrPaceSimulationAsync(200);
 if (args.Contains("--vr-straight-drift-test", StringComparer.OrdinalIgnoreCase)) return await VrStraightDriftTestAsync();
 var tests = new (string Name, Func<Task> Run)[] { Sync("Hardware inventory creates every available profile combination", HardwareInventoryProfiles), Sync("Required device missing blocks session", RequiredMissingBlocks), Sync("Optional device missing degrades session", OptionalMissingDegrades), Sync("All devices ready", AllReady), Sync("Classic VR disables locomotion", ClassicVrIsNonInvasive), Sync("Joy-Con identity rejects clones", JoyConIdentity), Sync("PS Move identity accepts only ZCM1", PsMoveIdentity), Sync("PS Move ZCM1 input report parses", PsMoveInputReport), Sync("PS Move factory calibration maps sensor units", PsMoveFactoryCalibration), Sync("PS Move training creates distinct pace anchors", PsMoveTrainingProfileTest), ("PS Move assignments persist by stable identity", PsMoveAssignmentsRoundTrip), Sync("Joy-Con report parses three IMU samples", ParseImu), Sync("Invalid report is rejected", InvalidReport), Sync("Factory calibration parses", ParseCalibration), Sync("Factory calibration scales IMU", ScaleCalibration), Sync("Phone sequence loss is measured", PhoneLoss), Sync("owoTrack big-endian rotation parses", OwoRotation), Sync("Balance Board derives load and CoP", BalanceBoardDerivesCop), Sync("Balance Board protocol parses and calibrates", BalanceBoardProtocol), Sync("Board hold gesture turns without walking", BoardHoldGestureTurns), Sync("Board walking does not become a turn", BoardWalkingDoesNotTurn), Sync("Torso motion alone never starts locomotion", TorsoCannotStart), Sync("Experimental phone-only requires sustained motion", ExperimentalPhoneOnlyIsExplicitlyGated), Sync("Bilateral crouch motion resets gait confidence", BilateralMotionRejected), Sync("Single leg movement does not become walking", SingleLegRejected), Sync("Alternating leg evidence starts gait", AlternatingLegsStart), Sync("Natural cadence stays continuous and stops promptly", NaturalCadenceContinuity), Sync("Threshold hysteresis rejects sensor chatter", ThresholdHysteresisRejectsChatter), Sync("Stronger thigh swings produce a faster natural pace", SwingAmplitudeControlsPace), ("Learned DeepGait pace prior loads and scales", LearnedPacePrior), Sync("Gait stops after stale leg data", GaitStops), Sync("Optional fusion evidence cannot create gait", OptionalFusionCannotStart), Sync("Stale optional sensors degrade without blocking gait", StaleOptionalSensorsDoNotBlock), Sync("Analog output is smoothed", SpeedIsSmoothed), ("VR session starts promptly, stays straight and stops promptly", VrSessionResponseContract), Sync("Calibration rejects incomplete capture", CalibrationRejectsIncomplete), ("Calibration is versioned and round-trips", CalibrationRoundTrip), ("Personal gait records analyze and apply", PersonalGaitAnalysisRoundTrip), ("Recording round-trips through replay", RecordingRoundTrip), ("Balance Board recording round-trips", BalanceBoardRecordingRoundTrip), ("Phone UDP listener validates token", PhoneUdpRoundTrip), ("Live log retention enforces its disk budget", LogRetentionEnforcesBudget), Sync("Alyx physical forward override preserves controller buttons", AlyxPhysicalForwardOverride), Sync("Arizona 2 movement override preserves controller buttons", Arizona2PhysicalMovementOverride), ("VR output starts at zero and clamps analog values", VrOutputLifecycle), ("VR output refuses movement while off", VrOutputOffRejects), ("VR output failure detaches safely", VrOutputFailureDetaches), ("Fused gait drives analog output and stops safely", FusedGaitDrivesOutput), ("Board turn drives horizontal output only", BoardTurnDrivesHorizontalOutput), ("Named-pipe output packet matches native protocol", NamedPipeOutputProtocol), Sync("Native OpenVR DLL exports driver factory", NativeDriverExportsFactory), Sync("Native treadmill publishes an active stationary pose", NativeDriverPoseContract), Sync("Alyx binding includes treadmill vector and walk activation", AlyxBindingContract), Sync("Arizona Sunshine 2 binding includes movement vector", Arizona2BindingContract) };
-tests = [Sync("Game adapter validates safe SteamVR actions", GameAdapterValidation), Sync("Steam action discovery finds movement inputs", SteamActionDiscoveryTest), Sync("Steam game catalog detects only real manifests", SteamGameCatalogDetection), ("Unified sensor replay preserves timestamp order", UnifiedSensorReplayOrder), Sync("Calibration progress schema separates devices and profiles", CalibrationProgressSchema), Sync("Hybrid leg sensors reward agreement and degrade disagreement", HybridLegAgreement), .. tests];
+tests = [Sync("Game motion profile is versioned and bounded", GameMotionProfileTest), Sync("Game adapter validates safe SteamVR actions", GameAdapterValidation), Sync("Game adapter restore returns original profile", GameAdapterRestoreTest), Sync("Steam action discovery finds movement inputs", SteamActionDiscoveryTest), Sync("Steam game catalog detects only real manifests", SteamGameCatalogDetection), ("Unified sensor replay preserves timestamp order", UnifiedSensorReplayOrder), Sync("Calibration progress schema separates devices and profiles", CalibrationProgressSchema), Sync("Hybrid leg sensors reward agreement and degrade disagreement", HybridLegAgreement), .. tests];
 var failures = new List<string>();
 foreach (var test in tests) { try { await test.Run(); Console.WriteLine($"PASS  {test.Name}"); } catch (Exception ex) { failures.Add($"FAIL  {test.Name}: {ex.Message}"); } }
 foreach (var failure in failures) Console.Error.WriteLine(failure); Console.WriteLine($"{tests.Length - failures.Count}/{tests.Length} tests passed."); return failures.Count == 0 ? 0 : 1;
+
+static void GameMotionProfileTest()
+{
+    var config = Path.Combine(Path.GetTempPath(), "niirmotion-game-profile-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(config);
+    try
+    {
+        new GameSelectionStore(config).Save("half-life-alyx"); var store = new GameMotionProfileStore(config); var builtIn = store.LoadActive();
+        Assert(builtIn.MappingVersion == "alyx-openvr-v2" && builtIn.AccelerationPerSecond == 3 && builtIn.DecelerationPerSecond == 12, "Established Alyx response contract changed.");
+        store.Save(builtIn with { SpeedMultiplier = 9, MaximumOutput = .1, Deadzone = .5 }); var safe = store.LoadActive();
+        Assert(safe.SpeedMultiplier == 3 && safe.MaximumOutput == .2 && safe.Deadzone == .2, "Unsafe game tuning was not bounded.");
+    }
+    finally { Directory.Delete(config, true); }
+}
 
 static void GameAdapterValidation()
 {
@@ -186,6 +200,22 @@ static void GameAdapterValidation()
     Assert(GameAdapterValidator.Validate(valid).Count == 0, "Valid SteamVR actions were rejected.");
     Assert(GameAdapterValidator.Validate(valid with { MovementAction = "keyboard/W" }).Count > 0, "Unsafe non-action path was accepted.");
     Assert(GameAdapterValidator.Validate(valid with { SpeedMultiplier = 5 }).Count > 0, "Unsafe speed multiplier was accepted.");
+}
+
+static void GameAdapterRestoreTest()
+{
+    var root = Path.Combine(Path.GetTempPath(), "niirmotion-adapter-" + Guid.NewGuid().ToString("N")); var input = Path.Combine(root, "native", "openvr-driver", "dist", "resources", "input"); Directory.CreateDirectory(input);
+    var original = """{"default_bindings":[{"app_key":"steam.app.546560","binding_url":"default_bindings/alyx.json"}]}"""; File.WriteAllText(Path.Combine(input, "niirmotion_profile.json"), original);
+    try
+    {
+        var store = new GameAdapterStore(root); var adapter = new UserGameAdapter("user-steam-123", "Test VR", "123", "/actions/main", "/actions/main/in/move", null, 1, DateTimeOffset.UtcNow);
+        store.SaveAndInstall(adapter); Assert(store.Load().Count == 1 && store.HasOriginalProfileBackup, "Adapter or original backup was not created.");
+        var result = store.RestoreOriginalProfile(); Assert(result.RemovedAdapterCount == 1 && File.Exists(result.SafetyCopyPath), "Safe restore copy was not created.");
+        Assert(store.Load().Count == 0, "Restored adapter store was not cleared.");
+        Assert(JsonNode.Parse(File.ReadAllText(Path.Combine(input, "niirmotion_profile.json")))!["default_bindings"]!.AsArray().Count == 1, "Original driver profile was not restored.");
+        Assert(!File.Exists(Path.Combine(input, "default_bindings", "steam.app.123_niirmotion.json")), "Generated binding survived restore.");
+    }
+    finally { Directory.Delete(root, true); }
 }
 
 static void SteamActionDiscoveryTest()
