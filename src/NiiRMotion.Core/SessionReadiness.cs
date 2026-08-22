@@ -11,7 +11,7 @@ public static class SessionReadinessEvaluator
             .Select(k => byKind.TryGetValue(k, out var s) ? s : new DeviceStatus(k, k.ToString(), DeviceState.Missing, "Tarama sonucu yok.", "Cihazı bağlayın ve tekrar tarayın."))
             .ToArray();
         if (blocking.Length > 0) return new(ReadinessState.NotReady, $"{blocking.Length} zorunlu bileşen eksik.", blocking);
-        var optionalMissing = profile.Optional.Count(k => !byKind.TryGetValue(k, out var s) || !s.IsConnected);
+        var optionalMissing = profile.Optional.Count(k => !byKind.TryGetValue(k, out var s) || (!s.IsConnected && s.State != DeviceState.Configured));
         return optionalMissing > 0
             ? new(ReadinessState.Degraded, "Oturum desteklenen düşük kapsamlı modda çalışabilir.", Array.Empty<DeviceStatus>())
             : new(ReadinessState.Ready, "Tüm profil bileşenleri hazır.", Array.Empty<DeviceStatus>());

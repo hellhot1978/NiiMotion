@@ -100,9 +100,9 @@ public partial class MainWindow : Window
         {
             var enabled = _inventory.UsesHandTracking;
             devices[handsIndex] = new DeviceStatus(DeviceKind.HandTracking, "VR El Kontrolü",
-                enabled ? DeviceState.Unknown : DeviceState.Missing,
-                enabled ? "Oyun kontrolü için seçili; yürüyüş motorundan bağımsızdır." : "Bu kontrol yöntemi kullanılmıyor.",
-                enabled ? "Quest'te el takibini ve Virtual Desktop'ta kontrolcü emülasyonunu aç." : "Kullanmak için Cihazlarım ekranından etkinleştir.");
+                enabled ? DeviceState.Configured : DeviceState.Missing,
+                enabled ? "Kullanıma açık; gerçek el izleme durumu Quest ve Virtual Desktop tarafından yönetilir." : "Bu kontrol yöntemi kullanılmıyor.",
+                enabled ? "Quest'te el takibini, Virtual Desktop'ta elden kontrolcü emülasyonunu açık tut." : "Kullanmak için Cihazlarım ekranından etkinleştir.");
         }
         RefreshHandTrackingVisual();
         RefreshPhoneVisual(devices);
@@ -230,6 +230,7 @@ public partial class MainWindow : Window
         if (setup.ShowDialog() != true) return;
         _inventory = setup.Inventory;
         await new UserSetupStore().SaveInventoryAsync(_inventory);
+        HandTrackingToggle.IsChecked = _inventory.UsesHandTracking;
         RebuildProfileMenu();
         if (!_profileRecommendations.Any(x => x.Profile.Id == _profile.Id)) SelectProfile(MotionProfile.ClassicVr);
         await ScanAsync();

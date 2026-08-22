@@ -1,13 +1,13 @@
 namespace NiiRMotion.Core;
 
 public enum DeviceKind { Quest3, SteamVr, VirtualDesktop, HandTracking, JoyConLeft, JoyConRight, PsMoveLeft, PsMoveRight, Phone, BalanceBoard }
-public enum DeviceState { Connected, Missing, Unknown }
+public enum DeviceState { Connected, Missing, Unknown, Configured }
 public sealed record DeviceStatus(DeviceKind Kind, string Name, DeviceState State, string Detail, string Action)
 {
     public bool IsConnected => State == DeviceState.Connected;
-    public string Symbol => State switch { DeviceState.Connected => "✓", DeviceState.Missing => "×", _ => "?" };
-    public string StateText => State switch { DeviceState.Connected => "Bağlı", DeviceState.Missing => "Eksik", _ => "Belirsiz" };
-    public string StateColor => State switch { DeviceState.Connected => "#55E6C1", DeviceState.Missing => "#FF7F9B", _ => "#F5C96A" };
+    public string Symbol => State switch { DeviceState.Connected => "✓", DeviceState.Missing => "×", DeviceState.Configured => "●", _ => "?" };
+    public string StateText => State switch { DeviceState.Connected => "Bağlı", DeviceState.Missing => "Eksik", DeviceState.Configured => "Kullanıma açık", _ => "Belirsiz" };
+    public string StateColor => State switch { DeviceState.Connected => "#55E6C1", DeviceState.Missing => "#FF7F9B", DeviceState.Configured => "#57A9FF", _ => "#F5C96A" };
     public string IconGlyph => Kind switch
     {
         DeviceKind.Quest3 => "⌁", DeviceKind.SteamVr => "▶", DeviceKind.VirtualDesktop => "▣", DeviceKind.HandTracking => "✋",
