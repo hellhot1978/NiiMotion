@@ -819,6 +819,7 @@ public partial class MainWindow : Window
     private void OpenBoardLabClick(object sender, RoutedEventArgs e) => new BoardLabWindow { Owner = this }.ShowDialog();
     private async void OpenRecoveryCenterClick(object sender, RoutedEventArgs e)
     {
+        await _locomotion.StopAsync(); SetStopControl(false);
         if (new RecoveryCenterWindow { Owner = this }.ShowDialog() == true)
         {
             await EnsureHardwareInventoryAsync(); HandTrackingToggle.IsChecked = _inventory.UsesHandTracking; RebuildProfileMenu(); await ScanAsync();

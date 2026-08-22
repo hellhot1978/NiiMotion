@@ -16,5 +16,15 @@ public partial class RecoveryCenterWindow : Window
         if (MessageBox.Show(this, "Seçili yedek geri yüklensin mi? Mevcut durum önce ayrıca saklanacak.", "Geri yükle", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
         _service.Restore(row.Snapshot.Id); DialogResult = true; Close();
     }
+    private void ResetLearnedDataClick(object sender, RoutedEventArgs e)
+    {
+        var first = MessageBox.Show(this, "Kişisel hareket modelleri, temel kalibrasyon ilerlemesi ve ham eğitim kayıtları sıfırlanacak. PS Move/Joy-Con eşleştirmeleri, cihaz tercihleri ve oyun ayarları korunacak. Devam edilsin mi?", "Öğrenilmiş veriyi sıfırla", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (first != MessageBoxResult.Yes) return;
+        var second = MessageBox.Show(this, "İşlemden önce tam geri dönüş ZIP'i oluşturulacak. Sıfırlamayı onaylıyor musun?", "Son onay", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (second != MessageBoxResult.Yes) return;
+        var result = new LearnedMotionDataService().Reset();
+        MessageBox.Show(this, $"Öğrenilmiş hareket verileri sıfırlandı.\n\nGeri dönüş arşivi:\n{result.BackupPath}", "Sıfırlama tamamlandı", MessageBoxButton.OK, MessageBoxImage.Information);
+        DialogResult = true; Close();
+    }
     private void CloseClick(object sender, RoutedEventArgs e) => Close();
 }
