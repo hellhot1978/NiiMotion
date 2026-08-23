@@ -10,6 +10,7 @@ public static partial class HidDeviceEnumerator
     private const ushort NintendoVendorId = 0x057E;
     private const ushort BalanceBoardProductId = 0x0306;
     private const uint DigcfPresent = 0x2;
+    private const uint DigcfAllClasses = 0x4;
     private const uint DigcfDeviceInterface = 0x10;
     private static readonly nint InvalidHandleValue = new(-1);
 
@@ -43,6 +44,31 @@ public static partial class HidDeviceEnumerator
         }
 
         return results.DistinctBy(x => x.DevicePath, StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
+    public static IReadOnlySet<string> FindPresentBluetoothAddresses()
+    {
+        var set = SetupDiGetClassDevsAll(0, "BTHENUM", 0, DigcfPresent | DigcfAllClasses);
+        if (set == InvalidHandleValue) return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var results = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            for (uint index = 0; ; index++)
+            {
+                var data = new DeviceInfoData { Size = Marshal.SizeOf<DeviceInfoData>() };
+                if (!SetupDiEnumDeviceInfo(set, index, ref data))
+                {
+                    if (Marshal.GetLastWin32Error() == 259) break;
+                    continue;
+                }
+                var buffer = new System.Text.StringBuilder(512);
+                if (CM_Get_Device_ID(data.DevInst, buffer, buffer.Capacity, 0) != 0) continue;
+                var match = BluetoothDeviceAddressRegex().Match(buffer.ToString());
+                if (match.Success) results.Add(match.Groups[1].Value.ToUpperInvariant());
+            }
+        }
+        finally { SetupDiDestroyDeviceInfoList(set); }
+        return results;
     }
 
     private static bool TryReadVidPid(string path, out ushort vid, out ushort pid)
@@ -80,6 +106,9 @@ public static partial class HidDeviceEnumerator
                     Marshal.WriteInt32(buffer, IntPtr.Size == 8 ? 8 : 6);
                     var deviceInfo = new DeviceInfoData { Size = Marshal.SizeOf<DeviceInfoData>() };
                     if (!SetupDiGetDeviceInterfaceDetail(set, ref data, buffer, required, out _, ref deviceInfo)) continue;
+                    // The variable-length path begins immediately after cbSize. The
+                    // cbSize value is 8 on x64 for API alignment, but the string itself
+                    // still starts at byte 4 in the returned buffer.
                     var path = Marshal.PtrToStringUni(buffer + 4) ?? string.Empty;
                     if (!string.IsNullOrWhiteSpace(path)) results.Add(new(path, GetParentInstanceId(deviceInfo.DevInst)));
                 }
@@ -106,10 +135,13 @@ public static partial class HidDeviceEnumerator
 
     [GeneratedRegex("(?:vid_|vid&0002)([0-9a-f]{4}).*(?:pid_|pid&)([0-9a-f]{4})", RegexOptions.IgnoreCase)] private static partial Regex VidPidRegex();
     [GeneratedRegex("&0&([0-9a-f]{12})(?:_C[0-9a-f]+)?$", RegexOptions.IgnoreCase)] private static partial Regex BluetoothAddressRegex();
+    [GeneratedRegex(@"^BTHENUM\\DEV_([0-9a-f]{12})\\", RegexOptions.IgnoreCase)] private static partial Regex BluetoothDeviceAddressRegex();
     [StructLayout(LayoutKind.Sequential)] private struct DeviceInterfaceData { public int Size; public Guid InterfaceClassGuid; public uint Flags; public nint Reserved; }
     [StructLayout(LayoutKind.Sequential)] private struct DeviceInfoData { public int Size; public Guid ClassGuid; public uint DevInst; public nint Reserved; }
     [DllImport("hid.dll")] private static extern void HidD_GetHidGuid(out Guid hidGuid);
     [DllImport("setupapi.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern nint SetupDiGetClassDevs(ref Guid classGuid, string? enumerator, nint hwndParent, uint flags);
+    [DllImport("setupapi.dll", EntryPoint = "SetupDiGetClassDevsW", CharSet = CharSet.Unicode, SetLastError = true)] private static extern nint SetupDiGetClassDevsAll(nint classGuid, string? enumerator, nint hwndParent, uint flags);
+    [DllImport("setupapi.dll", SetLastError = true)] private static extern bool SetupDiEnumDeviceInfo(nint deviceInfoSet, uint memberIndex, ref DeviceInfoData deviceInfoData);
     [DllImport("setupapi.dll", SetLastError = true)] private static extern bool SetupDiEnumDeviceInterfaces(nint deviceInfoSet, nint deviceInfoData, ref Guid interfaceClassGuid, uint memberIndex, ref DeviceInterfaceData deviceInterfaceData);
     [DllImport("setupapi.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern bool SetupDiGetDeviceInterfaceDetail(nint deviceInfoSet, ref DeviceInterfaceData deviceInterfaceData, nint detailData, uint detailDataSize, out uint requiredSize, ref DeviceInfoData deviceInfoData);
     [DllImport("setupapi.dll", EntryPoint = "SetupDiGetDeviceInterfaceDetailW", CharSet = CharSet.Unicode, SetLastError = true)] private static extern bool SetupDiGetDeviceInterfaceDetailSize(nint deviceInfoSet, ref DeviceInterfaceData deviceInterfaceData, nint detailData, uint detailDataSize, out uint requiredSize, nint deviceInfoData);

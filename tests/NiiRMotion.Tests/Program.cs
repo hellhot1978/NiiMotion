@@ -15,6 +15,17 @@ if (releaseManifestArg is not null)
     Console.WriteLine($"Release integrity manifest: {manifest.Files.Count} files"); return manifest.Files.Count > 0 ? 0 : 2;
 }
 if (args.Contains("--hardware-smoke", StringComparer.OrdinalIgnoreCase)) return await HardwareSmokeAsync();
+if (args.Contains("--hid-paths", StringComparer.OrdinalIgnoreCase))
+{
+    foreach (var path in HidDeviceEnumerator.FindAllHidPaths()) Console.WriteLine(path);
+    return 0;
+}
+if (args.Contains("--hardware-status", StringComparer.OrdinalIgnoreCase))
+{
+    foreach (var status in await new HardwareDiscoveryService().ScanAsync())
+        Console.WriteLine($"{status.Kind}: {status.State} | {status.Detail}");
+    return 0;
+}
 if (args.Contains("--psmove-discovery", StringComparer.OrdinalIgnoreCase))
 {
     var probes = new PsMoveDiagnosticsService().Discover();

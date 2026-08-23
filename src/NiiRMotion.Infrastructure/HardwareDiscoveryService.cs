@@ -26,9 +26,16 @@ public sealed class HardwareDiscoveryService : IHardwareDiscoveryService
         var rightJoyCon = joyCons.Any(x => x.Side == JoyConSide.Right);
         var moveIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         try { foreach (var probe in new PsMoveDiagnosticsService().Discover().Where(x => x.SensorReportsPossible && x.Device.StableId is not null)) moveIds.Add(probe.Device.StableId!); } catch { }
+        IReadOnlySet<string> presentBluetoothIds;
+        try { presentBluetoothIds = HidDeviceEnumerator.FindPresentBluetoothAddresses(); }
+        catch { presentBluetoothIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase); }
         var moveAssignments = await new PsMoveAssignmentStore(NiiMotionPaths.PsMoveAssignments).LoadAsync(cancellationToken).ConfigureAwait(false);
-        var leftMove = moveAssignments is { IsComplete: true } && moveIds.Contains(moveAssignments.LeftStableId);
-        var rightMove = moveAssignments is { IsComplete: true } && moveIds.Contains(moveAssignments.RightStableId);
+        var leftMoveLive = moveAssignments is { IsComplete: true } && moveIds.Contains(moveAssignments.LeftStableId);
+        var rightMoveLive = moveAssignments is { IsComplete: true } && moveIds.Contains(moveAssignments.RightStableId);
+        var leftMove = moveAssignments is { IsComplete: true }
+            && (leftMoveLive || presentBluetoothIds.Contains(moveAssignments.LeftStableId));
+        var rightMove = moveAssignments is { IsComplete: true }
+            && (rightMoveLive || presentBluetoothIds.Contains(moveAssignments.RightStableId));
         var balanceBoard = false;
         try { balanceBoard = HidDeviceEnumerator.FindBalanceBoards().Count > 0; } catch { }
         var phoneConnected = PhonePresence.TryGetFresh(out var phoneEndpoint);
@@ -54,8 +61,12 @@ public sealed class HardwareDiscoveryService : IHardwareDiscoveryService
             new(DeviceKind.HandTracking, "Hand Tracking", DeviceState.Unknown, "Güvenilir yerel API ile doğrulanamıyor.", "Quest ve Virtual Desktop içinden el takibini doğrulayın."),
             FoundOrMissing(DeviceKind.JoyConLeft, "Sol Joy-Con", leftJoyCon, "Original Joy-Con L HID arabirimi algılandı.", "Nintendo VID/PID ile Joy-Con L bulunamadı.", "Joy-Con L'yi açın ve Windows Bluetooth bağlantısını kontrol edin."),
             FoundOrMissing(DeviceKind.JoyConRight, "Sağ Joy-Con", rightJoyCon, "Original Joy-Con R HID arabirimi algılandı.", "Nintendo VID/PID ile Joy-Con R bulunamadı.", "Joy-Con R'yi açın ve Windows Bluetooth bağlantısını kontrol edin."),
-            FoundOrMissing(DeviceKind.PsMoveLeft, "Sol PS Move", leftMove, "Atanmış kırmızı PS Move bağlı.", "Atanmış sol PS Move bulunamadı.", "Move düğmesine basın veya kurulum sihirbazını açın."),
-            FoundOrMissing(DeviceKind.PsMoveRight, "Sağ PS Move", rightMove, "Atanmış mavi PS Move bağlı.", "Atanmış sağ PS Move bulunamadı.", "Move düğmesine basın veya kurulum sihirbazını açın."),
+            FoundOrMissing(DeviceKind.PsMoveLeft, "Sol PS Move", leftMove,
+                leftMoveLive ? "Atanmış kırmızı PS Move sensör akışı hazır." : "Atanmış kırmızı PS Move Windows Bluetooth bağlantısında.",
+                "Atanmış sol PS Move bulunamadı.", "Move düğmesine basın veya kurulum sihirbazını açın."),
+            FoundOrMissing(DeviceKind.PsMoveRight, "Sağ PS Move", rightMove,
+                rightMoveLive ? "Atanmış mavi PS Move sensör akışı hazır." : "Atanmış mavi PS Move Windows Bluetooth bağlantısında.",
+                "Atanmış sağ PS Move bulunamadı.", "Move düğmesine basın veya kurulum sihirbazını açın."),
             FoundOrMissing(DeviceKind.Phone, "Android Telefon", phoneConnected,
                 $"owoTrack canlı veri alınıyor · {phoneEndpoint}",
                 "Telefondan canlı owoTrack verisi alınmıyor.",
