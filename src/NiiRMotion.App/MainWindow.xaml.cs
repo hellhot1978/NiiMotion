@@ -494,11 +494,43 @@ public partial class MainWindow : Window
         LaunchSteamVrClick(launchButton, new RoutedEventArgs());
     }
 
-    private void LaunchPendingGame()
+    private async Task LaunchPendingGameAsync()
     {
         if (string.IsNullOrWhiteSpace(_pendingGameAppId)) return;
         var appId = _pendingGameAppId; _pendingGameAppId = null;
-        Process.Start(new ProcessStartInfo($"steam://rungameid/{appId}") { UseShellExecute = true });
+        var game = new SteamGameCatalog().Detect().FirstOrDefault(x => x.Definition.SteamAppId == appId && x.IsInstalled);
+        if (game?.InstallPath is null) throw new InvalidOperationException("Seçili oyunun Steam kurulum klasörü doğrulanamadı.");
+        if (IsGameRunning(game.InstallPath)) return;
+        var steam = SteamInstallLocator.FindSteamExe() ?? throw new FileNotFoundException("Steam çalıştırıcısı bulunamadı.");
+        Process.Start(new ProcessStartInfo(steam, $"-applaunch {appId} -vr") { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(steam)! });
+        if (_gameLaunchStatus is not null) { _gameLaunchStatus.Text = $"{game.Definition.Name} başlatılıyor…"; _gameLaunchStatus.Foreground = Brush("#55DDB8"); }
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(75);
+        while (DateTime.UtcNow < deadline)
+        {
+            if (IsGameRunning(game.InstallPath))
+            {
+                if (_gameLaunchStatus is not null) _gameLaunchStatus.Text = $"✓ {game.Definition.Name} çalışıyor";
+                return;
+            }
+            await Task.Delay(500);
+        }
+        throw new TimeoutException($"Steam komutu gönderildi ancak {game.Definition.Name} 75 saniye içinde başlamadı.");
+    }
+
+    private static bool IsGameRunning(string installPath)
+    {
+        var root = Path.GetFullPath(installPath).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        foreach (var process in Process.GetProcesses())
+        {
+            try
+            {
+                var path = process.MainModule?.FileName;
+                if (path is not null && Path.GetFullPath(path).StartsWith(root, StringComparison.OrdinalIgnoreCase)) return true;
+            }
+            catch { }
+            finally { process.Dispose(); }
+        }
+        return false;
     }
 
     private async Task RemoveGameAdapterAsync(UserGameAdapter adapter)
@@ -1056,7 +1088,7 @@ public partial class MainWindow : Window
                 if (!questReady) throw new InvalidOperationException("SteamVR açıldı ancak Quest 3 bağlantısı doğrulanamadı.");
                 ReadinessTitle.Text = "NORMAL VR BAŞLATILDI";
                 ReadinessMessage.Text = "NiiMotion kapalı; oyunu kontrolcülerinle normal şekilde oynayabilirsin.";
-                LaunchPendingGame();
+                await LaunchPendingGameAsync();
                 return;
             }
             if (_systemMode.CurrentMode != SystemMode.NiiMotion) await _systemMode.ApplyAsync(SystemMode.NiiMotion);
@@ -1067,7 +1099,7 @@ public partial class MainWindow : Window
             if (_readiness?.State == ReadinessState.NotReady) throw new InvalidOperationException("SteamVR açıldı ancak başlık veya gerekli cihazlardan biri doğrulanamadı. Hareket çıkışı başlatılmadı.");
             if (!await StartLocomotionAsync())
                 throw new InvalidOperationException(ReadinessMessage.Text);
-            LaunchPendingGame();
+            await LaunchPendingGameAsync();
         }
         catch (Exception ex) { _pendingGameAppId = null; ReadinessTitle.Text = "VR HAZIRLANAMADI"; ReadinessMessage.Text = ex.Message; }
         finally { _launchNormalVrOverride = false; if (sender is Button prepareButton) prepareButton.IsEnabled = true; }
