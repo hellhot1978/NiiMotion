@@ -20,6 +20,7 @@ public partial class App : Application
         if (!firstInstance) { _singleInstanceMutex.Dispose(); _singleInstanceMutex = null; Shutdown(); return; }
         base.OnStartup(e);
         NiiMotionPaths.Initialize();
+        EventManager.RegisterClassHandler(typeof(Window), FrameworkElement.LoadedEvent, new RoutedEventHandler((sender, _) => UiLocalization.Apply((DependencyObject)sender)));
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;

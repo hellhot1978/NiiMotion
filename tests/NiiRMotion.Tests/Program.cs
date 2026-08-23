@@ -197,6 +197,7 @@ tests = [Sync("Application safety detects an unclean session", ApplicationSafety
 tests = [Sync("Generic OpenXR adapter is validated and persisted", GenericOpenXrAdapter), .. tests];
 tests = [Sync("First-use preferences and guidance are deterministic", FirstUsePreferences), .. tests];
 tests = [("Update download is hash verified before staging", UpdateDownloadVerification), Sync("Release integrity detects tampering", ReleaseIntegrityVerification), .. tests];
+tests = [Sync("VR panel commands are delivered once", VrPanelCommands), Sync("OpenXR wizard prioritizes common engine executables", OpenXrEngineDiscovery), .. tests];
 var failures = new List<string>();
 foreach (var test in tests) { try { await test.Run(); Console.WriteLine($"PASS  {test.Name}"); } catch (Exception ex) { failures.Add($"FAIL  {test.Name}: {ex.Message}"); } }
 foreach (var failure in failures) Console.Error.WriteLine(failure); Console.WriteLine($"{tests.Length - failures.Count}/{tests.Length} tests passed."); return failures.Count == 0 ? 0 : 1;
@@ -296,6 +297,27 @@ static void ReleaseIntegrityVerification()
         Directory.CreateDirectory(root); File.WriteAllText(Path.Combine(root, "NiiRMotion.App.exe"), "safe"); var manifest = ReleaseIntegrityService.Create(root, "1.0.0");
         Assert(ReleaseIntegrityService.Verify(root, manifest), "Untouched release failed integrity verification."); File.AppendAllText(Path.Combine(root, "NiiRMotion.App.exe"), "changed");
         Assert(!ReleaseIntegrityService.Verify(root, manifest), "Modified release passed integrity verification.");
+    }
+    finally { try { Directory.Delete(root, true); } catch { } }
+}
+
+static void VrPanelCommands()
+{
+    if (!OperatingSystem.IsWindows()) return;
+    using var sender = new VrPanelCommandChannel(); using var receiver = new VrPanelCommandChannel();
+    sender.Send(VrPanelCommand.EmergencyStop); Assert(receiver.Receive() == VrPanelCommand.EmergencyStop, "Emergency stop command was not delivered."); Assert(receiver.Receive() == VrPanelCommand.None, "A VR command was delivered twice.");
+    sender.Send(VrPanelCommand.Rescan); Assert(receiver.Receive() == VrPanelCommand.Rescan, "Rescan command was not delivered.");
+}
+
+static void OpenXrEngineDiscovery()
+{
+    var root = Path.Combine(Path.GetTempPath(), "niirmotion-engine-" + Guid.NewGuid().ToString("N"));
+    try
+    {
+        var binaries = Path.Combine(root, "Example", "Binaries", "Win64"); Directory.CreateDirectory(binaries);
+        File.WriteAllBytes(Path.Combine(binaries, "Example-Win64-Shipping.exe"), []); File.WriteAllBytes(Path.Combine(root, "launcher.exe"), []);
+        var candidates = OpenXrGameAdapterStore.FindCandidateExecutables(root); Assert(candidates.First() == "Example-Win64-Shipping.exe" && !candidates.Contains("launcher.exe"), "OpenXR executable ranking is unsafe.");
+        Assert(OpenXrGameAdapterStore.DetectEngine(root) == "Unreal Engine", "Unreal layout was not detected.");
     }
     finally { try { Directory.Delete(root, true); } catch { } }
 }

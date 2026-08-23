@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _demoTimer = new() { Interval = TimeSpan.FromMilliseconds(80) };
     private readonly DispatcherTimer _scanTimer = new() { Interval = TimeSpan.FromSeconds(4) };
     private readonly VrPanelStatePublisher _vrPanel = new();
+    private readonly VrPanelCommandChannel _vrPanelCommands = new();
     private bool _autoScanBusy;
     private bool _phonePairing;
     private bool _moveIdentifyBusy;
@@ -46,6 +47,7 @@ public partial class MainWindow : Window
         _locomotion.CriticalSensorLost += LocomotionCriticalSensorLost;
         _demoTimer.Tick += DemoTick;
         _scanTimer.Tick += AutoScanTick;
+        _scanTimer.Tick += async (_, _) => { var command = _vrPanelCommands.Receive(); if (command == VrPanelCommand.EmergencyStop) StopClick(this, new RoutedEventArgs()); else if (command == VrPanelCommand.Rescan) await ScanAsync(); };
         Loaded += async (_, _) =>
         {
             var arguments = Environment.GetCommandLineArgs();
@@ -75,7 +77,7 @@ public partial class MainWindow : Window
             if (arguments.Contains("--game-tuning", StringComparer.OrdinalIgnoreCase)) { GamesNavClick(this, new RoutedEventArgs()); var selectedGame = new SteamGameCatalog().Detect().FirstOrDefault(x => x.IsInstalled && x.State == GameIntegrationState.Ready && x.Definition.Id == _selectedGameId); if (selectedGame is not null) OpenGameTuningWindow(selectedGame); }
             _scanTimer.Start();
         };
-        Closed += async (_, _) => { _demoTimer.Stop(); _scanTimer.Stop(); _vrPanel.Dispose(); await StopPhoneMonitorAsync(); await _locomotion.DisposeAsync(); };
+        Closed += async (_, _) => { _demoTimer.Stop(); _scanTimer.Stop(); _vrPanel.Dispose(); _vrPanelCommands.Dispose(); await StopPhoneMonitorAsync(); await _locomotion.DisposeAsync(); };
     }
     private async void AutoScanTick(object? sender, EventArgs e)
     {
@@ -227,6 +229,8 @@ public partial class MainWindow : Window
     }
 
     private void OverviewNavClick(object sender, RoutedEventArgs e) => ShowPage(OverviewPage, "Genel Bakış", "Sistem durumu ve hızlı başlangıç", OverviewNav);
+    private void VrPanelNavClick(object sender, RoutedEventArgs e) => new VrPanelWindow { Owner = this }.Show();
+    private void UpdatesNavClick(object sender, RoutedEventArgs e) => new UpdateWindow { Owner = this }.ShowDialog();
     private async void GuideNavClick(object sender, RoutedEventArgs e) => new GettingStartedWindow(_inventory, await new UserSetupStore().LoadCalibrationAsync()) { Owner = this }.ShowDialog();
     private async void AccessibilityNavClick(object sender, RoutedEventArgs e)
     {
@@ -377,7 +381,7 @@ public partial class MainWindow : Window
             movement.ItemsSource = openXrMode ? OpenXrGameAdapterStore.FindCandidateExecutables(selected.InstallPath) : actions; movement.SelectedIndex = movement.Items.Count > 0 ? 0 : -1;
             var runActions = actions.Where(x => new[] { "run", "sprint", "walk", "press", "click" }.Any(term => x.Path.Contains(term, StringComparison.OrdinalIgnoreCase))).ToArray(); activation.ItemsSource = runActions; activation.SelectedIndex = runActions.Length > 0 ? 0 : -1;
             activation.IsEnabled = !openXrMode;
-            discoveryStatus.Text = openXrMode ? "OpenXR algılandı. Oyun dosyaları değiştirilmeden yalnız seçilen çalıştırma dosyasına güvenli hareket katmanı uygulanır." : inspection.Message; discoveryStatus.Foreground = Brush(actions.Count > 0 || openXrMode ? "#55DDB8" : "#FF8AA5");
+            discoveryStatus.Text = openXrMode ? $"OpenXR algılandı · {OpenXrGameAdapterStore.DetectEngine(selected.InstallPath)}. Oyun dosyaları değiştirilmeden yalnız seçilen çalıştırma dosyasına güvenli hareket katmanı uygulanır." : inspection.Message; discoveryStatus.Foreground = Brush(actions.Count > 0 || openXrMode ? "#55DDB8" : "#FF8AA5");
             save.IsEnabled = movement.Items.Count > 0;
         };
         save.Click += async (_, _) =>
