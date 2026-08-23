@@ -7,6 +7,13 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using NiiRMotion.Core;
 using NiiRMotion.Infrastructure;
+var releaseManifestArg = args.FirstOrDefault(x => x.StartsWith("--release-manifest=", StringComparison.OrdinalIgnoreCase));
+if (releaseManifestArg is not null)
+{
+    var root = Path.GetFullPath(releaseManifestArg[(releaseManifestArg.IndexOf('=') + 1)..]);
+    var manifest = ReleaseIntegrityService.Create(root, "0.7.0-dev"); ReleaseIntegrityService.Save(manifest, Path.Combine(root, "release-integrity.json"));
+    Console.WriteLine($"Release integrity manifest: {manifest.Files.Count} files"); return manifest.Files.Count > 0 ? 0 : 2;
+}
 if (args.Contains("--hardware-smoke", StringComparer.OrdinalIgnoreCase)) return await HardwareSmokeAsync();
 if (args.Contains("--psmove-discovery", StringComparer.OrdinalIgnoreCase))
 {

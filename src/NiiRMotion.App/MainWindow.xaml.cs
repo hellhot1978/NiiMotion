@@ -37,7 +37,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        var userExperience = new UserExperienceStore().Load(); FontSize *= userExperience.TextScale;
+        var userExperience = new UserExperienceStore().Load(); ApplyUserExperience(userExperience);
         var profileBorder = (Border)ProfilePopup.Child;
         profileBorder.Child = new ScrollViewer { Content = profileBorder.Child, MaxHeight = 520, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
         DevicesList.PreviewMouseLeftButtonUp += DeviceCardClick;
@@ -48,17 +48,17 @@ public partial class MainWindow : Window
         _scanTimer.Tick += AutoScanTick;
         Loaded += async (_, _) =>
         {
+            var arguments = Environment.GetCommandLineArgs();
             await EnsureHardwareInventoryAsync();
-            if (!userExperience.OnboardingComplete)
+            if (!userExperience.OnboardingComplete && !arguments.Any(x => x.StartsWith("--screenshot=", StringComparison.OrdinalIgnoreCase)))
             {
                 var onboarding = new GettingStartedWindow(_inventory, await new UserSetupStore().LoadCalibrationAsync()) { Owner = this };
-                onboarding.ShowDialog(); FontSize = 13 * new UserExperienceStore().Load().TextScale;
+                onboarding.ShowDialog(); ApplyUserExperience(new UserExperienceStore().Load());
             }
             HandTrackingToggle.IsChecked = _inventory.UsesHandTracking;
             RebuildProfileMenu();
             ShowPage(OverviewPage, "Genel Bakış", "Sistem durumu ve hızlı başlangıç", OverviewNav);
             RefreshSystemMode();
-            var arguments = Environment.GetCommandLineArgs();
             if (arguments.Contains("--normal", StringComparer.OrdinalIgnoreCase))
             {
                 SelectProfile(MotionProfile.ClassicVr); await SwitchSystemModeAsync(SystemMode.Original);
@@ -230,7 +230,20 @@ public partial class MainWindow : Window
     private async void GuideNavClick(object sender, RoutedEventArgs e) => new GettingStartedWindow(_inventory, await new UserSetupStore().LoadCalibrationAsync()) { Owner = this }.ShowDialog();
     private async void AccessibilityNavClick(object sender, RoutedEventArgs e)
     {
-        if (new GettingStartedWindow(_inventory, await new UserSetupStore().LoadCalibrationAsync(), true) { Owner = this }.ShowDialog() == true) FontSize = 13 * new UserExperienceStore().Load().TextScale;
+        if (new GettingStartedWindow(_inventory, await new UserSetupStore().LoadCalibrationAsync(), true) { Owner = this }.ShowDialog() == true) ApplyUserExperience(new UserExperienceStore().Load());
+    }
+    private void ApplyUserExperience(UserExperiencePreferences preferences)
+    {
+        FontSize = 13 * preferences.TextScale;
+        if (preferences.HighContrast)
+        {
+            Resources["Panel"] = Brush("#020406"); Resources["Card"] = Brush("#080E13"); Resources["Line"] = Brush("#6B8292"); Resources["Muted"] = Brush("#D1DCE3"); Background = Brush("#000000");
+        }
+        else
+        {
+            Resources["Panel"] = Brush("#0B1118"); Resources["Card"] = Brush("#0E151D"); Resources["Line"] = Brush("#202D38"); Resources["Muted"] = Brush("#94A1AD"); Background = Brush("#060A0F");
+        }
+        _demoTimer.Interval = preferences.ReducedMotion ? TimeSpan.FromMilliseconds(160) : TimeSpan.FromMilliseconds(80);
     }
     private void ProfileMenuClick(object sender, RoutedEventArgs e)
     {
