@@ -67,9 +67,11 @@ public partial class MainWindow : Window
             }
             else
             {
-                var recommended = _profileRecommendations.FirstOrDefault(x => x.Profile.LocomotionAllowed && !x.Experimental)?.Profile ?? MotionProfile.ClassicVr;
+                var requestedProfileId = arguments.FirstOrDefault(x => x.StartsWith("--profile=", StringComparison.OrdinalIgnoreCase))?.Split('=', 2)[1];
+                var requestedProfile = _profileRecommendations.FirstOrDefault(x => string.Equals(x.Profile.Id, requestedProfileId, StringComparison.OrdinalIgnoreCase))?.Profile;
+                var recommended = requestedProfile ?? _profileRecommendations.FirstOrDefault(x => x.Profile.LocomotionAllowed && !x.Experimental)?.Profile ?? MotionProfile.ClassicVr;
                 SelectProfile(_systemMode.CurrentMode == SystemMode.Original ? MotionProfile.ClassicVr : recommended); await ScanAsync();
-                if (arguments.Contains("--autostart", StringComparer.OrdinalIgnoreCase)) StartClick(this, new RoutedEventArgs());
+                if (arguments.Contains("--autostart", StringComparer.OrdinalIgnoreCase)) await StartLocomotionAsync();
             }
             if (arguments.Contains("--calibration-page", StringComparer.OrdinalIgnoreCase)) ToolsNavClick(this, new RoutedEventArgs());
             if (arguments.Contains("--games-page", StringComparer.OrdinalIgnoreCase)) GamesNavClick(this, new RoutedEventArgs());
@@ -1059,7 +1061,8 @@ public partial class MainWindow : Window
             await WaitForSteamVrDriverAsync(TimeSpan.FromSeconds(75));
             RefreshSystemMode(); await ScanAsync();
             if (_readiness?.State == ReadinessState.NotReady) throw new InvalidOperationException("SteamVR açıldı ancak başlık veya gerekli cihazlardan biri doğrulanamadı. Hareket çıkışı başlatılmadı.");
-            StartClick(StartButton, new RoutedEventArgs());
+            if (!await StartLocomotionAsync())
+                throw new InvalidOperationException(ReadinessMessage.Text);
             LaunchPendingGame();
         }
         catch (Exception ex) { _pendingGameAppId = null; ReadinessTitle.Text = "VR HAZIRLANAMADI"; ReadinessMessage.Text = ex.Message; }
@@ -1120,11 +1123,20 @@ public partial class MainWindow : Window
         if (!File.Exists(vrStartup)) throw new FileNotFoundException("SteamVR başlangıç bileşeni bulunamadı.", vrStartup);
         Process.Start(new ProcessStartInfo(streamer, $"\"{vrStartup}\"") { UseShellExecute = true });
     }
-    private async void StartClick(object sender, RoutedEventArgs e)
+    private async void StartClick(object sender, RoutedEventArgs e) => await StartLocomotionAsync();
+
+    private async Task<bool> StartLocomotionAsync()
     {
-        if (!_profile.LocomotionAllowed) { StartButton.IsEnabled = false; try { await _locomotion.StopAsync(); await _systemMode.ApplyAsync(SystemMode.Original); RefreshSystemMode(); LaunchSteamVrViaVirtualDesktop(); ReadinessTitle.Text = "NORMAL VR HAZIR"; ReadinessMessage.Text = "NiiMotion kapalı; cihazların özgün ayarları kullanılıyor."; } catch (Exception ex) { ReadinessMessage.Text = ex.Message; } finally { StartButton.IsEnabled = true; } return; }
-        if (_readiness?.State == ReadinessState.NotReady) return; StartButton.IsEnabled = false;
-        if (_discovery.IsTestMode) { _demoPhase = 0; _demoSteps = 0; _demoTimer.Start(); SetStopControl(true); SetRunningVisuals("DEMO OUTPUT — GERÇEK VR'A GÖNDERİLMEZ"); ReadinessMessage.Text = "Demo oturumu çalışıyor. Telemetri simülasyondur; gerçek donanım doğrulaması değildir."; return; }
+        if (!_profile.LocomotionAllowed) { StartButton.IsEnabled = false; try { await _locomotion.StopAsync(); await _systemMode.ApplyAsync(SystemMode.Original); RefreshSystemMode(); LaunchSteamVrViaVirtualDesktop(); ReadinessTitle.Text = "NORMAL VR HAZIR"; ReadinessMessage.Text = "NiiMotion kapalı; cihazların özgün ayarları kullanılıyor."; return true; } catch (Exception ex) { ReadinessMessage.Text = ex.Message; return false; } finally { StartButton.IsEnabled = true; } }
+        var currentDevices = (DevicesList.ItemsSource as IEnumerable<DeviceStatus>)?.ToArray() ?? [];
+        var blockingDevices = PreflightBlockingDevices(currentDevices);
+        if (blockingDevices.Count > 0)
+        {
+            ReadinessMessage.Text = $"Locomotion başlatılamadı. Önce bağla: {string.Join(", ", blockingDevices.Select(x => x.Name))}.";
+            return false;
+        }
+        StartButton.IsEnabled = false;
+        if (_discovery.IsTestMode) { _demoPhase = 0; _demoSteps = 0; _demoTimer.Start(); SetStopControl(true); SetRunningVisuals("DEMO OUTPUT — GERÇEK VR'A GÖNDERİLMEZ"); ReadinessMessage.Text = "Demo oturumu çalışıyor. Telemetri simülasyondur; gerçek donanım doğrulaması değildir."; return true; }
         try
         {
             var calibration = Path.Combine(AppContext.BaseDirectory, "calibration", "gait-v1.json");
@@ -1135,11 +1147,12 @@ public partial class MainWindow : Window
             var usesPsMove = _profile.Required.Contains(DeviceKind.PsMoveLeft);
             var includePhone = _profile.Required.Contains(DeviceKind.Phone);
             var includeBoard = _profile.Required.Contains(DeviceKind.BalanceBoard);
-            if (usesPsMove && !usesJoyCon) { if (includePhone) await StopPhoneMonitorAsync(); await _locomotion.StartPsMoveOnlyAsync(includePhone, includeBoard); SetStopControl(true); SetRunningVisuals(_locomotion.ModeDescription); ReadinessMessage.Text = "Hazır. PS Move tabanlı profil çalışıyor."; return; }
+            if (usesPsMove && !usesJoyCon) { if (includePhone) await StopPhoneMonitorAsync(); await _locomotion.StartPsMoveOnlyAsync(includePhone, includeBoard); SetStopControl(true); SetRunningVisuals(_locomotion.ModeDescription); ReadinessMessage.Text = "Hazır. PS Move tabanlı profil çalışıyor."; return true; }
             if (includePhone) await StopPhoneMonitorAsync();
             await _locomotion.StartAsync(calibration, includePhone, phoneOnly: !usesJoyCon && !usesPsMove && includePhone, includeBoard: includeBoard, boardOnly: !usesJoyCon && !usesPsMove && includeBoard && !includePhone, includePsMove: usesPsMove); SetStopControl(true); SetRunningVisuals(_locomotion.ModeDescription); ReadinessMessage.Text = includeBoard ? "Board otomatik sıfırlandı. Üzerine çıkıp yerinde yürüyebilirsin." : "Hazır. Yerinde yürüyerek oyunda ilerleyebilirsin.";
+            return true;
         }
-        catch (Exception ex) { await _locomotion.StopAsync(); if (ProfileUsesPhone()) try { await EnsurePhoneMonitorAsync(); } catch { } SetStopControl(false); StartButton.IsEnabled = _readiness?.State != ReadinessState.NotReady; LocomotionState.Text = "OFF"; LocomotionState.Foreground = Brushes.LightPink; ReadinessMessage.Text = $"Locomotion başlatılamadı: {ex.Message}"; }
+        catch (Exception ex) { await _locomotion.StopAsync(); if (ProfileUsesPhone()) try { await EnsurePhoneMonitorAsync(); } catch { } SetStopControl(false); StartButton.IsEnabled = _readiness?.State != ReadinessState.NotReady; LocomotionState.Text = "OFF"; LocomotionState.Foreground = Brushes.LightPink; ReadinessMessage.Text = $"Locomotion başlatılamadı: {ex.Message}"; return false; }
     }
     private async void StopClick(object sender, RoutedEventArgs e)
     {
