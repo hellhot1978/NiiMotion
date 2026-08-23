@@ -11,6 +11,8 @@ public sealed class SharedMemoryOpenXrOutputSink : IAnalogLocomotionSink
     private MemoryMappedFile? _mapping;
     private MemoryMappedViewAccessor? _view;
     private ulong _sequence;
+    private readonly string[] _executables;
+    public SharedMemoryOpenXrOutputSink(IEnumerable<string>? executables = null) => _executables = (executables ?? ["Impact-Win64-Shipping.exe", "Impact.exe"]).Take(2).ToArray();
     public bool IsAttached => _view is not null;
 
     public ValueTask AttachAsync(CancellationToken cancellationToken = default)
@@ -40,7 +42,7 @@ public sealed class SharedMemoryOpenXrOutputSink : IAnalogLocomotionSink
     {
         var view = _view!; var odd = ++_sequence | 1UL; view.Write(8, odd);
         view.Write(0, 0x3158524Eu); view.Write(4, 1u); view.Write(16, value.X); view.Write(20, value.Y); view.Write(24, enabled ? 1u : 0u);
-        view.Write(28, Fnv1a("Impact-Win64-Shipping.exe")); view.Write(32, Fnv1a("Impact.exe")); view.Write(36, 0u); view.Write(40, (ulong)Environment.TickCount64);
+        view.Write(28, _executables.Length > 0 ? Fnv1a(_executables[0]) : 0u); view.Write(32, _executables.Length > 1 ? Fnv1a(_executables[1]) : 0u); view.Write(36, 0u); view.Write(40, (ulong)Environment.TickCount64);
         view.Write(8, ++_sequence & ~1UL); view.Flush();
     }
 
@@ -71,8 +73,9 @@ public static class VrOutputSinkFactory
     {
         var game = new GameSelectionStore().Load();
         if (!OperatingSystem.IsWindows()) return new NamedPipeVrOutputSink();
-        return game == "metro-awakening"
-            ? new MultiplexedVrOutputSink(new NamedPipeVrOutputSink(), new SharedMemoryOpenXrOutputSink())
+        var adapter = new OpenXrGameAdapterStore().Find(game);
+        return adapter is not null
+            ? new MultiplexedVrOutputSink(new NamedPipeVrOutputSink(), new SharedMemoryOpenXrOutputSink(adapter.Executables))
             : new NamedPipeVrOutputSink();
     }
 }

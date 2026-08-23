@@ -185,6 +185,7 @@ tests = [Sync("Configured hand control is not reported missing", ConfiguredHandC
 tests = [Sync("Non-HMD profile regression matrix passes", NonHmdMatrix), .. tests];
 tests = [Sync("Workspace maintenance enforces recursive cache budget", WorkspaceMaintenanceBudget), .. tests];
 tests = [Sync("Application safety detects an unclean session", ApplicationSafetyMarker), Sync("Configuration migration backs up and preserves JSON", ConfigurationMigration), Sync("VR panel state packet round-trips", VrPanelPacket), .. tests];
+tests = [Sync("Generic OpenXR adapter is validated and persisted", GenericOpenXrAdapter), .. tests];
 var failures = new List<string>();
 foreach (var test in tests) { try { await test.Run(); Console.WriteLine($"PASS  {test.Name}"); } catch (Exception ex) { failures.Add($"FAIL  {test.Name}: {ex.Message}"); } }
 foreach (var failure in failures) Console.Error.WriteLine(failure); Console.WriteLine($"{tests.Length - failures.Count}/{tests.Length} tests passed."); return failures.Count == 0 ? 0 : 1;
@@ -231,6 +232,21 @@ static void VrPanelPacket()
     var length = view.ReadInt32(4); var bytes = new byte[length]; view.ReadArray(8, bytes, 0, length);
     var state = JsonSerializer.Deserialize<VrPanelState>(bytes);
     Assert(state?.Profile == "Joy-Con" && Math.Abs(state.Speed - .42f) < .001f, "VR panel state did not round-trip.");
+}
+
+static void GenericOpenXrAdapter()
+{
+    var root = Path.Combine(Path.GetTempPath(), "niirmotion-openxr-adapter-" + Guid.NewGuid().ToString("N"));
+    try
+    {
+        Directory.CreateDirectory(root); File.WriteAllBytes(Path.Combine(root, "Example-Win64-Shipping.exe"), []);
+        var config = Path.Combine(root, "config"); var adapter = new OpenXrGameAdapter("user-openxr-42", "Example VR", "42", ["Example-Win64-Shipping.exe"], 1.2, DateTimeOffset.UtcNow);
+        var store = new OpenXrGameAdapterStore(config); store.Save(adapter, root);
+        Assert(store.Find(adapter.Id)?.Executables.Single() == "Example-Win64-Shipping.exe", "OpenXR adapter did not round-trip.");
+        if (OperatingSystem.IsWindows()) Assert(SharedMemoryOpenXrOutputSink.Fnv1a("EXAMPLE-WIN64-SHIPPING.EXE") == SharedMemoryOpenXrOutputSink.Fnv1a("example-win64-shipping.exe"), "Process matching must ignore case.");
+        Assert(store.Remove(adapter.Id) && store.Find(adapter.Id) is null, "OpenXR adapter was not removed.");
+    }
+    finally { try { Directory.Delete(root, true); } catch { } }
 }
 
 static async Task OpenXrSharedOutputTest()

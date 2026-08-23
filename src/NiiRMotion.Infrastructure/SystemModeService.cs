@@ -37,7 +37,7 @@ public sealed class SystemModeService
         RunVrPathReg(mode == SystemMode.NiiMotion ? "adddriver" : "removedriver", DriverPath);
         RemoveBodyWalkSettings();
         EnsureGameOverrides(mode);
-        if (OperatingSystem.IsWindows()) new OpenXrLayerRegistrationService().Apply(mode == SystemMode.NiiMotion && new GameSelectionStore().Load() == "metro-awakening");
+        if (OperatingSystem.IsWindows()) { var game = new GameSelectionStore().Load(); new OpenXrLayerRegistrationService().Apply(mode == SystemMode.NiiMotion && new OpenXrGameAdapterStore().Find(game) is not null); }
         SaveMode(mode);
 
         if (launchSteamVr && File.Exists(SteamExe))
@@ -52,7 +52,7 @@ public sealed class SystemModeService
         SetAlyxOverrides(alyx);
         SetAlyxControllerBindingOverride(alyx);
         SetArizona2ControllerBindingOverride(arizona);
-        if (OperatingSystem.IsWindows()) new OpenXrLayerRegistrationService().Apply(mode == SystemMode.NiiMotion && selected == "metro-awakening");
+        if (OperatingSystem.IsWindows()) new OpenXrLayerRegistrationService().Apply(mode == SystemMode.NiiMotion && new OpenXrGameAdapterStore().Find(selected) is not null);
     }
 
     public async Task StopSteamVrAsync(CancellationToken cancellationToken = default)

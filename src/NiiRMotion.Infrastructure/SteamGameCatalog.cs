@@ -12,7 +12,8 @@ public sealed class SteamGameCatalog
     {
         var manifests = ReadManifests();
         var custom = new GameAdapterStore().Load().Select(x => new GameDefinition(x.Id, x.Name, x.SteamAppId, "SteamVR · kullanıcı eşlemesi", true, $"Kullanıcı adaptörü · hız {x.SpeedMultiplier:0.00}×"));
-        return BuiltInGames.All.Concat(custom).GroupBy(x => x.SteamAppId ?? x.Id, StringComparer.OrdinalIgnoreCase).Select(x => x.Last()).Select(game =>
+        var openXr = new OpenXrGameAdapterStore().Load().Select(x => new GameDefinition(x.Id, x.Name, x.SteamAppId, "OpenXR API Layer", true, $"OpenXR adaptörü · hız {x.SpeedMultiplier:0.00}×"));
+        return BuiltInGames.All.Concat(custom).Concat(openXr).GroupBy(x => x.SteamAppId ?? x.Id, StringComparer.OrdinalIgnoreCase).Select(x => x.Last()).Select(game =>
         {
             if (game.SteamAppId is null || !manifests.TryGetValue(game.SteamAppId, out var entry)) return new InstalledGame(game, false, null);
             return new InstalledGame(game, true, Path.Combine(entry.Common, entry.InstallDir));
