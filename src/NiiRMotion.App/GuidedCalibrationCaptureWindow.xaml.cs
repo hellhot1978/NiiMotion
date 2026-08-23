@@ -10,7 +10,7 @@ public partial class GuidedCalibrationCaptureWindow : Window
     public GuidedCalibrationResult? Result { get; private set; }
     public GuidedCalibrationCaptureWindow(SensorFamily sensor, int phase, TimeSpan duration)
     {
-        _sensor = sensor; _phase = phase; _duration = duration; InitializeComponent(); HeaderText.Text = $"{Display(sensor)} · Faz {phase}"; OverallProgress.Maximum = duration.TotalSeconds; UpdateGuidance();
+        _sensor = sensor; _phase = phase; _duration = duration; InitializeComponent(); HeaderText.Text = $"{Display(sensor)} · Faz {phase}"; OverallProgress.Maximum = duration.TotalSeconds; MoveLightPanel.Visibility = sensor == SensorFamily.PsMove ? Visibility.Visible : Visibility.Collapsed; UpdateGuidance();
         Loaded += async (_, _) => await BeginAsync(); Closing += (_, _) => { if (Result is null) _cancel.Cancel(); };
     }
     private async Task BeginAsync()
@@ -26,6 +26,22 @@ public partial class GuidedCalibrationCaptureWindow : Window
         catch (Exception ex) { RecordStateText.Text = "! KAYIT TAMAMLANAMADI"; RecordStateText.Foreground = MainWindow.Brush("#FF8AA5"); InstructionText.Text = "Sensör akışı kesildi"; InstructionDetail.Text = ex.GetBaseException().Message; PauseButton.Visibility = Visibility.Collapsed; CancelButton.Content = "KAPAT"; }
     }
     private void PauseClick(object sender, RoutedEventArgs e) { _paused = !_paused; PauseButton.Content = _paused ? "▶  DEVAM ET" : "Ⅱ  DURAKLAT"; RecordStateText.Text = _paused ? "Ⅱ DURAKLATILDI" : "● KAYIT SÜRÜYOR"; StatusText.Text = _paused ? "Sayaç ve veri kaydı durdu. Hazır olduğunda devam et." : "Kayıt kaldığı aktif süreden devam ediyor."; }
+    private async void LeftMoveLightClick(object sender, RoutedEventArgs e) => await IdentifyMoveAsync(LegSide.Left, LeftMoveLightButton);
+    private async void RightMoveLightClick(object sender, RoutedEventArgs e) => await IdentifyMoveAsync(LegSide.Right, RightMoveLightButton);
+    private async Task IdentifyMoveAsync(LegSide side, System.Windows.Controls.Button button)
+    {
+        button.IsEnabled = false;
+        try
+        {
+            var assignments = await new PsMoveAssignmentStore(NiiMotionPaths.PsMoveAssignments).LoadAsync();
+            if (assignments is not { IsComplete: true }) throw new InvalidOperationException("Önce PS Move sol/sağ eşleştirmesini tamamla.");
+            StatusText.Text = side == LegSide.Left ? "Sol Move 8 saniye kırmızı yanıyor." : "Sağ Move 8 saniye mavi yanıyor.";
+            await new PsMoveDiagnosticsService().ShowAssignedControllerColorAsync(assignments, side, TimeSpan.FromSeconds(8));
+            StatusText.Text = _paused ? "Kayıt duraklatıldı." : "Kayıt sürüyor.";
+        }
+        catch (Exception ex) { StatusText.Text = "Move ışığı yakılamadı: " + ex.GetBaseException().Message; }
+        finally { button.IsEnabled = true; }
+    }
     private void CancelClick(object sender, RoutedEventArgs e) { if (Result is not null) { DialogResult = true; Close(); return; } if (MessageBox.Show(this, "Bu faz iptal edilsin mi? Tamamlanmamış kayıt kullanılmayacak.", "Kalibrasyonu iptal et", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes) { _cancel.Cancel(); Close(); } }
     private void UpdateGuidance()
     {
