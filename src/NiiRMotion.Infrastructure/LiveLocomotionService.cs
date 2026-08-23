@@ -7,7 +7,7 @@ namespace NiiRMotion.Infrastructure;
 
 public sealed class LiveLocomotionService : IAsyncDisposable
 {
-    private const double PsMoveOnlyDistanceScale = .35;
+    private const double PsMoveOnlyDistanceScale = .41;
     private readonly object _fusionLock = new();
     private readonly List<IAsyncDisposable> _sources = [];
     private CancellationTokenSource? _lifetime;

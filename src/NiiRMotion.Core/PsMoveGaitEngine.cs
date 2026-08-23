@@ -95,12 +95,15 @@ public sealed class PsMoveGaitEngine(PsMoveTrainingProfile profile)
         // across one natural step interval and then stop decisively.
         var state = !_established ? GaitState.Idle : motionAge switch
         {
-            > .42 => GaitState.Idle,
+            > .36 => GaitState.Idle,
             _ when _cadence >= 2.6 => GaitState.Running,
             _ when _cadence >= 1.85 => GaitState.FastWalk,
             _ => GaitState.Walking
         };
-        if (state == GaitState.Idle && motionAge > .42) ResetEvidence();
+        // Stop output promptly, but retain the established bilateral rhythm for a
+        // short resume window. A slightly late next step can then continue without
+        // paying the two-step startup cost or causing a long visible interruption.
+        if (state == GaitState.Idle && motionAge > .52) ResetEvidence();
         var effort = Sigmoid(Normalize(_peak, profile.SlowAnchorRadps, profile.FastAnchorRadps));
         var target = state switch
         {
