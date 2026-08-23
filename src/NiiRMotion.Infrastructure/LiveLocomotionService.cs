@@ -7,6 +7,7 @@ namespace NiiRMotion.Infrastructure;
 
 public sealed class LiveLocomotionService : IAsyncDisposable
 {
+    private const double PsMoveOnlyDistanceScale = .35;
     private readonly object _fusionLock = new();
     private readonly List<IAsyncDisposable> _sources = [];
     private CancellationTokenSource? _lifetime;
@@ -37,7 +38,14 @@ public sealed class LiveLocomotionService : IAsyncDisposable
         {
             var source = new PsMoveSensorSource(NiiMotionPaths.PsMoveAssignments, NiiMotionPaths.PsMoveFactoryCalibration);
             _sources.Add(source); await source.StartAsync(token);
-            _vrSession = new VrLocomotionSession(VrOutputSinkFactory.CreateActive(), new GameMotionProfileStore().LoadActive()); await _vrSession.StartAsync(token);
+            var gameProfile = new GameMotionProfileStore().LoadActive();
+            // Alyx was originally tuned with thigh-mounted Joy-Cons. Calf-mounted
+            // PS Move produces a longer sustained gait target per physical step, so
+            // applying the same game multiplier makes one real step travel roughly
+            // three avatar strides. Keep game tuning intact and apply a source-local
+            // distance scale only to the PS-Move-only locomotion path.
+            gameProfile = gameProfile with { SpeedMultiplier = gameProfile.SpeedMultiplier * PsMoveOnlyDistanceScale };
+            _vrSession = new VrLocomotionSession(VrOutputSinkFactory.CreateActive(), gameProfile); await _vrSession.StartAsync(token);
             var logFolder = Path.Combine(NiiMotionPaths.Logs, "live"); Directory.CreateDirectory(logFolder); StorageRetention.EnforceDirectoryBudget(logFolder);
             _diagnosticWriter = new StreamWriter(Path.Combine(logFolder, DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-psmove.csv"));
             _diagnosticWriter.WriteLine("elapsed_ticks;state;target_speed;confidence;cadence_hz;steps;phone_fresh;board_fresh;board_contact;turn_target");
