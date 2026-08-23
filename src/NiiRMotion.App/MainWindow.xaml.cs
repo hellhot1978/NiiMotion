@@ -117,6 +117,12 @@ public partial class MainWindow : Window
         RefreshPhoneVisual(devices);
         RefreshCalibrationStatus(devices);
         await RefreshPsMoveStatusAsync();
+        if (!_moveIdentifyBusy)
+        {
+            var moveAssignments = await new PsMoveAssignmentStore(NiiMotionPaths.PsMoveAssignments).LoadAsync();
+            if (moveAssignments is { IsComplete: true })
+                await new PsMoveDiagnosticsService().KeepAssignedControllersAwakeAsync(moveAssignments);
+        }
         var visibleKinds = _profile.Required.Concat(_profile.Optional)
             .Where(x => x != DeviceKind.SteamVr).ToHashSet();
         DevicesList.ItemsSource = devices.Where(x => visibleKinds.Contains(x.Kind)).ToList();
@@ -909,7 +915,7 @@ public partial class MainWindow : Window
             e.Handled = true;
             if (_moveIdentifyBusy) return;
             var assignments = await new PsMoveAssignmentStore(NiiMotionPaths.PsMoveAssignments).LoadAsync();
-            if (!device.IsConnected || assignments is null || !assignments.IsComplete)
+            if (device.State == DeviceState.Missing || assignments is null || !assignments.IsComplete)
             {
                 ToolsNavClick(this, new RoutedEventArgs());
                 CalibrationLiveResult.Text = "PS Move kurulumu eksik. Aşağıdaki PS Move kartını aç; bağlantı ekranı sol/sağ tanıtma ve USB kalibrasyonuna yönlendirecek.";

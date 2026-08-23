@@ -32,10 +32,8 @@ public sealed class HardwareDiscoveryService : IHardwareDiscoveryService
         var moveAssignments = await new PsMoveAssignmentStore(NiiMotionPaths.PsMoveAssignments).LoadAsync(cancellationToken).ConfigureAwait(false);
         var leftMoveLive = moveAssignments is { IsComplete: true } && moveIds.Contains(moveAssignments.LeftStableId);
         var rightMoveLive = moveAssignments is { IsComplete: true } && moveIds.Contains(moveAssignments.RightStableId);
-        var leftMove = moveAssignments is { IsComplete: true }
-            && (leftMoveLive || presentBluetoothIds.Contains(moveAssignments.LeftStableId));
-        var rightMove = moveAssignments is { IsComplete: true }
-            && (rightMoveLive || presentBluetoothIds.Contains(moveAssignments.RightStableId));
+        var leftMovePaired = moveAssignments is { IsComplete: true } && presentBluetoothIds.Contains(moveAssignments.LeftStableId);
+        var rightMovePaired = moveAssignments is { IsComplete: true } && presentBluetoothIds.Contains(moveAssignments.RightStableId);
         var balanceBoard = false;
         try { balanceBoard = HidDeviceEnumerator.FindBalanceBoards().Count > 0; } catch { }
         var phoneConnected = PhonePresence.TryGetFresh(out var phoneEndpoint);
@@ -61,12 +59,8 @@ public sealed class HardwareDiscoveryService : IHardwareDiscoveryService
             new(DeviceKind.HandTracking, "Hand Tracking", DeviceState.Unknown, "Güvenilir yerel API ile doğrulanamıyor.", "Quest ve Virtual Desktop içinden el takibini doğrulayın."),
             FoundOrMissing(DeviceKind.JoyConLeft, "Sol Joy-Con", leftJoyCon, "Original Joy-Con L HID arabirimi algılandı.", "Nintendo VID/PID ile Joy-Con L bulunamadı.", "Joy-Con L'yi açın ve Windows Bluetooth bağlantısını kontrol edin."),
             FoundOrMissing(DeviceKind.JoyConRight, "Sağ Joy-Con", rightJoyCon, "Original Joy-Con R HID arabirimi algılandı.", "Nintendo VID/PID ile Joy-Con R bulunamadı.", "Joy-Con R'yi açın ve Windows Bluetooth bağlantısını kontrol edin."),
-            FoundOrMissing(DeviceKind.PsMoveLeft, "Sol PS Move", leftMove,
-                leftMoveLive ? "Atanmış kırmızı PS Move sensör akışı hazır." : "Atanmış kırmızı PS Move Windows Bluetooth bağlantısında.",
-                "Atanmış sol PS Move bulunamadı.", "Move düğmesine basın veya kurulum sihirbazını açın."),
-            FoundOrMissing(DeviceKind.PsMoveRight, "Sağ PS Move", rightMove,
-                rightMoveLive ? "Atanmış mavi PS Move sensör akışı hazır." : "Atanmış mavi PS Move Windows Bluetooth bağlantısında.",
-                "Atanmış sağ PS Move bulunamadı.", "Move düğmesine basın veya kurulum sihirbazını açın."),
+            PsMoveStatus(DeviceKind.PsMoveLeft, "Sol PS Move", leftMoveLive, leftMovePaired, "kırmızı"),
+            PsMoveStatus(DeviceKind.PsMoveRight, "Sağ PS Move", rightMoveLive, rightMovePaired, "mavi"),
             FoundOrMissing(DeviceKind.Phone, "Android Telefon", phoneConnected,
                 $"owoTrack canlı veri alınıyor · {phoneEndpoint}",
                 "Telefondan canlı owoTrack verisi alınmıyor.",
@@ -81,6 +75,11 @@ public sealed class HardwareDiscoveryService : IHardwareDiscoveryService
     }
     private static DeviceStatus Missing(DeviceKind kind, string name, string detail, string action) => new(kind, name, DeviceState.Missing, detail, action);
     private static DeviceStatus FoundOrMissing(DeviceKind kind, string name, bool found, string foundDetail, string missingDetail, string action) => new(kind, name, found ? DeviceState.Connected : DeviceState.Missing, found ? foundDetail : missingDetail, action);
+    private static DeviceStatus PsMoveStatus(DeviceKind kind, string name, bool live, bool paired, string color) => live
+        ? new(kind, name, DeviceState.Connected, $"Atanmış {color} PS Move sensör akışı hazır.", "Karta dokunarak ışığını yakabilirsiniz.")
+        : paired
+            ? new(kind, name, DeviceState.Unknown, $"Atanmış {color} PS Move eşleşmiş ancak sensör akışı uykuda.", "İlk açılış için büyük Move düğmesine bir kez basın; NiiMotion sonrasında bağlantıyı canlı tutar.")
+            : new(kind, name, DeviceState.Missing, "Atanmış PS Move bulunamadı.", "Kurulum sihirbazını açın.");
 }
 
 public static class VirtualDesktopSessionPresence

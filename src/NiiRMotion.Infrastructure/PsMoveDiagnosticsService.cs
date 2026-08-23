@@ -177,6 +177,25 @@ public sealed class PsMoveDiagnosticsService
         }
     }
 
+    public async Task KeepAssignedControllersAwakeAsync(PsMoveAssignments assignments, CancellationToken cancellationToken = default)
+    {
+        if (!assignments.IsComplete) return;
+        var assigned = new HashSet<string>([assignments.LeftStableId, assignments.RightStableId], StringComparer.OrdinalIgnoreCase);
+        var probes = Discover()
+            .Where(x => x.SensorReportsPossible && x.Device.StableId is not null && assigned.Contains(x.Device.StableId))
+            .DistinctBy(x => x.Device.StableId!, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        foreach (var probe in probes)
+        {
+            try
+            {
+                await using var stream = OpenOutput(probe);
+                await stream.WriteAsync(PsMoveZcm1OutputReport.CreateLed(0, 0, 0, probe.OutputReportBytes), cancellationToken);
+            }
+            catch { }
+        }
+    }
+
     public async Task ShowAssignedControllerColorAsync(
         PsMoveAssignments assignments,
         LegSide side,
