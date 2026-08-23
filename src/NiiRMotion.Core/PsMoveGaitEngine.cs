@@ -89,19 +89,18 @@ public sealed class PsMoveGaitEngine(PsMoveTrainingProfile profile)
     public GaitSnapshot Update(long ticks)
     {
         var motionAge = _lastMotion == 0 ? double.PositiveInfinity : (ticks - _lastMotion) / (double)Stopwatch.Frequency;
-        var stepAge = _lastStep == 0 ? double.PositiveInfinity : (ticks - _lastStep) / (double)Stopwatch.Frequency;
-        var cadenceGrace = _cadence <= 0 ? .48 : Math.Clamp(1.12 / _cadence, .28, .48);
         // Confidence used to be reduced once per 10 ms output frame. That made it
         // collapse between two perfectly normal 2-3 Hz steps and produced short
         // zero-output gaps. Once bilateral alternation is established, preserve it
         // across one natural step interval and then stop decisively.
-        var state = !_established || stepAge > cadenceGrace ? GaitState.Idle : motionAge switch
+        var state = !_established ? GaitState.Idle : motionAge switch
         {
+            > .42 => GaitState.Idle,
             _ when _cadence >= 2.6 => GaitState.Running,
             _ when _cadence >= 1.85 => GaitState.FastWalk,
             _ => GaitState.Walking
         };
-        if (state == GaitState.Idle && stepAge > cadenceGrace) ResetEvidence();
+        if (state == GaitState.Idle && motionAge > .42) ResetEvidence();
         var effort = Sigmoid(Normalize(_peak, profile.SlowAnchorRadps, profile.FastAnchorRadps));
         var target = state switch
         {

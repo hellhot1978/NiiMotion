@@ -607,8 +607,8 @@ static void PsMoveGaitContractTest()
     var gait = new PsMoveGaitEngine(profile); var ticks = System.Diagnostics.Stopwatch.GetTimestamp();
     for (var i = 0; i < 16; i++) { ticks += System.Diagnostics.Stopwatch.Frequency / 2; var side = i % 2 == 0 ? LegSide.Left : LegSide.Right; gait.Observe(side, new Vector3(.6f,.6f,.1f), ticks); gait.Observe(side, Vector3.Zero, ticks + 2); }
     Assert(gait.Update(ticks).TargetSpeed > 0, "Alternating PS Move calf motion must activate locomotion.");
-    Assert(gait.Update(ticks + (long)(System.Diagnostics.Stopwatch.Frequency * .45)).TargetSpeed > 0, "Established PS Move gait must not drop between natural steps.");
-    Assert(gait.Update(ticks + (long)(System.Diagnostics.Stopwatch.Frequency * .6)).TargetSpeed == 0, "PS Move gait must stop promptly after motion ends.");
+    Assert(gait.Update(ticks + (long)(System.Diagnostics.Stopwatch.Frequency * .36)).TargetSpeed > 0, "Established PS Move gait must not drop between natural steps.");
+    Assert(gait.Update(ticks + (long)(System.Diagnostics.Stopwatch.Frequency * .5)).TargetSpeed == 0, "PS Move gait must stop promptly after motion ends.");
     var brake = new PsMoveGaitEngine(profile); ticks = System.Diagnostics.Stopwatch.GetTimestamp();
     for (var i = 0; i < 10; i++) { ticks += System.Diagnostics.Stopwatch.Frequency / 3; var side = i % 2 == 0 ? LegSide.Left : LegSide.Right; brake.Observe(side, new Vector3(.6f,.6f,.1f), Vector3.UnitY, ticks); brake.Observe(side, Vector3.Zero, new Vector3(0, 1.2f, 0), ticks + 2); }
     Assert(brake.Update(ticks).TargetSpeed > 0, "PS Move active-brake fixture did not establish gait.");
