@@ -1,6 +1,8 @@
 using System.Numerics;
 using System.Diagnostics;
 using System.Net.Sockets;
+using System.Net;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using NiiRMotion.Core;
@@ -186,6 +188,8 @@ tests = [Sync("Non-HMD profile regression matrix passes", NonHmdMatrix), .. test
 tests = [Sync("Workspace maintenance enforces recursive cache budget", WorkspaceMaintenanceBudget), .. tests];
 tests = [Sync("Application safety detects an unclean session", ApplicationSafetyMarker), Sync("Configuration migration backs up and preserves JSON", ConfigurationMigration), Sync("VR panel state packet round-trips", VrPanelPacket), .. tests];
 tests = [Sync("Generic OpenXR adapter is validated and persisted", GenericOpenXrAdapter), .. tests];
+tests = [Sync("First-use preferences and guidance are deterministic", FirstUsePreferences), .. tests];
+tests = [("Update download is hash verified before staging", UpdateDownloadVerification), Sync("Release integrity detects tampering", ReleaseIntegrityVerification), .. tests];
 var failures = new List<string>();
 foreach (var test in tests) { try { await test.Run(); Console.WriteLine($"PASS  {test.Name}"); } catch (Exception ex) { failures.Add($"FAIL  {test.Name}: {ex.Message}"); } }
 foreach (var failure in failures) Console.Error.WriteLine(failure); Console.WriteLine($"{tests.Length - failures.Count}/{tests.Length} tests passed."); return failures.Count == 0 ? 0 : 1;
@@ -248,6 +252,47 @@ static void GenericOpenXrAdapter()
     }
     finally { try { Directory.Delete(root, true); } catch { } }
 }
+
+static void FirstUsePreferences()
+{
+    var root = Path.Combine(Path.GetTempPath(), "niirmotion-ux-" + Guid.NewGuid().ToString("N"));
+    try
+    {
+        var store = new UserExperienceStore(root); store.Save(UserExperiencePreferences.Default with { TextScale = 9, Language = "xx", OnboardingComplete = true });
+        var loaded = store.Load(); Assert(loaded.TextScale == 1.3 && loaded.Language == "tr" && loaded.OnboardingComplete, "User experience preferences were not normalized.");
+        var inventory = new UserHardwareInventory(1, true, false, false, false, false, DateTimeOffset.UtcNow);
+        var progress = new CalibrationProgressDocument(1, [new(SensorFamily.JoyCon, CalibrationStage.Ready, 3, DateTimeOffset.UtcNow)]);
+        var steps = FirstUseGuidance.Build(inventory, progress); Assert(steps.Count == 4 && steps[0].Complete && steps[1].Complete, "First-use guidance does not reflect calibration state.");
+    }
+    finally { try { Directory.Delete(root, true); } catch { } }
+}
+
+static async Task UpdateDownloadVerification()
+{
+    var bytes = "verified NiiMotion package"u8.ToArray(); var sha = Convert.ToHexString(SHA256.HashData(bytes));
+    using var client = new HttpClient(new StaticHttpHandler(bytes)); var service = new UpdateService(client);
+    var root = Path.Combine(Path.GetTempPath(), "niirmotion-update-" + Guid.NewGuid().ToString("N"));
+    try
+    {
+        var manifest = new NiiMotionUpdateManifest("9.9.9", "https://updates.example/NiiMotion.exe", sha, null) { SizeBytes = bytes.Length };
+        var staged = await service.DownloadVerifiedAsync(manifest, root); Assert(File.ReadAllBytes(staged).SequenceEqual(bytes), "Verified package was not staged.");
+        try { await service.DownloadVerifiedAsync(manifest with { Sha256 = new string('0', 64) }, root); throw new InvalidOperationException("A bad update hash was accepted."); } catch (InvalidDataException) { }
+    }
+    finally { try { Directory.Delete(root, true); } catch { } }
+}
+
+static void ReleaseIntegrityVerification()
+{
+    var root = Path.Combine(Path.GetTempPath(), "niirmotion-integrity-" + Guid.NewGuid().ToString("N"));
+    try
+    {
+        Directory.CreateDirectory(root); File.WriteAllText(Path.Combine(root, "NiiRMotion.App.exe"), "safe"); var manifest = ReleaseIntegrityService.Create(root, "1.0.0");
+        Assert(ReleaseIntegrityService.Verify(root, manifest), "Untouched release failed integrity verification."); File.AppendAllText(Path.Combine(root, "NiiRMotion.App.exe"), "changed");
+        Assert(!ReleaseIntegrityService.Verify(root, manifest), "Modified release passed integrity verification.");
+    }
+    finally { try { Directory.Delete(root, true); } catch { } }
+}
+
 
 static async Task OpenXrSharedOutputTest()
 {
@@ -1064,6 +1109,10 @@ static async IAsyncEnumerable<HmdPoseSample> ToHmdAsync(IEnumerable<HmdPoseSampl
 record LabeledJoyConSample(string Phase, LegSide Side, JoyConImuSample Sample);
 record WalkTuningDecision(long Ticks, GaitState State, double CadenceHz, double Confidence, double TargetSpeed, long StepCount);
 record LegMagnitudeSample(string Phase, LegSide Side, long Ticks, double MagnitudeDps);
+sealed class StaticHttpHandler(byte[] content) : HttpMessageHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(content), RequestMessage = request });
+}
 sealed class TestOutputSink : IAnalogLocomotionSink
 {
     public bool IsAttached { get; private set; } public bool FailOnNonZero { get; init; } public List<LocomotionVector> Values { get; } = [];

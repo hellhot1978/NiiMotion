@@ -18,6 +18,7 @@ public partial class MainWindow : Window
     private readonly SystemModeService _systemMode = new();
     private readonly DispatcherTimer _demoTimer = new() { Interval = TimeSpan.FromMilliseconds(80) };
     private readonly DispatcherTimer _scanTimer = new() { Interval = TimeSpan.FromSeconds(4) };
+    private readonly VrPanelStatePublisher _vrPanel = new();
     private bool _autoScanBusy;
     private bool _phonePairing;
     private bool _moveIdentifyBusy;
@@ -36,6 +37,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        var userExperience = new UserExperienceStore().Load(); FontSize *= userExperience.TextScale;
         var profileBorder = (Border)ProfilePopup.Child;
         profileBorder.Child = new ScrollViewer { Content = profileBorder.Child, MaxHeight = 520, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
         DevicesList.PreviewMouseLeftButtonUp += DeviceCardClick;
@@ -47,6 +49,11 @@ public partial class MainWindow : Window
         Loaded += async (_, _) =>
         {
             await EnsureHardwareInventoryAsync();
+            if (!userExperience.OnboardingComplete)
+            {
+                var onboarding = new GettingStartedWindow(_inventory, await new UserSetupStore().LoadCalibrationAsync()) { Owner = this };
+                onboarding.ShowDialog(); FontSize = 13 * new UserExperienceStore().Load().TextScale;
+            }
             HandTrackingToggle.IsChecked = _inventory.UsesHandTracking;
             RebuildProfileMenu();
             ShowPage(OverviewPage, "Genel Bakış", "Sistem durumu ve hızlı başlangıç", OverviewNav);
@@ -68,7 +75,7 @@ public partial class MainWindow : Window
             if (arguments.Contains("--game-tuning", StringComparer.OrdinalIgnoreCase)) { GamesNavClick(this, new RoutedEventArgs()); var selectedGame = new SteamGameCatalog().Detect().FirstOrDefault(x => x.IsInstalled && x.State == GameIntegrationState.Ready && x.Definition.Id == _selectedGameId); if (selectedGame is not null) OpenGameTuningWindow(selectedGame); }
             _scanTimer.Start();
         };
-        Closed += async (_, _) => { _demoTimer.Stop(); _scanTimer.Stop(); await StopPhoneMonitorAsync(); await _locomotion.DisposeAsync(); };
+        Closed += async (_, _) => { _demoTimer.Stop(); _scanTimer.Stop(); _vrPanel.Dispose(); await StopPhoneMonitorAsync(); await _locomotion.DisposeAsync(); };
     }
     private async void AutoScanTick(object? sender, EventArgs e)
     {
@@ -111,6 +118,7 @@ public partial class MainWindow : Window
         var visibleKinds = _profile.Required.Concat(_profile.Optional)
             .Where(x => x != DeviceKind.SteamVr).ToHashSet();
         DevicesList.ItemsSource = devices.Where(x => visibleKinds.Contains(x.Kind)).ToList();
+        PublishVrPanel("Hazırlanıyor", devices);
         _readiness = SessionReadinessEvaluator.Evaluate(_profile, devices.ToArray());
         var preflightDevices = PreflightBlockingDevices(devices);
         var questPending = devices.FirstOrDefault(x => x.Kind == DeviceKind.Quest3)?.State == DeviceState.Unknown;
@@ -219,6 +227,11 @@ public partial class MainWindow : Window
     }
 
     private void OverviewNavClick(object sender, RoutedEventArgs e) => ShowPage(OverviewPage, "Genel Bakış", "Sistem durumu ve hızlı başlangıç", OverviewNav);
+    private async void GuideNavClick(object sender, RoutedEventArgs e) => new GettingStartedWindow(_inventory, await new UserSetupStore().LoadCalibrationAsync()) { Owner = this }.ShowDialog();
+    private async void AccessibilityNavClick(object sender, RoutedEventArgs e)
+    {
+        if (new GettingStartedWindow(_inventory, await new UserSetupStore().LoadCalibrationAsync(), true) { Owner = this }.ShowDialog() == true) FontSize = 13 * new UserExperienceStore().Load().TextScale;
+    }
     private void ProfileMenuClick(object sender, RoutedEventArgs e)
     {
         ProfilePopup.IsOpen = !ProfilePopup.IsOpen;
@@ -1110,19 +1123,27 @@ public partial class MainWindow : Window
         if (ProfileUsesPhone()) try { await EnsurePhoneMonitorAsync(); } catch { }
         LocomotionState.Text = "OFF"; LocomotionState.Foreground = Brush("#FF9BA8"); TelemetryMode.Text = "KAPALI"; ResetTelemetry();
         StartButton.IsEnabled = _profile.LocomotionAllowed && _readiness?.State != ReadinessState.NotReady; ReadinessMessage.Text = "Locomotion güvenli şekilde durduruldu ve output ayrıldı.";
+        PublishVrPanel("Kapalı");
     }
     private void SetStopControl(bool running)
     {
         StopButton.IsEnabled = running;
         StopButton.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
     }
-    private void SetRunningVisuals(string mode) { LocomotionState.Text = "ON"; LocomotionState.Foreground = Brush("#72E1C2"); TelemetryMode.Text = mode; TelemetryMode.Foreground = Brush("#72E1C2"); }
+    private void SetRunningVisuals(string mode) { LocomotionState.Text = "ON"; LocomotionState.Foreground = Brush("#72E1C2"); TelemetryMode.Text = mode; TelemetryMode.Foreground = Brush("#72E1C2"); PublishVrPanel(mode); }
+    private void PublishVrPanel(string state, IReadOnlyList<DeviceStatus>? devices = null, float speed = 0)
+    {
+        var game = new SteamGameCatalog().Detect().FirstOrDefault(x => x.Definition.Id == _selectedGameId)?.Definition.Name ?? _selectedGameId;
+        var summary = devices is null ? "Canlı oturum" : $"{devices.Count(x => x.IsConnected)}/{devices.Count} bağlı";
+        try { _vrPanel.Publish(new(1, _profile.Name, game, state, speed, summary, ReadinessMessage?.Text ?? "", DateTimeOffset.UtcNow)); } catch { }
+    }
     private void DemoTick(object? sender, EventArgs e)
     {
         _demoPhase += 0.18; var cadence = 1.85 + Math.Sin(_demoPhase) * 0.22; var confidence = 82 + Math.Sin(_demoPhase * 0.55) * 9; var speed = Math.Clamp(cadence / 2.5, 0, 0.9);
         if ((int)(_demoPhase * 10) % 16 == 0) _demoSteps++;
         CadenceValue.Text = cadence.ToString("0.00"); CadenceBar.Value = cadence; ConfidenceValue.Text = confidence.ToString("0"); ConfidenceBar.Value = confidence;
         TargetSpeedValue.Text = speed.ToString("0.00"); TargetSpeedBar.Value = speed; GaitStateValue.Text = cadence > 2 ? "FAST WALK" : "WALKING"; StepCountValue.Text = $"{_demoSteps} adım · demo";
+        PublishVrPanel("Demo", speed: (float)speed);
     }
     private void ResetTelemetry() { CadenceValue.Text = "0.00"; CadenceBar.Value = 0; ConfidenceValue.Text = "0"; ConfidenceBar.Value = 0; TargetSpeedValue.Text = "0.00"; TargetSpeedBar.Value = 0; GaitStateValue.Text = "BEKLİYOR"; StepCountValue.Text = "0 adım"; }
     private bool ProfileUsesPhone() => _profile.Required.Contains(DeviceKind.Phone);
