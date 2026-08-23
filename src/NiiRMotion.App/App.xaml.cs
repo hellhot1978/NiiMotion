@@ -11,6 +11,8 @@ public partial class App : Application
 {
     private Mutex? _singleInstanceMutex;
     private bool _ownsSingleInstanceMutex;
+    private ApplicationSafetyService? _safety;
+    private PreviousRunStatus? _previousRun;
     protected override void OnStartup(StartupEventArgs e)
     {
         _singleInstanceMutex = new Mutex(true, @"Local\NiiMotion.App.Singleton", out var firstInstance);
@@ -18,6 +20,11 @@ public partial class App : Application
         if (!firstInstance) { _singleInstanceMutex.Dispose(); _singleInstanceMutex = null; Shutdown(); return; }
         base.OnStartup(e);
         NiiMotionPaths.Initialize();
+        DispatcherUnhandledException += OnDispatcherUnhandledException;
+        AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
+        TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+        _safety = new ApplicationSafetyService(); _previousRun = _safety.Begin();
+        _ = new DataMigrationService().Run();
         _ = new WorkspaceMaintenanceService().Run();
         var deviceCalibrationScreenshotArg = e.Args.FirstOrDefault(x => x.StartsWith("--device-calibration-screenshot=", StringComparison.OrdinalIgnoreCase));
         if (deviceCalibrationScreenshotArg is not null)
@@ -35,6 +42,8 @@ public partial class App : Application
         }
         var boardLabScreenshotArg = e.Args.FirstOrDefault(x => x.StartsWith("--board-lab-screenshot=", StringComparison.OrdinalIgnoreCase));
         Window window = boardLabScreenshotArg is null ? new MainWindow() : new BoardLabWindow(); MainWindow = window; window.Show();
+        if (_previousRun?.WasUnclean == true && boardLabScreenshotArg is null)
+            window.Dispatcher.BeginInvoke(() => MessageBox.Show(window, _previousRun.Message, "Güvenli kurtarma", MessageBoxButton.OK, MessageBoxImage.Information), DispatcherPriority.ApplicationIdle);
         if (boardLabScreenshotArg is not null)
         {
             var boardPath = boardLabScreenshotArg[(boardLabScreenshotArg.IndexOf('=') + 1)..];
@@ -48,9 +57,23 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _safety?.Complete(); _safety = null;
         if (_ownsSingleInstanceMutex) _singleInstanceMutex?.ReleaseMutex();
         _singleInstanceMutex?.Dispose(); _singleInstanceMutex = null; _ownsSingleInstanceMutex = false;
         base.OnExit(e);
+    }
+
+    private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        RecordCrash(e.Exception); ApplicationSafetyService.ForceSafeZero();
+        MessageBox.Show("NiiMotion beklenmedik bir sorunla karşılaştı. Hareket çıkışı güvenle durduruldu. Sistem Tanılama bölümünden destek paketi oluşturabilirsin.", "NiiMotion güvenli duruş", MessageBoxButton.OK, MessageBoxImage.Error);
+        e.Handled = true; Shutdown(1);
+    }
+    private void OnDomainUnhandledException(object? sender, UnhandledExceptionEventArgs e) { ApplicationSafetyService.ForceSafeZero(); if (e.ExceptionObject is Exception ex) RecordCrash(ex); }
+    private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e) { RecordCrash(e.Exception); e.SetObserved(); }
+    private static void RecordCrash(Exception ex)
+    {
+        try { _ = NiiMotionEventLog.WriteAsync("application", "crash", "Uygulama beklenmedik biçimde kapandı; güvenli sıfır uygulandı.", new { type = ex.GetType().Name, ex.Message, stack = ex.StackTrace }); } catch { }
     }
 
     private void SaveScreenshotAndExit(Window window, string path)

@@ -184,9 +184,54 @@ tests = [("OpenXR shared output packet is bounded and process-scoped", OpenXrSha
 tests = [Sync("Configured hand control is not reported missing", ConfiguredHandControl), .. tests];
 tests = [Sync("Non-HMD profile regression matrix passes", NonHmdMatrix), .. tests];
 tests = [Sync("Workspace maintenance enforces recursive cache budget", WorkspaceMaintenanceBudget), .. tests];
+tests = [Sync("Application safety detects an unclean session", ApplicationSafetyMarker), Sync("Configuration migration backs up and preserves JSON", ConfigurationMigration), Sync("VR panel state packet round-trips", VrPanelPacket), .. tests];
 var failures = new List<string>();
 foreach (var test in tests) { try { await test.Run(); Console.WriteLine($"PASS  {test.Name}"); } catch (Exception ex) { failures.Add($"FAIL  {test.Name}: {ex.Message}"); } }
 foreach (var failure in failures) Console.Error.WriteLine(failure); Console.WriteLine($"{tests.Length - failures.Count}/{tests.Length} tests passed."); return failures.Count == 0 ? 0 : 1;
+
+static void ApplicationSafetyMarker()
+{
+    var root = Path.Combine(Path.GetTempPath(), "niirmotion-safety-" + Guid.NewGuid().ToString("N"));
+    try
+    {
+        using (var first = new ApplicationSafetyService(root)) Assert(!first.Begin().WasUnclean, "Fresh session was reported as unclean.");
+        File.WriteAllText(Path.Combine(root, "running-session.json"), "{\"startedAtUtc\":\"2026-01-01T00:00:00Z\"}");
+        using var second = new ApplicationSafetyService(root);
+        Assert(second.Begin().WasUnclean, "Stale session marker was not detected.");
+        second.Complete();
+        Assert(!File.Exists(Path.Combine(root, "running-session.json")), "Clean shutdown did not remove its marker.");
+    }
+    finally { try { Directory.Delete(root, true); } catch { } }
+}
+
+static void ConfigurationMigration()
+{
+    var root = Path.Combine(Path.GetTempPath(), "niirmotion-migration-" + Guid.NewGuid().ToString("N"));
+    try
+    {
+        Directory.CreateDirectory(root);
+        File.WriteAllText(Path.Combine(root, "user-hardware.json"), "{\"schemaVersion\":1,\"devices\":[]}");
+        var report = new DataMigrationService(root).Run();
+        Assert(report.SchemaVersion == DataMigrationService.CurrentSchema, "Migration did not reach the current schema.");
+        Assert(File.Exists(Path.Combine(root, "user-hardware.json.pre-schema-3.backup")), "Migration did not create a rollback copy.");
+        using var state = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "data-schema.json")));
+        Assert(state.RootElement.GetProperty("schemaVersion").GetInt32() == DataMigrationService.CurrentSchema, "Migration state is invalid.");
+    }
+    finally { try { Directory.Delete(root, true); } catch { } }
+}
+
+static void VrPanelPacket()
+{
+    if (!OperatingSystem.IsWindows()) return;
+    using var publisher = new VrPanelStatePublisher();
+    publisher.Publish(new(1, "Joy-Con", "Alyx", "Hazır", .42f, "2/2", "Güvenli", DateTimeOffset.UtcNow));
+    using var mapping = System.IO.MemoryMappedFiles.MemoryMappedFile.OpenExisting(VrPanelStatePublisher.MappingName);
+    using var view = mapping.CreateViewAccessor();
+    Assert(view.ReadUInt32(0) == 0x3150564E, "VR panel packet magic is invalid.");
+    var length = view.ReadInt32(4); var bytes = new byte[length]; view.ReadArray(8, bytes, 0, length);
+    var state = JsonSerializer.Deserialize<VrPanelState>(bytes);
+    Assert(state?.Profile == "Joy-Con" && Math.Abs(state.Speed - .42f) < .001f, "VR panel state did not round-trip.");
+}
 
 static async Task OpenXrSharedOutputTest()
 {
