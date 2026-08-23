@@ -20,8 +20,8 @@ public sealed class PsMoveGaitEngine(PsMoveTrainingProfile profile)
 
     public bool Observe(LegSide side, System.Numerics.Vector3 gyro, System.Numerics.Vector3 accelerationG, long ticks)
     {
-        var stationary = gyro.Length() < profile.RestReleaseThresholdRadps * .82
-            && Math.Abs(accelerationG.Length() - 1) < .085;
+        var stationary = gyro.Length() < profile.RestReleaseThresholdRadps
+            && Math.Abs(accelerationG.Length() - 1) < .16;
         if (side == LegSide.Left) { _leftStationary = stationary; _leftSampleTicks = ticks; }
         else { _rightStationary = stationary; _rightSampleTicks = ticks; }
 
@@ -29,7 +29,7 @@ public sealed class PsMoveGaitEngine(PsMoveTrainingProfile profile)
         if (bothFresh && _leftStationary && _rightStationary)
         {
             _bothStationarySince = _bothStationarySince == 0 ? ticks : _bothStationarySince;
-            if (_established && ticks - _bothStationarySince >= Stopwatch.Frequency * .22) ResetEvidence();
+            if (_established && ticks - _bothStationarySince >= Stopwatch.Frequency * .14) ResetEvidence();
         }
         else _bothStationarySince = 0;
 
