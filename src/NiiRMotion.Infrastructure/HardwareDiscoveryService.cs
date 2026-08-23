@@ -101,7 +101,12 @@ internal static class OpenVrHeadsetPresence
 
     public static bool IsPresent()
     {
-        if (!HasCurrentPhysicalHeadsetInLog()) return false;
+        // Oculus/Virtual Desktop can keep a fully active HMD behind its shim while
+        // VR_IsHmdPresent reports false to a second, non-initialised OpenVR client.
+        // vrserver is the authority in that case: it records both activation and
+        // deactivation of the physical HMD.  Do not turn a current positive
+        // vrserver record into a false negative just because the probe disagrees.
+        if (HasCurrentPhysicalHeadsetInLog()) return true;
         var candidates = new[]
         {
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Steam", "steamapps", "common", "SteamVR", "bin", "win64", "openvr_api.dll"),
