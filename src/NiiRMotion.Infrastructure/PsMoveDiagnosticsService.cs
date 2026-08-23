@@ -185,10 +185,11 @@ public sealed class PsMoveDiagnosticsService
     {
         if (!assignments.IsComplete) throw new ArgumentException("Complete left/right assignments are required.", nameof(assignments));
         var stableId = side == LegSide.Left ? assignments.LeftStableId : assignments.RightStableId;
-        var probe = Discover()
-            .Where(x => x.SensorReportsPossible)
-            .SingleOrDefault(x => string.Equals(x.Device.StableId, stableId, StringComparison.OrdinalIgnoreCase));
-        if (probe is null) throw new InvalidOperationException($"The assigned {side} PS Move controller is not connected.");
+        var probe = await WaitForAssignedProbeAsync(stableId, TimeSpan.FromSeconds(8), cancellationToken);
+        if (probe is null)
+            throw new InvalidOperationException(side == LegSide.Left
+                ? "Sol PS Move Bluetooth'ta kayıtlı ancak sensör kanalı uyanmadı. Büyük Move düğmesine basıp yeniden deneyin."
+                : "Sağ PS Move Bluetooth'ta kayıtlı ancak sensör kanalı uyanmadı. Büyük Move düğmesine basıp yeniden deneyin.");
 
         await using var stream = OpenOutput(probe);
         var color = side == LegSide.Left
@@ -208,6 +209,25 @@ public sealed class PsMoveDiagnosticsService
         {
             await stream.WriteAsync(off, CancellationToken.None);
         }
+    }
+
+    private async Task<PsMoveHidProbe?> WaitForAssignedProbeAsync(
+        string stableId,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        var until = DateTimeOffset.UtcNow + timeout;
+        do
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var probe = Discover()
+                .Where(x => x.SensorReportsPossible)
+                .SingleOrDefault(x => string.Equals(x.Device.StableId, stableId, StringComparison.OrdinalIgnoreCase));
+            if (probe is not null) return probe;
+            await Task.Delay(TimeSpan.FromMilliseconds(350), cancellationToken);
+        }
+        while (DateTimeOffset.UtcNow < until);
+        return null;
     }
 
     public async Task ShowControllerColorAsync(

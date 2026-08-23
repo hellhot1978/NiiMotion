@@ -922,8 +922,9 @@ public partial class MainWindow : Window
             try
             {
                 ReadinessTitle.Text = side == LegSide.Left ? "SOL PS MOVE · KIRMIZI" : "SAĞ PS MOVE · MAVİ";
-                ReadinessMessage.Text = "Seçtiğin kontrolcünün küresi kısa süre yanıyor.";
+                ReadinessMessage.Text = "Küre kısa süre yanacak. Move uyuyorsa şimdi büyük Move düğmesine bir kez bas.";
                 await new PsMoveDiagnosticsService().ShowAssignedControllerColorAsync(assignments, side, TimeSpan.FromSeconds(3));
+                ReadinessMessage.Text = "Işık testi tamamlandı.";
             }
             catch (Exception ex)
             {
