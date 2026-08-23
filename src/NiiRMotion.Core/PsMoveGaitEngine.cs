@@ -13,8 +13,28 @@ public sealed class PsMoveGaitEngine(PsMoveTrainingProfile profile)
     private double _cadence, _peak, _confidence, _leftSpeed, _rightSpeed;
     private double _leftX, _leftY, _leftZ, _rightX, _rightY, _rightZ;
     private double _leftPlaneConfidence, _rightPlaneConfidence;
+    private bool _leftStationary, _rightStationary;
+    private long _leftSampleTicks, _rightSampleTicks, _bothStationarySince;
 
-    public bool Observe(PsMoveImuSample sample) => Observe(sample.Side, sample.AngularVelocityRadps, sample.Timestamp.MonotonicTicks);
+    public bool Observe(PsMoveImuSample sample) => Observe(sample.Side, sample.AngularVelocityRadps, sample.AccelerationG, sample.Timestamp.MonotonicTicks);
+
+    public bool Observe(LegSide side, System.Numerics.Vector3 gyro, System.Numerics.Vector3 accelerationG, long ticks)
+    {
+        var stationary = gyro.Length() < profile.RestReleaseThresholdRadps * .82
+            && Math.Abs(accelerationG.Length() - 1) < .085;
+        if (side == LegSide.Left) { _leftStationary = stationary; _leftSampleTicks = ticks; }
+        else { _rightStationary = stationary; _rightSampleTicks = ticks; }
+
+        var bothFresh = Math.Abs(_leftSampleTicks - _rightSampleTicks) < Stopwatch.Frequency * .08;
+        if (bothFresh && _leftStationary && _rightStationary)
+        {
+            _bothStationarySince = _bothStationarySince == 0 ? ticks : _bothStationarySince;
+            if (_established && ticks - _bothStationarySince >= Stopwatch.Frequency * .22) ResetEvidence();
+        }
+        else _bothStationarySince = 0;
+
+        return Observe(side, gyro, ticks);
+    }
 
     public bool Observe(LegSide side, System.Numerics.Vector3 gyro, long ticks)
     {
@@ -92,7 +112,7 @@ public sealed class PsMoveGaitEngine(PsMoveTrainingProfile profile)
         return new(state, _cadence, _confidence, Math.Clamp(target, 0, 1), _lastSide, _steps);
     }
 
-    private void ResetEvidence() { _alternations = 0; _confidence = 0; _established = false; _lastSide = null; _lastStep = _previousStep = 0; _peak = 0; }
+    private void ResetEvidence() { _alternations = 0; _confidence = 0; _established = false; _lastSide = null; _lastStep = _previousStep = 0; _peak = 0; _bothStationarySince = 0; }
     private static double Normalize(double value, double low, double high) => Math.Clamp((value - low) / Math.Max(.01, high - low), 0, 1);
     private static double Sigmoid(double x) { var y = 1 / (1 + Math.Exp(-7 * (x - .5))); var lo = 1 / (1 + Math.Exp(3.5)); var hi = 1 / (1 + Math.Exp(-3.5)); return (y - lo) / (hi - lo); }
 }

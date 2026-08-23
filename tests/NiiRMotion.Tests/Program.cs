@@ -609,6 +609,11 @@ static void PsMoveGaitContractTest()
     Assert(gait.Update(ticks).TargetSpeed > 0, "Alternating PS Move calf motion must activate locomotion.");
     Assert(gait.Update(ticks + (long)(System.Diagnostics.Stopwatch.Frequency * .45)).TargetSpeed > 0, "Established PS Move gait must not drop between natural steps.");
     Assert(gait.Update(ticks + (long)(System.Diagnostics.Stopwatch.Frequency * .6)).TargetSpeed == 0, "PS Move gait must stop promptly after motion ends.");
+    var brake = new PsMoveGaitEngine(profile); ticks = System.Diagnostics.Stopwatch.GetTimestamp();
+    for (var i = 0; i < 10; i++) { ticks += System.Diagnostics.Stopwatch.Frequency / 3; var side = i % 2 == 0 ? LegSide.Left : LegSide.Right; brake.Observe(side, new Vector3(.6f,.6f,.1f), Vector3.UnitY, ticks); brake.Observe(side, Vector3.Zero, new Vector3(0, 1.2f, 0), ticks + 2); }
+    Assert(brake.Update(ticks).TargetSpeed > 0, "PS Move active-brake fixture did not establish gait.");
+    for (var i = 0; i < 30; i++) { ticks += System.Diagnostics.Stopwatch.Frequency / 100; brake.Observe(LegSide.Left, Vector3.Zero, Vector3.UnitY, ticks); brake.Observe(LegSide.Right, Vector3.Zero, Vector3.UnitY, ticks + 1); }
+    Assert(brake.Update(ticks).TargetSpeed == 0, "Bilateral zero-velocity lock must actively brake PS Move gait.");
     var reject = new PsMoveGaitEngine(profile); ticks = System.Diagnostics.Stopwatch.GetTimestamp();
     for (var i = 0; i < 8; i++) { ticks += System.Diagnostics.Stopwatch.Frequency / 2; reject.Observe(LegSide.Left, new Vector3(1,.1f,.05f), ticks); reject.Observe(LegSide.Right, new Vector3(1,.1f,.05f), ticks + 1); reject.Observe(LegSide.Left, Vector3.Zero, ticks + 2); reject.Observe(LegSide.Right, Vector3.Zero, ticks + 3); }
     Assert(reject.Update(ticks).TargetSpeed == 0, "Bilateral PS Move bend motion must not activate locomotion.");
