@@ -172,6 +172,7 @@ Move Only yazılım zinciri tamamlandı. Bir sonraki kapı, iki atanmış Move B
 - HMD pose örnek sözleşmesi, kayıt ve replay altyapısı tamamlandı. Mevcut native sürücü baş dönüş hızını zaten güvenli dönüş bastırma kanıtı olarak okuyor; tam HMD kayıt doğrulaması fiziksel teste bırakıldı.
 - Dört saat/720.000 çevrim hızlandırılmış dayanıklılık regresyonu eklendi; güvenli sıfır ve bellek bütçesi otomatik test ediliyor.
 - İlk kullanım, cihaz kurulumu, sorun giderme, oyun denetimi, dayanıklılık ve üçüncü taraf bildirimleri yazıldı ve kurucuya dahil edildi.
+- OpenXR oyunları için oyun dosyasına dokunmayan, HKCU üzerinden geri alınabilir Khronos API katmanı eklendi. Metro Awakening süreçleri izin listesine alındı; vector2/float hareket action'ları ortak analog paylaşımlı bellekten besleniyor, 250 ms heartbeat kesilince aynı sorguda sıfırlanıyor. SteamVR OpenXR loader keşif testi geçti; fiziksel Metro action eşleşmesi daha sonra doğrulanacak.
 
 ## 2026-08-22 ilerleme güncellemesi
 
