@@ -180,12 +180,34 @@ var tests = new (string Name, Func<Task> Run)[] { Sync("Hardware inventory creat
 tests = [("Calibration repair replaces only broken segment", CalibrationSegmentRepair), Sync("Calibration quality isolates broken time segments", CalibrationQualitySegments), Sync("Game motion profile is versioned and bounded", GameMotionProfileTest), Sync("Game adapter validates safe SteamVR actions", GameAdapterValidation), Sync("Game adapter restore returns original profile", GameAdapterRestoreTest), Sync("Steam action discovery finds movement inputs", SteamActionDiscoveryTest), Sync("Steam game catalog detects only real manifests", SteamGameCatalogDetection), ("Unified sensor replay preserves timestamp order", UnifiedSensorReplayOrder), Sync("Calibration progress schema separates devices and profiles", CalibrationProgressSchema), Sync("Hybrid leg sensors reward agreement and degrade disagreement", HybridLegAgreement), .. tests];
 tests = [Sync("Learned data reset backs up motion data and preserves device identity", LearnedDataResetTest), .. tests];
 tests = [Sync("Diagnostic package redacts private network and device identities", DiagnosticRedactionTest), .. tests];
+tests = [("OpenXR shared output packet is bounded and process-scoped", OpenXrSharedOutputTest), Sync("OpenXR layer manifest and native export are valid", OpenXrLayerContract), .. tests];
 tests = [Sync("Configured hand control is not reported missing", ConfiguredHandControl), .. tests];
 tests = [Sync("Non-HMD profile regression matrix passes", NonHmdMatrix), .. tests];
 tests = [Sync("Workspace maintenance enforces recursive cache budget", WorkspaceMaintenanceBudget), .. tests];
 var failures = new List<string>();
 foreach (var test in tests) { try { await test.Run(); Console.WriteLine($"PASS  {test.Name}"); } catch (Exception ex) { failures.Add($"FAIL  {test.Name}: {ex.Message}"); } }
 foreach (var failure in failures) Console.Error.WriteLine(failure); Console.WriteLine($"{tests.Length - failures.Count}/{tests.Length} tests passed."); return failures.Count == 0 ? 0 : 1;
+
+static async Task OpenXrSharedOutputTest()
+{
+    if (!OperatingSystem.IsWindows()) return;
+    await using var sink = new SharedMemoryOpenXrOutputSink(); await sink.AttachAsync(); await sink.WriteAsync(new LocomotionVector(2, .75f));
+    using var mapping = System.IO.MemoryMappedFiles.MemoryMappedFile.OpenExisting(SharedMemoryOpenXrOutputSink.MappingName);
+    using var view = mapping.CreateViewAccessor();
+    Assert(view.ReadUInt32(0) == 0x3158524E && view.ReadUInt32(4) == 1, "OpenXR packet header changed.");
+    Assert(view.ReadSingle(16) == 1 && Math.Abs(view.ReadSingle(20) - .75f) < .001f && view.ReadUInt32(24) == 1, "OpenXR packet was not clamped or enabled.");
+    Assert(view.ReadUInt32(28) == SharedMemoryOpenXrOutputSink.Fnv1a("Impact-Win64-Shipping.exe") && view.ReadUInt32(32) == SharedMemoryOpenXrOutputSink.Fnv1a("Impact.exe"), "Metro process scope changed.");
+    await sink.DetachAsync();
+}
+
+static void OpenXrLayerContract()
+{
+    var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+    var manifest = Path.Combine(root, "native", "openxr-layer", "dist", "niirmotion_openxr.json"); var dll = Path.Combine(root, "native", "openxr-layer", "dist", "bin", "win64", "niirmotion_openxr.dll");
+    using var json = JsonDocument.Parse(File.ReadAllText(manifest)); Assert(json.RootElement.GetProperty("api_layer").GetProperty("name").GetString() == "XR_APILAYER_NIIRMOTION_locomotion", "OpenXR layer name changed.");
+    var library = System.Runtime.InteropServices.NativeLibrary.Load(dll); try { Assert(System.Runtime.InteropServices.NativeLibrary.TryGetExport(library, "xrNegotiateLoaderApiLayerInterface", out _), "OpenXR negotiation export missing."); } finally { System.Runtime.InteropServices.NativeLibrary.Free(library); }
+    Assert(new GameMotionProfileStore().Load("metro-awakening").MappingVersion == "metro-openxr-layer-v1", "Metro OpenXR profile missing.");
+}
 
 static void GameMotionProfileTest()
 {

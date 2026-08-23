@@ -15,7 +15,7 @@ public static class BuiltInGames
     [
         new("half-life-alyx", "Half-Life: Alyx", "546560", "SteamVR / OpenVR", true, "Analog yürüyüş eşlemesi doğrulandı"),
         new("arizona-sunshine-2", "Arizona Sunshine 2", "1540210", "SteamVR", true, "Geri alınabilir kontrolcü eşlemesi hazır"),
-        new("metro-awakening", "Metro Awakening", "2669410", "SteamVR/OpenXR · doğrulanacak", false, "Kurulum algılanır; giriş adaptörü henüz doğrulanmadı"),
+        new("metro-awakening", "Metro Awakening", "2669410", "OpenXR API Layer", true, "Geri alınabilir OpenXR analog köprüsü hazır · oyun içi doğrulama bekliyor"),
         new("skyrim-vr", "The Elder Scrolls V: Skyrim VR", "611670", "SteamVR", false, "Kurulum ve mod yapısı doğrulanmadan değiştirilmez"),
         new("zelda-botw", "Zelda: Breath of the Wild", null, "Cemu / mevcut zincir", false, "Önceki entegrasyon yolu bulunmadan yeniden oluşturulmaz")
     ];

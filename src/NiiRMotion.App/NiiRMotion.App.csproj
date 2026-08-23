@@ -15,6 +15,8 @@
     <Content Include="..\..\native\openvr-driver\dist\bin\win64\driver_niirmotion.dll" Link="OpenVRDriver\bin\win64\driver_niirmotion.dll" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\native\openvr-driver\dist\resources\input\niirmotion_profile.json" Link="OpenVRDriver\resources\input\niirmotion_profile.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\native\openvr-driver\dist\resources\input\default_bindings\*.json" Link="OpenVRDriver\resources\input\default_bindings\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\native\openxr-layer\dist\niirmotion_openxr.json" Link="OpenXRLayer\niirmotion_openxr.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\native\openxr-layer\dist\bin\win64\niirmotion_openxr.dll" Link="OpenXRLayer\bin\win64\niirmotion_openxr.dll" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -26,7 +28,7 @@
     <ApplicationIcon>Assets\niirmotion.ico</ApplicationIcon>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
-    <Version>0.5.0</Version>
+    <Version>0.6.0</Version>
   </PropertyGroup>
 
 </Project>

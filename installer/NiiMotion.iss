@@ -1,5 +1,5 @@
 #define MyAppName "NiiMotion"
-#define MyAppVersion "0.5.0"
+#define MyAppVersion "0.6.0"
 #define MyAppPublisher "NiiMotion Project"
 #define MyAppExeName "NiiRMotion.App.exe"
 
@@ -55,6 +55,7 @@ var
   ResultCode: Integer;
 begin
   if CurUninstallStep <> usUninstall then Exit;
+  RegDeleteValue(HKCU, 'Software\Khronos\OpenXR\1\ApiLayers\Implicit', ExpandConstant('{app}\OpenXRLayer\niirmotion_openxr.json'));
   DriverPath := ExpandConstant('{app}\OpenVRDriver');
   if RegQueryStringValue(HKCU, 'Software\Valve\Steam', 'SteamPath', SteamPath) then
   begin

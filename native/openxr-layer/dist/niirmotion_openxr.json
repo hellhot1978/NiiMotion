@@ -1,0 +1,11 @@
+{
+  "file_format_version": "1.0.0",
+  "api_layer": {
+    "name": "XR_APILAYER_NIIRMOTION_locomotion",
+    "library_path": "bin/win64/niirmotion_openxr.dll",
+    "api_version": "1.0",
+    "implementation_version": "1",
+    "description": "NiiMotion safe analog locomotion bridge",
+    "disable_environment": "NIIRMOTION_OPENXR_DISABLE"
+  }
+}

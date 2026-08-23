@@ -47,6 +47,7 @@ public sealed class GameMotionProfileStore
     {
         "half-life-alyx" => GameMotionProfile.Default(gameId, "alyx-openvr-v2"),
         "arizona-sunshine-2" => GameMotionProfile.Default(gameId, "arizona2-steamvr-v1"),
+        "metro-awakening" => GameMotionProfile.Default(gameId, "metro-openxr-layer-v1"),
         _ => GameMotionProfile.Default(gameId)
     };
 }

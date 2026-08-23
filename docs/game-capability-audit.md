@@ -2,7 +2,7 @@
 
 ## Metro Awakening (Steam 2669410)
 
-Bu bilgisayarda kurulu. Dosya ağacında `openxr_loader.dll` ve Oculus OVRPlugin bulundu; SteamVR action/binding tanımı bulunmadı. Sonuç: OpenXR tabanlı akışta SteamVR action eşlemesi uydurulmayacak. Oyun dosyaları değiştirilmeden özel OpenXR adaptörü hazırlanıp daha sonra oyun içinde doğrulanmalı.
+Bu bilgisayarda kurulu. Dosya ağacında `openxr_loader.dll` ve Oculus OVRPlugin bulundu; SteamVR action/binding tanımı bulunmadı. Oyun dosyalarını değiştirmeyen, yalnız Metro süreçlerinde çalışan geri alınabilir OpenXR API katmanı hazırlandı. Analog paylaşımlı bellek protokolü ve güvenli sıfırlama otomatik doğrulandı; gerçek action adının oyun içinde eşleşmesi daha sonra fiziksel test edilecek.
 
 ## Skyrim VR (Steam 611670)
 
