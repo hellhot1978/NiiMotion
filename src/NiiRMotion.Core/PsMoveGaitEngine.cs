@@ -8,6 +8,7 @@ public sealed class PsMoveGaitEngine(PsMoveTrainingProfile profile)
     private long _lastStep, _previousStep, _lastMotion;
     private LegSide? _lastSide;
     private int _alternations;
+    private bool _established;
     private long _steps;
     private double _cadence, _peak, _confidence, _leftSpeed, _rightSpeed;
     private double _leftX, _leftY, _leftZ, _rightX, _rightY, _rightZ;
@@ -53,7 +54,13 @@ public sealed class PsMoveGaitEngine(PsMoveTrainingProfile profile)
         if (alternates && _previousStep > 0)
         {
             var instant = Stopwatch.Frequency / (double)(_lastStep - _previousStep);
-            if (instant is >= .75 and <= 4.6) { _cadence = _cadence == 0 ? instant : _cadence * .7 + instant * .3; _alternations++; _confidence = Math.Clamp(_confidence + .42, 0, 1); }
+            if (instant is >= .75 and <= 4.6)
+            {
+                _cadence = _cadence == 0 ? instant : _cadence * .7 + instant * .3;
+                _alternations++;
+                _confidence = Math.Clamp(_confidence + .50, 0, 1);
+                if (_alternations >= 1 && _confidence >= .50) _established = true;
+            }
             else ResetEvidence();
         }
         return alternates;
@@ -62,17 +69,18 @@ public sealed class PsMoveGaitEngine(PsMoveTrainingProfile profile)
     public GaitSnapshot Update(long ticks)
     {
         var motionAge = _lastMotion == 0 ? double.PositiveInfinity : (ticks - _lastMotion) / (double)Stopwatch.Frequency;
-        if (motionAge > .18) _confidence = Math.Max(0, _confidence - .16);
-        var established = _alternations >= 3 && _confidence >= .90;
-        var state = !established ? GaitState.Idle : motionAge switch
+        // Confidence used to be reduced once per 10 ms output frame. That made it
+        // collapse between two perfectly normal 2-3 Hz steps and produced short
+        // zero-output gaps. Once bilateral alternation is established, preserve it
+        // across one natural step interval and then stop decisively.
+        var state = !_established ? GaitState.Idle : motionAge switch
         {
-            > .42 => GaitState.Idle,
-            > .24 => GaitState.Stopping,
+            > .52 => GaitState.Idle,
             _ when _cadence >= 2.6 => GaitState.Running,
             _ when _cadence >= 1.85 => GaitState.FastWalk,
             _ => GaitState.Walking
         };
-        if (state == GaitState.Idle && motionAge > .42) ResetEvidence();
+        if (state == GaitState.Idle && motionAge > .52) ResetEvidence();
         var effort = Sigmoid(Normalize(_peak, profile.SlowAnchorRadps, profile.FastAnchorRadps));
         var target = state switch
         {
@@ -84,7 +92,7 @@ public sealed class PsMoveGaitEngine(PsMoveTrainingProfile profile)
         return new(state, _cadence, _confidence, Math.Clamp(target, 0, 1), _lastSide, _steps);
     }
 
-    private void ResetEvidence() { _alternations = 0; _confidence = 0; _lastSide = null; _lastStep = _previousStep = 0; _peak = 0; }
+    private void ResetEvidence() { _alternations = 0; _confidence = 0; _established = false; _lastSide = null; _lastStep = _previousStep = 0; _peak = 0; }
     private static double Normalize(double value, double low, double high) => Math.Clamp((value - low) / Math.Max(.01, high - low), 0, 1);
     private static double Sigmoid(double x) { var y = 1 / (1 + Math.Exp(-7 * (x - .5))); var lo = 1 / (1 + Math.Exp(3.5)); var hi = 1 / (1 + Math.Exp(-3.5)); return (y - lo) / (hi - lo); }
 }

@@ -607,7 +607,8 @@ static void PsMoveGaitContractTest()
     var gait = new PsMoveGaitEngine(profile); var ticks = System.Diagnostics.Stopwatch.GetTimestamp();
     for (var i = 0; i < 16; i++) { ticks += System.Diagnostics.Stopwatch.Frequency / 2; var side = i % 2 == 0 ? LegSide.Left : LegSide.Right; gait.Observe(side, new Vector3(.6f,.6f,.1f), ticks); gait.Observe(side, Vector3.Zero, ticks + 2); }
     Assert(gait.Update(ticks).TargetSpeed > 0, "Alternating PS Move calf motion must activate locomotion.");
-    Assert(gait.Update(ticks + (long)(System.Diagnostics.Stopwatch.Frequency * .5)).TargetSpeed == 0, "PS Move gait must stop promptly after motion ends.");
+    Assert(gait.Update(ticks + (long)(System.Diagnostics.Stopwatch.Frequency * .45)).TargetSpeed > 0, "Established PS Move gait must not drop between natural steps.");
+    Assert(gait.Update(ticks + (long)(System.Diagnostics.Stopwatch.Frequency * .6)).TargetSpeed == 0, "PS Move gait must stop promptly after motion ends.");
     var reject = new PsMoveGaitEngine(profile); ticks = System.Diagnostics.Stopwatch.GetTimestamp();
     for (var i = 0; i < 8; i++) { ticks += System.Diagnostics.Stopwatch.Frequency / 2; reject.Observe(LegSide.Left, new Vector3(1,.1f,.05f), ticks); reject.Observe(LegSide.Right, new Vector3(1,.1f,.05f), ticks + 1); reject.Observe(LegSide.Left, Vector3.Zero, ticks + 2); reject.Observe(LegSide.Right, Vector3.Zero, ticks + 3); }
     Assert(reject.Update(ticks).TargetSpeed == 0, "Bilateral PS Move bend motion must not activate locomotion.");
