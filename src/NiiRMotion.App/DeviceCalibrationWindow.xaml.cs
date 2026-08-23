@@ -97,11 +97,10 @@ public partial class DeviceCalibrationWindow : Window
         if (!_connected) { InstructionText.Text = "Önce bağlantıyı doğrula."; return; }
         if (phase != _progress.CompletedPhases + 1) { InstructionText.Text = "Fazları sırayla tamamla."; return; }
         _recording = true; RefreshPhaseButtons();
-        InstructionText.Text = PhaseInstruction(phase);
-        var progress = new Progress<TimeSpan>(elapsed => { PhaseProgress.Value = Math.Min(300, elapsed.TotalSeconds); TimerText.Text = $"{elapsed:mm\\:ss} / 05:00"; });
         try
         {
-            var result = await new GuidedCalibrationRecorder().RecordAsync(_sensor, phase, PhaseDuration, progress);
+            var capture = new GuidedCalibrationCaptureWindow(_sensor, phase, PhaseDuration) { Owner = this };
+            if (capture.ShowDialog() != true || capture.Result is not { } result) { InstructionText.Text = "Faz iptal edildi; tamamlanmamış veri kullanılmadı."; return; }
             await UnifiedSensorSessionWriter.WriteAsync(result.Folder, "base-calibration", null, phase, [result]);
             if (!result.Quality.IsClean)
             {
