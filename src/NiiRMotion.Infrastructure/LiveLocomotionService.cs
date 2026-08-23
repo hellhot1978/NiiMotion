@@ -7,7 +7,6 @@ namespace NiiRMotion.Infrastructure;
 
 public sealed class LiveLocomotionService : IAsyncDisposable
 {
-    private const double PsMoveOnlyDistanceScale = .41;
     private readonly object _fusionLock = new();
     private readonly List<IAsyncDisposable> _sources = [];
     private CancellationTokenSource? _lifetime;
@@ -39,12 +38,9 @@ public sealed class LiveLocomotionService : IAsyncDisposable
             var source = new PsMoveSensorSource(NiiMotionPaths.PsMoveAssignments, NiiMotionPaths.PsMoveFactoryCalibration);
             _sources.Add(source); await source.StartAsync(token);
             var gameProfile = new GameMotionProfileStore().LoadActive();
-            // Alyx was originally tuned with thigh-mounted Joy-Cons. Calf-mounted
-            // PS Move produces a longer sustained gait target per physical step, so
-            // applying the same game multiplier makes one real step travel roughly
-            // three avatar strides. Keep game tuning intact and apply a source-local
-            // distance scale only to the PS-Move-only locomotion path.
-            gameProfile = gameProfile with { SpeedMultiplier = gameProfile.SpeedMultiplier * PsMoveOnlyDistanceScale };
+            var selectedGame = new GameSelectionStore().Load();
+            var optimization = new GameSensorOptimizationStore().Load(selectedGame, "psmove-only");
+            gameProfile = gameProfile with { SpeedMultiplier = gameProfile.SpeedMultiplier * optimization.DistanceScale };
             _vrSession = new VrLocomotionSession(VrOutputSinkFactory.CreateActive(), gameProfile); await _vrSession.StartAsync(token);
             var logFolder = Path.Combine(NiiMotionPaths.Logs, "live"); Directory.CreateDirectory(logFolder); StorageRetention.EnforceDirectoryBudget(logFolder);
             _diagnosticWriter = new StreamWriter(Path.Combine(logFolder, DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-psmove.csv"));
@@ -142,7 +138,12 @@ public sealed class LiveLocomotionService : IAsyncDisposable
                 catch { if (board is not null) await board.DisposeAsync(); board = null; }
             }
 
-            _vrSession = new VrLocomotionSession(VrOutputSinkFactory.CreateActive(), new GameMotionProfileStore().LoadActive());
+            var gameProfile = new GameMotionProfileStore().LoadActive();
+            var selectedGame = new GameSelectionStore().Load();
+            var selectedMotionProfile = new ActiveMotionProfileStore().Load() ?? "joycon-only";
+            var optimization = new GameSensorOptimizationStore().Load(selectedGame, selectedMotionProfile);
+            gameProfile = gameProfile with { SpeedMultiplier = gameProfile.SpeedMultiplier * optimization.DistanceScale };
+            _vrSession = new VrLocomotionSession(VrOutputSinkFactory.CreateActive(), gameProfile);
             await _vrSession.StartAsync(token);
             var logFolder = @"C:\NiirMotion\logs\live"; Directory.CreateDirectory(logFolder);
             StorageRetention.EnforceDirectoryBudget(logFolder);

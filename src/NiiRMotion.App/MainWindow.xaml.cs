@@ -433,7 +433,7 @@ public partial class MainWindow : Window
     private void OpenGameTuningWindow(InstalledGame game)
     {
         var store = new GameMotionProfileStore(); var profile = store.Load(game.Definition.Id);
-        var window = new Window { Title = $"NiiMotion · {game.Definition.Name} Hareket Ayarları", Owner = this, Width = 680, Height = 690, WindowStartupLocation = WindowStartupLocation.CenterOwner, ResizeMode = ResizeMode.NoResize, Background = Brush("#070D12"), Foreground = Brush("#F4F7FA") };
+        var window = new Window { Title = $"NiiMotion · {game.Definition.Name} Hareket Ayarları", Owner = this, Width = 680, Height = 790, WindowStartupLocation = WindowStartupLocation.CenterOwner, ResizeMode = ResizeMode.NoResize, Background = Brush("#070D12"), Foreground = Brush("#F4F7FA") };
         var root = new Grid { Margin = new Thickness(28) }; root.RowDefinitions.Add(new RowDefinition()); root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); var body = new StackPanel(); root.Children.Add(body);
         body.Children.Add(Label("Oyun Hareket Ayarları", "#F5F8FA", 24, FontWeights.SemiBold)); body.Children.Add(Label(game.Definition.Name, "#4ABCF4", 11, FontWeights.SemiBold, new Thickness(0, 4, 0, 5)));
         body.Children.Add(Label("Bu ayarlar yalnız oyuna gönderilen analog hareketi değiştirir. Kişisel yürüyüş kayıtların ve kalibrasyonun değiştirilmez.", "#9FB0BA", 10, FontWeights.Normal, new Thickness(0, 0, 0, 18)));
@@ -443,12 +443,27 @@ public partial class MainWindow : Window
         var deadzone = AddTuningSlider(body, "KÜÇÜK HAREKET FİLTRESİ", "Çok küçük hareketlerin yanlış yürüyüşe dönüşmesini engeller.", 0, .2, profile.Deadzone, .01, "0%");
         var acceleration = AddTuningSlider(body, "BAŞLAMA TEPKİSİ", "Yürümeye başlayınca oyun hızının ne kadar çabuk yükseldiği.", .5, 12, profile.AccelerationPerSecond, .5, "0.0");
         var deceleration = AddTuningSlider(body, "DURMA TEPKİSİ", "Durduğunda analog hareketin ne kadar hızlı sıfırlandığı.", 2, 30, profile.DecelerationPerSecond, 1, "0");
+        var motionProfileId = new ActiveMotionProfileStore().Load() ?? "joycon-only";
+        var optimizationStore = new GameSensorOptimizationStore();
+        var optimization = optimizationStore.Load(game.Definition.Id, motionProfileId);
+        var optimizationCard = new Border { Background = Brush("#0A1B24"), BorderBrush = Brush("#285165"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(7), Padding = new Thickness(13), Margin = new Thickness(0, 4, 0, 8) };
+        var optimizationBody = new StackPanel();
+        optimizationBody.Children.Add(Label("OTOMATİK ADIM EŞLEME", "#55DDB8", 9, FontWeights.Bold));
+        optimizationBody.Children.Add(Label($"{_profile.Name} · {optimization.Source} · Güven {optimization.Confidence * 100:0}%", "#DCEAF1", 10, FontWeights.SemiBold, new Thickness(0, 3, 0, 2)));
+        optimizationBody.Children.Add(Label("Oyun içi konum güvenle okunabildiğinde NiiMotion fiziksel adımı avatar mesafesiyle eşleştirir. Işınlanma ve keskin dönüş içeren ölçümler uygulanmaz.", "#91A7B4", 9, FontWeights.Normal));
+        var optimizationActions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 9, 0, 0) };
+        Button OptimizationButton(string text) => new() { Content = text, Foreground = Brush("#F4F7FA"), Background = Brush("#172A37"), BorderBrush = Brush("#315066"), BorderThickness = new Thickness(1), Padding = new Thickness(12, 7, 12, 7), FontWeight = FontWeights.SemiBold };
+        var undoOptimization = OptimizationButton("ÖNCEKİ EŞLEME"); undoOptimization.IsEnabled = optimization.UpdatedAt != DateTimeOffset.MinValue;
+        undoOptimization.Click += (_, _) => { optimizationStore.RestorePrevious(game.Definition.Id, motionProfileId); window.DialogResult = true; window.Close(); OpenGameTuningWindow(game); };
+        var resetOptimization = OptimizationButton("CİHAZ VARSAYILANI"); resetOptimization.Margin = new Thickness(8, 0, 0, 0);
+        resetOptimization.Click += (_, _) => { optimizationStore.Reset(game.Definition.Id, motionProfileId); window.DialogResult = true; window.Close(); OpenGameTuningWindow(game); };
+        optimizationActions.Children.Add(undoOptimization); optimizationActions.Children.Add(resetOptimization); optimizationBody.Children.Add(optimizationActions); optimizationCard.Child = optimizationBody; body.Children.Add(optimizationCard);
         var version = new Border { Background = Brush("#0D1820"), BorderBrush = Brush("#29404D"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6), Padding = new Thickness(12), Margin = new Thickness(0, 8, 0, 0) };
         version.Child = Label($"EŞLEME SÜRÜMÜ  ·  {profile.MappingVersion}    YÖN  ·  OYUNUN KENDİ YÖNÜ", "#8FA4B0", 9, FontWeights.SemiBold); body.Children.Add(version);
 
         var footer = new Grid { Margin = new Thickness(0, 18, 0, 0) }; footer.ColumnDefinitions.Add(new ColumnDefinition()); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) }); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) }); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); Grid.SetRow(footer, 1); root.Children.Add(footer);
         Button ActionButton(string text, string background) => new() { Content = text, Foreground = Brush("#F4F7FA"), Background = Brush(background), BorderBrush = Brush("#315066"), BorderThickness = new Thickness(1), Padding = new Thickness(18, 10, 18, 10), FontWeight = FontWeights.SemiBold };
-        var reset = ActionButton("VARSAYILANA DÖN", "#342615"); reset.Click += (_, _) => { if (MessageBox.Show(window, "Bu oyunun kişisel hareket ayarları kaldırılıp güvenli varsayılanlara dönülsün mü?", "Varsayılana dön", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes) { store.Reset(game.Definition.Id); window.DialogResult = true; window.Close(); BuildGamesPage(); } }; footer.Children.Add(reset);
+        var reset = ActionButton("VARSAYILANA DÖN", "#342615"); reset.Click += (_, _) => { if (MessageBox.Show(window, "Bu oyunun kişisel hareket ayarları kaldırılıp güvenli varsayılanlara dönülsün mü?", "Varsayılana dön", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes) { store.Reset(game.Definition.Id); optimizationStore.Reset(game.Definition.Id, motionProfileId); window.DialogResult = true; window.Close(); BuildGamesPage(); } }; footer.Children.Add(reset);
         var cancel = ActionButton("VAZGEÇ", "#101923"); cancel.Click += (_, _) => window.Close(); Grid.SetColumn(cancel, 3); footer.Children.Add(cancel);
         var save = ActionButton("AYARLARI KAYDET", "#087DC4"); save.Click += (_, _) => { store.Save(profile with { SpeedMultiplier = speed.Value, MaximumOutput = maximum.Value, Deadzone = deadzone.Value, AccelerationPerSecond = acceleration.Value, DecelerationPerSecond = deceleration.Value }); window.DialogResult = true; window.Close(); BuildGamesPage(); }; Grid.SetColumn(save, 5); footer.Children.Add(save);
         window.Content = root; window.ShowDialog();
@@ -502,7 +517,8 @@ public partial class MainWindow : Window
         if (game?.InstallPath is null) throw new InvalidOperationException("Seçili oyunun Steam kurulum klasörü doğrulanamadı.");
         if (IsGameRunning(game.InstallPath)) return;
         var steam = SteamInstallLocator.FindSteamExe() ?? throw new FileNotFoundException("Steam çalıştırıcısı bulunamadı.");
-        Process.Start(new ProcessStartInfo(steam, $"-applaunch {appId} -vr") { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(steam)! });
+        var telemetryArgument = appId == "546560" ? " -vconsole" : "";
+        Process.Start(new ProcessStartInfo(steam, $"-applaunch {appId} -vr{telemetryArgument}") { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(steam)! });
         if (_gameLaunchStatus is not null) { _gameLaunchStatus.Text = $"{game.Definition.Name} başlatılıyor…"; _gameLaunchStatus.Foreground = Brush("#55DDB8"); }
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(75);
         while (DateTime.UtcNow < deadline)
