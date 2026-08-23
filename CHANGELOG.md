@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.0-dev
+
+- Added crash recovery, safe-zero startup, and versioned configuration migration.
+- Added generic process-scoped OpenXR game adapters and engine-aware discovery.
+- Added guided onboarding, accessibility preferences, Turkish/English UI localization foundations, and a live VR panel viewer with emergency-stop commands.
+- Added verified update staging, release integrity manifests, privacy-safe diagnostics, and expanded recovery tooling.
+- Expanded the automated regression suite to 82 passing checks, including a four-hour accelerated endurance simulation.
+
 ## 2026-08-15 - Balance Board doğal yürüyüş ve ağırlıkla dönüş
 
 - Board adım motorunda geçersiz geçişlerin çıkışı yeniden açıp kapatmasına yol açan durum ayrıldı.
