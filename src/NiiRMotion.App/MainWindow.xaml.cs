@@ -23,6 +23,7 @@ public partial class MainWindow : Window
     private bool _autoScanBusy;
     private bool _phonePairing;
     private bool _moveIdentifyBusy;
+    private bool _suppressAutomaticLocomotion;
     private OwoTrackSensorSource? _phoneMonitor;
     private SessionReadiness? _readiness;
     private MotionProfile _profile = MotionProfile.AlyxFullFusion;
@@ -68,7 +69,8 @@ public partial class MainWindow : Window
             else
             {
                 var requestedProfileId = arguments.FirstOrDefault(x => x.StartsWith("--profile=", StringComparison.OrdinalIgnoreCase))?.Split('=', 2)[1];
-                var requestedProfile = _profileRecommendations.FirstOrDefault(x => string.Equals(x.Profile.Id, requestedProfileId, StringComparison.OrdinalIgnoreCase))?.Profile;
+                var storedProfileId = new ActiveMotionProfileStore().Load();
+                var requestedProfile = _profileRecommendations.FirstOrDefault(x => string.Equals(x.Profile.Id, requestedProfileId ?? storedProfileId, StringComparison.OrdinalIgnoreCase))?.Profile;
                 var recommended = requestedProfile ?? _profileRecommendations.FirstOrDefault(x => x.Profile.LocomotionAllowed && !x.Experimental)?.Profile ?? MotionProfile.ClassicVr;
                 SelectProfile(_systemMode.CurrentMode == SystemMode.Original ? MotionProfile.ClassicVr : recommended); await ScanAsync();
                 if (arguments.Contains("--autostart", StringComparer.OrdinalIgnoreCase)) await StartLocomotionAsync();
@@ -85,7 +87,7 @@ public partial class MainWindow : Window
     {
         if (_autoScanBusy) return;
         _autoScanBusy = true;
-        try { await ScanAsync(); }
+        try { await ScanAsync(); await EnsureAutomaticLocomotionAsync(); }
         catch { }
         finally { _autoScanBusy = false; }
     }
@@ -959,6 +961,8 @@ public partial class MainWindow : Window
     {
         _profile = profile;
         if (!IsLoaded) return;
+        new ActiveMotionProfileStore().Save(profile.Id);
+        _suppressAutomaticLocomotion = false;
         ProfilePopup.IsOpen = false;
         foreach (var tile in new[] { NativeModeTile, JoyConModeTile, JoyConPhoneModeTile, FullModeTile, PhoneModeTile, BoardOnlyModeTile, BoardJoyConModeTile, BoardPhoneModeTile })
             tile.Background = Brush("#0D151E");
@@ -1123,7 +1127,23 @@ public partial class MainWindow : Window
         if (!File.Exists(vrStartup)) throw new FileNotFoundException("SteamVR başlangıç bileşeni bulunamadı.", vrStartup);
         Process.Start(new ProcessStartInfo(streamer, $"\"{vrStartup}\"") { UseShellExecute = true });
     }
-    private async void StartClick(object sender, RoutedEventArgs e) => await StartLocomotionAsync();
+    private async void StartClick(object sender, RoutedEventArgs e) { _suppressAutomaticLocomotion = false; await StartLocomotionAsync(); }
+
+    private async Task EnsureAutomaticLocomotionAsync()
+    {
+        if (_suppressAutomaticLocomotion || _locomotion.IsRunning || !_profile.LocomotionAllowed) return;
+        if (_systemMode.CurrentMode != SystemMode.NiiMotion || Process.GetProcessesByName("vrserver").Length == 0) return;
+        var pipeReady = false;
+        try { pipeReady = Directory.GetFiles(@"\\.\pipe\").Any(x => x.EndsWith("NiiRMotion.VrOutput.v1", StringComparison.OrdinalIgnoreCase)); } catch { }
+        if (!pipeReady) return;
+        var devices = (DevicesList.ItemsSource as IEnumerable<DeviceStatus>)?.ToArray() ?? [];
+        if (PreflightBlockingDevices(devices).Count > 0 || (await UncalibratedProfileSensorsAsync()).Count > 0) return;
+        if (await StartLocomotionAsync())
+        {
+            ReadinessTitle.Text = "NİIMOTION OTOMATİK BAĞLANDI";
+            ReadinessMessage.Text = "SteamVR algılandı; kayıtlı hareket profili otomatik başlatıldı.";
+        }
+    }
 
     private async Task<bool> StartLocomotionAsync()
     {
@@ -1156,6 +1176,7 @@ public partial class MainWindow : Window
     }
     private async void StopClick(object sender, RoutedEventArgs e)
     {
+        _suppressAutomaticLocomotion = true;
         SetStopControl(false); _demoTimer.Stop(); await _locomotion.StopAsync();
         if (ProfileUsesPhone()) try { await EnsurePhoneMonitorAsync(); } catch { }
         LocomotionState.Text = "OFF"; LocomotionState.Foreground = Brush("#FF9BA8"); TelemetryMode.Text = "KAPALI"; ResetTelemetry();
