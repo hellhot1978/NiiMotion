@@ -204,7 +204,7 @@ tests = [("OpenXR shared output packet is bounded and process-scoped", OpenXrSha
 tests = [Sync("Configured hand control is not reported missing", ConfiguredHandControl), .. tests];
 tests = [Sync("Non-HMD profile regression matrix passes", NonHmdMatrix), .. tests];
 tests = [Sync("Workspace maintenance enforces recursive cache budget", WorkspaceMaintenanceBudget), .. tests];
-tests = [Sync("Application safety detects an unclean session", ApplicationSafetyMarker), Sync("Configuration migration backs up and preserves JSON", ConfigurationMigration), Sync("VR panel state packet round-trips", VrPanelPacket), .. tests];
+tests = [Sync("SteamVR dashboard overlay binary and contract are valid", VrDashboardOverlayContract), Sync("Application safety detects an unclean session", ApplicationSafetyMarker), Sync("Configuration migration backs up and preserves JSON", ConfigurationMigration), Sync("VR panel state packet round-trips", VrPanelPacket), .. tests];
 tests = [Sync("Generic OpenXR adapter is validated and persisted", GenericOpenXrAdapter), .. tests];
 tests = [Sync("First-use preferences and guidance are deterministic", FirstUsePreferences), .. tests];
 tests = [("Update download is hash verified before staging", UpdateDownloadVerification), Sync("Release integrity detects tampering", ReleaseIntegrityVerification), .. tests];
@@ -255,6 +255,18 @@ static void VrPanelPacket()
     var length = view.ReadInt32(4); var bytes = new byte[length]; view.ReadArray(8, bytes, 0, length);
     var state = JsonSerializer.Deserialize<VrPanelState>(bytes);
     Assert(state?.Profile == "Joy-Con" && Math.Abs(state.Speed - .42f) < .001f, "VR panel state did not round-trip.");
+}
+
+static void VrDashboardOverlayContract()
+{
+    var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+    var sourcePath = Path.Combine(root, "native", "vr-overlay", "overlay.cpp");
+    var binaryPath = Path.Combine(root, "native", "vr-overlay", "dist", "NiiMotion.VrOverlay.exe");
+    var apiPath = Path.Combine(root, "native", "vr-overlay", "dist", "openvr_api.dll");
+    Assert(File.Exists(sourcePath) && File.Exists(binaryPath) && File.Exists(apiPath), "SteamVR overlay package is incomplete.");
+    var source = File.ReadAllText(sourcePath);
+    Assert(source.Contains("CreateDashboardOverlay") && source.Contains("SetOverlayTexture") && source.Contains("PollNextOverlayEvent"), "Overlay does not implement the SteamVR dashboard contract.");
+    Assert(source.Contains("NiiMotion.VrPanel.v1") && source.Contains("NiiMotion.VrPanel.Commands.v1"), "Overlay is not connected to the existing state and command channels.");
 }
 
 static void GenericOpenXrAdapter()

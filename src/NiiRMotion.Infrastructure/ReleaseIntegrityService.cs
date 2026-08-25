@@ -10,7 +10,7 @@ public static class ReleaseIntegrityService
 {
     public static ReleaseIntegrityManifest Create(string root, string version)
     {
-        var names = new[] { "NiiRMotion.App.exe", Path.Combine("OpenXRLayer", "niirmotion_openxr.json"), Path.Combine("OpenXRLayer", "bin", "win64", "niirmotion_openxr.dll"), Path.Combine("OpenVRDriver", "bin", "win64", "driver_niirmotion.dll") };
+        var names = new[] { "NiiRMotion.App.exe", Path.Combine("OpenXRLayer", "niirmotion_openxr.json"), Path.Combine("OpenXRLayer", "bin", "win64", "niirmotion_openxr.dll"), Path.Combine("OpenVRDriver", "bin", "win64", "driver_niirmotion.dll"), Path.Combine("VrOverlay", "NiiMotion.VrOverlay.exe"), Path.Combine("VrOverlay", "openvr_api.dll") };
         var files = names.Select(name => (Name: name.Replace('\\', '/'), Full: Path.Combine(root, name))).Where(x => File.Exists(x.Full)).Select(x =>
         {
             using var stream = File.OpenRead(x.Full); return new ReleaseFileHash(x.Name, stream.Length, Convert.ToHexString(SHA256.HashData(stream)));

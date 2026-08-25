@@ -17,6 +17,8 @@
     <Content Include="..\..\native\openvr-driver\dist\resources\input\default_bindings\*.json" Link="OpenVRDriver\resources\input\default_bindings\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\native\openxr-layer\dist\niirmotion_openxr.json" Link="OpenXRLayer\niirmotion_openxr.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\native\openxr-layer\dist\bin\win64\niirmotion_openxr.dll" Link="OpenXRLayer\bin\win64\niirmotion_openxr.dll" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\native\vr-overlay\dist\NiiMotion.VrOverlay.exe" Link="VrOverlay\NiiMotion.VrOverlay.exe" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\native\vr-overlay\dist\openvr_api.dll" Link="VrOverlay\openvr_api.dll" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <PropertyGroup>

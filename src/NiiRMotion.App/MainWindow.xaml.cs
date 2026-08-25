@@ -20,6 +20,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _scanTimer = new() { Interval = TimeSpan.FromSeconds(4) };
     private readonly VrPanelStatePublisher _vrPanel = new();
     private readonly VrPanelCommandChannel _vrPanelCommands = new();
+    private readonly VrOverlayProcessManager _vrOverlay = new();
     private bool _autoScanBusy;
     private bool _phonePairing;
     private bool _moveIdentifyBusy;
@@ -48,7 +49,7 @@ public partial class MainWindow : Window
         _locomotion.CriticalSensorLost += LocomotionCriticalSensorLost;
         _demoTimer.Tick += DemoTick;
         _scanTimer.Tick += AutoScanTick;
-        _scanTimer.Tick += async (_, _) => { var command = _vrPanelCommands.Receive(); if (command == VrPanelCommand.EmergencyStop) StopClick(this, new RoutedEventArgs()); else if (command == VrPanelCommand.Rescan) await ScanAsync(); };
+        _scanTimer.Tick += async (_, _) => { _vrOverlay.EnsureRunning(); var command = _vrPanelCommands.Receive(); if (command == VrPanelCommand.EmergencyStop) StopClick(this, new RoutedEventArgs()); else if (command == VrPanelCommand.Rescan) await ScanAsync(); };
         Loaded += async (_, _) =>
         {
             var arguments = Environment.GetCommandLineArgs();
@@ -79,9 +80,9 @@ public partial class MainWindow : Window
             if (arguments.Contains("--games-page", StringComparer.OrdinalIgnoreCase)) GamesNavClick(this, new RoutedEventArgs());
             if (arguments.Contains("--game-wizard", StringComparer.OrdinalIgnoreCase)) { GamesNavClick(this, new RoutedEventArgs()); OpenGameAdapterWizard(); }
             if (arguments.Contains("--game-tuning", StringComparer.OrdinalIgnoreCase)) { GamesNavClick(this, new RoutedEventArgs()); var selectedGame = new SteamGameCatalog().Detect().FirstOrDefault(x => x.IsInstalled && x.State == GameIntegrationState.Ready && x.Definition.Id == _selectedGameId); if (selectedGame is not null) OpenGameTuningWindow(selectedGame); }
-            _scanTimer.Start();
+            _vrOverlay.EnsureRunning(); _scanTimer.Start();
         };
-        Closed += async (_, _) => { _demoTimer.Stop(); _scanTimer.Stop(); _vrPanel.Dispose(); _vrPanelCommands.Dispose(); await StopPhoneMonitorAsync(); await _locomotion.DisposeAsync(); };
+        Closed += async (_, _) => { _demoTimer.Stop(); _scanTimer.Stop(); _vrOverlay.Dispose(); _vrPanel.Dispose(); _vrPanelCommands.Dispose(); await StopPhoneMonitorAsync(); await _locomotion.DisposeAsync(); };
     }
     private async void AutoScanTick(object? sender, EventArgs e)
     {
