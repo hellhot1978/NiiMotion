@@ -204,7 +204,7 @@ tests = [("OpenXR shared output packet is bounded and process-scoped", OpenXrSha
 tests = [Sync("Configured hand control is not reported missing", ConfiguredHandControl), .. tests];
 tests = [Sync("Non-HMD profile regression matrix passes", NonHmdMatrix), .. tests];
 tests = [Sync("Workspace maintenance enforces recursive cache budget", WorkspaceMaintenanceBudget), .. tests];
-tests = [Sync("SteamVR dashboard overlay binary and contract are valid", VrDashboardOverlayContract), Sync("Application safety detects an unclean session", ApplicationSafetyMarker), Sync("Configuration migration backs up and preserves JSON", ConfigurationMigration), Sync("VR panel state packet round-trips", VrPanelPacket), .. tests];
+tests = [Sync("Game launch journal is atomic and recoverable", GameLaunchJournal), Sync("SteamVR dashboard overlay binary and contract are valid", VrDashboardOverlayContract), Sync("Application safety detects an unclean session", ApplicationSafetyMarker), Sync("Configuration migration backs up and preserves JSON", ConfigurationMigration), Sync("VR panel state packet round-trips", VrPanelPacket), .. tests];
 tests = [Sync("Generic OpenXR adapter is validated and persisted", GenericOpenXrAdapter), .. tests];
 tests = [Sync("First-use preferences and guidance are deterministic", FirstUsePreferences), .. tests];
 tests = [("Update download is hash verified before staging", UpdateDownloadVerification), Sync("Release integrity detects tampering", ReleaseIntegrityVerification), .. tests];
@@ -255,6 +255,13 @@ static void VrPanelPacket()
     var length = view.ReadInt32(4); var bytes = new byte[length]; view.ReadArray(8, bytes, 0, length);
     var state = JsonSerializer.Deserialize<VrPanelState>(bytes);
     Assert(state?.Profile == "Joy-Con" && Math.Abs(state.Speed - .42f) < .001f, "VR panel state did not round-trip.");
+}
+
+static void GameLaunchJournal()
+{
+    var root = Path.Combine(Path.GetTempPath(), "niirmotion-launch-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root); var path = Path.Combine(root, "launch.json"); var store = new GameLaunchJournalStore(path);
+    store.Save(new(1, "half-life-alyx", "Half-Life: Alyx", "psmove-only", true, GameLaunchStage.WaitingForMotionBridge, "Köprü bekleniyor", DateTimeOffset.UtcNow));
+    var loaded = store.Load(); Assert(loaded?.Stage == GameLaunchStage.WaitingForMotionBridge && loaded.GameId == "half-life-alyx", "Launch journal did not round-trip."); store.Complete(); Assert(store.Load()?.Stage == GameLaunchStage.Idle, "Launch journal did not close safely."); Directory.Delete(root, true);
 }
 
 static void VrDashboardOverlayContract()

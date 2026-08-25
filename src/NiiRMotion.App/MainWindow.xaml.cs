@@ -37,6 +37,8 @@ public partial class MainWindow : Window
     private bool _launchNormalVrOverride;
     private string? _pendingGameAppId;
     private TextBlock? _gameLaunchStatus;
+    private readonly GameLaunchJournalStore _gameLaunchJournal = new();
+    private InstalledGame? _pendingGame;
     private double _demoPhase;
     private long _demoSteps;
     public MainWindow()
@@ -377,8 +379,29 @@ public partial class MainWindow : Window
         var tune = new Button { Content = "⚙  AYARLAR", Padding = new Thickness(10, 12, 10, 12) }; tune.Click += (_, _) => OpenGameTuningWindow(selected); Grid.SetColumn(tune, 2); controls.Children.Add(tune);
         var launch = new Button { Content = "▶  DOĞRULA VE OYUNU BAŞLAT", Padding = new Thickness(20, 12, 20, 12) }; launch.Click += async (_, _) => await ValidateAndLaunchGameAsync(selected, launch); Grid.SetColumn(launch, 4); controls.Children.Add(launch); content.Children.Add(controls);
         heroGrid.Children.Add(content); hero.Child = heroGrid; GamesPanel.Children.Add(hero);
-        var note = new Border { Background = Brush("#09121A"), BorderBrush = Brush("#1F303C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(7), Padding = new Thickness(14) }; _gameLaunchStatus = Label("Başlatma sırası: profil ve kalibrasyon → hareket cihazları → Quest / Virtual Desktop → SteamVR → oyun. Bir adım doğrulanmazsa oyun açılmaz.", "#93A7B3", 10, FontWeights.Normal); note.Child = _gameLaunchStatus; GamesPanel.Children.Add(note);
+        var previousLaunch = _gameLaunchJournal.Load();
+        if (previousLaunch?.Stage == GameLaunchStage.Running && !IsGameRunning(selected.InstallPath ?? "")) { _gameLaunchJournal.Complete("Önceki oyun oturumu kapandı."); previousLaunch = _gameLaunchJournal.Load(); }
+        var launchText = previousLaunch is not null && previousLaunch.GameId == selected.Definition.Id && previousLaunch.Stage != GameLaunchStage.Idle
+            ? $"{LaunchStageLabel(previousLaunch.Stage)}  ·  {previousLaunch.Message}"
+            : "Başlatma sırası: profil ve kalibrasyon → hareket cihazları → Quest / Virtual Desktop → SteamVR → oyun. Bir adım doğrulanmazsa oyun açılmaz.";
+        var launchColor = previousLaunch?.Stage == GameLaunchStage.Failed ? "#FF8AA5" : previousLaunch?.Stage == GameLaunchStage.Running ? "#55DDB8" : "#93A7B3";
+        var note = new Border { Background = Brush("#09121A"), BorderBrush = Brush("#1F303C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(7), Padding = new Thickness(14) }; _gameLaunchStatus = Label(launchText, launchColor, 10, FontWeights.Normal); note.Child = _gameLaunchStatus; GamesPanel.Children.Add(note);
     }
+
+    private static string LaunchStageLabel(GameLaunchStage stage) => stage switch
+    {
+        GameLaunchStage.ValidatingProfile => "1/8 PROFİL",
+        GameLaunchStage.ValidatingCalibration => "2/8 KALİBRASYON",
+        GameLaunchStage.ValidatingSensors => "3/8 SENSÖRLER",
+        GameLaunchStage.WaitingForVirtualDesktop => "4/8 QUEST / VD",
+        GameLaunchStage.ApplyingVrMode => "5/8 VR MODU",
+        GameLaunchStage.StartingSteamVr or GameLaunchStage.WaitingForMotionBridge => "6/8 STEAMVR",
+        GameLaunchStage.StartingLocomotion => "7/8 HAREKET",
+        GameLaunchStage.StartingGame => "8/8 OYUN",
+        GameLaunchStage.Running => "✓ OTURUM HAZIR",
+        GameLaunchStage.Failed => "! BAŞLATMA DURDU",
+        _ => "HAZIR"
+    };
 
     private void OpenGameAdapterWizard()
     {
@@ -507,6 +530,7 @@ public partial class MainWindow : Window
 
     private async Task ValidateAndLaunchGameAsync(InstalledGame game, Button launchButton)
     {
+        SetGameLaunchStage(game, GameLaunchStage.ValidatingProfile, "Profil doğrulanıyor…");
         if (game.Definition.SteamAppId is null) return;
         if (_gameNiiMotionEnabled && !_profile.LocomotionAllowed)
         {
@@ -516,8 +540,10 @@ public partial class MainWindow : Window
         }
         if (_gameNiiMotionEnabled)
         {
+            SetGameLaunchStage(game, GameLaunchStage.ValidatingCalibration, "Kişisel kalibrasyon doğrulanıyor…");
             var uncalibrated = await UncalibratedProfileSensorsAsync();
             if (uncalibrated.Count > 0) { MessageBox.Show(this, $"Önce temel kalibrasyonu tamamla: {string.Join(", ", uncalibrated.Select(SensorDisplayName))}", "Kalibrasyon gerekli", MessageBoxButton.OK, MessageBoxImage.Warning); ToolsNavClick(this, new RoutedEventArgs()); return; }
+            SetGameLaunchStage(game, GameLaunchStage.ValidatingSensors, "Gerekli sensörler canlı olarak kontrol ediliyor…");
             await ScanAsync(); var devices = (DevicesList.ItemsSource as IEnumerable<DeviceStatus>)?.ToArray() ?? []; var missing = PreflightBlockingDevices(devices);
             if (missing.Count > 0) { MessageBox.Show(this, $"Oyun açılmadı. Önce bağla: {string.Join(", ", missing.Select(x => x.Name))}", "Cihazlar eksik", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
         }
@@ -529,10 +555,17 @@ public partial class MainWindow : Window
             if (_gameLaunchStatus is not null) { _gameLaunchStatus.Text = "Oyun açılmadı: Quest'te Virtual Desktop'ı açıp bu bilgisayara bağlan."; _gameLaunchStatus.Foreground = Brush("#FF8AA5"); }
             MessageBox.Show(this, "Önce Quest'te Virtual Desktop'ı açıp bu bilgisayara bağlan. Bağlantı doğrulanmadan SteamVR veya oyun başlatılmayacak.", "Virtual Desktop bağlı değil", MessageBoxButton.OK, MessageBoxImage.Warning); return;
         }
-        _launchNormalVrOverride = !_gameNiiMotionEnabled;
+        _launchNormalVrOverride = !_gameNiiMotionEnabled; _pendingGame = game;
         _selectedGameId = game.Definition.Id; new GameSelectionStore().Save(_selectedGameId); _pendingGameAppId = game.Definition.SteamAppId;
         if (_gameLaunchStatus is not null) { _gameLaunchStatus.Text = "Bağlantılar doğrulandı. SteamVR güvenli sırayla hazırlanıyor…"; _gameLaunchStatus.Foreground = Brush("#55DDB8"); }
         LaunchSteamVrClick(launchButton, new RoutedEventArgs());
+    }
+
+    private void SetGameLaunchStage(InstalledGame game, GameLaunchStage stage, string message)
+    {
+        if (_gameLaunchStatus is not null) { _gameLaunchStatus.Text = message; _gameLaunchStatus.Foreground = Brush(stage == GameLaunchStage.Failed ? "#FF8AA5" : stage == GameLaunchStage.Running ? "#55DDB8" : "#9DD9FA"); }
+        _gameLaunchJournal.Save(new(1, game.Definition.Id, game.Definition.Name, _profile.Id, _gameNiiMotionEnabled, stage, message, DateTimeOffset.UtcNow));
+        PublishVrPanel(stage == GameLaunchStage.Running ? "Hazır" : "Hazırlanıyor");
     }
 
     private async Task LaunchPendingGameAsync()
@@ -544,6 +577,7 @@ public partial class MainWindow : Window
         if (IsGameRunning(game.InstallPath)) return;
         var steam = SteamInstallLocator.FindSteamExe() ?? throw new FileNotFoundException("Steam çalıştırıcısı bulunamadı.");
         var telemetryArgument = appId == "546560" ? " -vconsole" : "";
+        SetGameLaunchStage(game, GameLaunchStage.StartingGame, $"{game.Definition.Name} Steam üzerinden başlatılıyor…");
         Process.Start(new ProcessStartInfo(steam, $"-applaunch {appId} -vr{telemetryArgument}") { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(steam)! });
         if (_gameLaunchStatus is not null) { _gameLaunchStatus.Text = $"{game.Definition.Name} başlatılıyor…"; _gameLaunchStatus.Foreground = Brush("#55DDB8"); }
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(75);
@@ -551,7 +585,8 @@ public partial class MainWindow : Window
         {
             if (IsGameRunning(game.InstallPath))
             {
-                if (_gameLaunchStatus is not null) _gameLaunchStatus.Text = $"✓ {game.Definition.Name} çalışıyor";
+                SetGameLaunchStage(game, GameLaunchStage.Running, $"✓ {game.Definition.Name} çalışıyor · NiiMotion oturumu hazır");
+                _pendingGame = null;
                 return;
             }
             await Task.Delay(500);
@@ -561,6 +596,7 @@ public partial class MainWindow : Window
 
     private static bool IsGameRunning(string installPath)
     {
+        if (string.IsNullOrWhiteSpace(installPath) || !Directory.Exists(installPath)) return false;
         var root = Path.GetFullPath(installPath).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         foreach (var process in Process.GetProcesses())
         {
@@ -1105,6 +1141,7 @@ public partial class MainWindow : Window
         try
         {
             _demoTimer.Stop(); await _locomotion.StopAsync();
+            if (_pendingGame is not null) SetGameLaunchStage(_pendingGame, GameLaunchStage.WaitingForVirtualDesktop, "Quest ve Virtual Desktop oturumu bekleniyor…");
             var virtualDesktopReady = latestDevices.Any(x => x.Kind == DeviceKind.VirtualDesktop && x.IsConnected);
             if (!virtualDesktopReady)
             {
@@ -1120,7 +1157,9 @@ public partial class MainWindow : Window
             ReadinessMessage.Text = "Virtual Desktop bağlı. SteamVR doğru sırayla başlatılıyor…";
             if (!locomotionRequested)
             {
+                if (_pendingGame is not null) SetGameLaunchStage(_pendingGame, GameLaunchStage.ApplyingVrMode, "Normal VR modu güvenle uygulanıyor…");
                 if (_systemMode.CurrentMode != SystemMode.Original) await _systemMode.ApplyAsync(SystemMode.Original);
+                if (_pendingGame is not null) SetGameLaunchStage(_pendingGame, GameLaunchStage.StartingSteamVr, "SteamVR Virtual Desktop üzerinden başlatılıyor…");
                 LaunchSteamVrViaVirtualDesktop();
                 RefreshSystemMode();
                 var normalDeadline = DateTime.UtcNow + TimeSpan.FromSeconds(45);
@@ -1133,17 +1172,21 @@ public partial class MainWindow : Window
                 await LaunchPendingGameAsync();
                 return;
             }
+            if (_pendingGame is not null) SetGameLaunchStage(_pendingGame, GameLaunchStage.ApplyingVrMode, "NiiMotion sürücüsü ve oyun eşlemesi uygulanıyor…");
             if (_systemMode.CurrentMode != SystemMode.NiiMotion) await _systemMode.ApplyAsync(SystemMode.NiiMotion);
             else _systemMode.EnsureGameOverrides(SystemMode.NiiMotion);
+            if (_pendingGame is not null) SetGameLaunchStage(_pendingGame, GameLaunchStage.StartingSteamVr, "SteamVR Virtual Desktop üzerinden başlatılıyor…");
             LaunchSteamVrViaVirtualDesktop();
+            if (_pendingGame is not null) SetGameLaunchStage(_pendingGame, GameLaunchStage.WaitingForMotionBridge, "SteamVR ve NiiMotion hareket köprüsü doğrulanıyor…");
             await WaitForSteamVrDriverAsync(TimeSpan.FromSeconds(75));
             RefreshSystemMode(); await ScanAsync();
             if (_readiness?.State == ReadinessState.NotReady) throw new InvalidOperationException("SteamVR açıldı ancak başlık veya gerekli cihazlardan biri doğrulanamadı. Hareket çıkışı başlatılmadı.");
+            if (_pendingGame is not null) SetGameLaunchStage(_pendingGame, GameLaunchStage.StartingLocomotion, "Kişisel hareket modeli başlatılıyor…");
             if (!await StartLocomotionAsync())
                 throw new InvalidOperationException(ReadinessMessage.Text);
             await LaunchPendingGameAsync();
         }
-        catch (Exception ex) { _pendingGameAppId = null; ReadinessTitle.Text = "VR HAZIRLANAMADI"; ReadinessMessage.Text = ex.Message; }
+        catch (Exception ex) { _pendingGameAppId = null; if (_pendingGame is not null) SetGameLaunchStage(_pendingGame, GameLaunchStage.Failed, $"Başlatma durduruldu: {ex.Message}"); _pendingGame = null; await _locomotion.StopAsync(); ReadinessTitle.Text = "VR HAZIRLANAMADI"; ReadinessMessage.Text = ex.Message; }
         finally { _launchNormalVrOverride = false; if (sender is Button prepareButton) prepareButton.IsEnabled = true; }
     }
 
