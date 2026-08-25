@@ -20,6 +20,8 @@ public sealed class LiveLocomotionService : IAsyncDisposable
     public bool IsRunning => _lifetime is { IsCancellationRequested: false };
     public string ModeDescription { get; private set; } = "OFF";
     public event EventHandler<string>? CriticalSensorLost;
+    public event EventHandler<LocomotionTelemetrySample>? TelemetryUpdated;
+    private long _lastTelemetryEventTicks;
 
     public async Task StartPsMoveOnlyAsync(bool includePhone = false, bool includeBoard = false, CancellationToken cancellationToken = default)
     {
@@ -80,6 +82,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
             if (auxiliary.TurnTarget != 0) target = 0;
             var snapshot = new FusionSnapshot(gait, gait.Confidence, target, auxiliary.PhoneFresh, auxiliary.BoardFresh, auxiliary.BoardContact, auxiliary.BoardTransferVelocity, auxiliary.TurnTarget, auxiliary.BoardCopX, auxiliary.BoardTotalKg);
             _diagnosticWriter?.WriteLine(string.Join(';', now, gait.State, target.ToString("0.000", CultureInfo.InvariantCulture), gait.Confidence.ToString("0.000", CultureInfo.InvariantCulture), gait.CadenceHz.ToString("0.000", CultureInfo.InvariantCulture), gait.StepCount, auxiliary.PhoneFresh, auxiliary.BoardFresh, auxiliary.BoardContact, auxiliary.TurnTarget.ToString("0.000", CultureInfo.InvariantCulture)));
+            PublishTelemetry(now, gait, target, auxiliary.TurnTarget);
             var delta = TimeSpan.FromSeconds((now - previous) / (double)Stopwatch.Frequency); previous = now;
             await _vrSession!.UpdateAsync(snapshot, delta, token);
         }
@@ -228,10 +231,18 @@ public sealed class LiveLocomotionService : IAsyncDisposable
                 }
             }
             _diagnosticWriter?.WriteLine(string.Join(';', now, snapshot.Gait.State, snapshot.TargetSpeed.ToString("0.000", CultureInfo.InvariantCulture), snapshot.TurnTarget.ToString("0.000", CultureInfo.InvariantCulture), snapshot.GlobalConfidence.ToString("0.000", CultureInfo.InvariantCulture), snapshot.Gait.CadenceHz.ToString("0.000", CultureInfo.InvariantCulture), snapshot.Gait.StepCount, snapshot.PhoneFresh, snapshot.BoardContact, snapshot.BoardCopX.ToString("0.000", CultureInfo.InvariantCulture), snapshot.BoardTotalKg.ToString("0.0", CultureInfo.InvariantCulture), snapshot.BoardTransferVelocity.ToString("0.000", CultureInfo.InvariantCulture)));
+            PublishTelemetry(now, snapshot.Gait, snapshot.TargetSpeed, snapshot.TurnTarget);
             if (now % Stopwatch.Frequency < Stopwatch.Frequency / 100) _diagnosticWriter?.Flush();
             var delta = TimeSpan.FromSeconds((now - previous) / (double)Stopwatch.Frequency); previous = now;
             await _vrSession!.UpdateAsync(snapshot, delta, token);
         }
+    }
+
+    private void PublishTelemetry(long now, GaitSnapshot gait, double targetSpeed, double turnTarget)
+    {
+        if (now - Interlocked.Read(ref _lastTelemetryEventTicks) < Stopwatch.Frequency / 10) return;
+        Interlocked.Exchange(ref _lastTelemetryEventTicks, now);
+        TelemetryUpdated?.Invoke(this, new(now, gait.StepCount, targetSpeed, gait.CadenceHz, turnTarget, gait.State != GaitState.Idle));
     }
 
     public async Task StopAsync()
@@ -258,3 +269,5 @@ public sealed class LiveLocomotionService : IAsyncDisposable
 
     public async ValueTask DisposeAsync() => await StopAsync();
 }
+
+public sealed record LocomotionTelemetrySample(long MonotonicTicks, long StepCount, double TargetSpeed, double CadenceHz, double TurnTarget, bool IsMoving);

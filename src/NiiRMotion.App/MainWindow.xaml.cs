@@ -38,6 +38,7 @@ public partial class MainWindow : Window
     private string? _pendingGameAppId;
     private TextBlock? _gameLaunchStatus;
     private readonly GameLaunchJournalStore _gameLaunchJournal = new();
+    private AlyxStrideTelemetryCoordinator? _alyxTelemetry;
     private InstalledGame? _pendingGame;
     private double _demoPhase;
     private long _demoSteps;
@@ -102,7 +103,7 @@ public partial class MainWindow : Window
             _vrOverlay.EnsureRunning(); _scanTimer.Start();
         };
         _vrCommandTimer.Start();
-        Closed += async (_, _) => { _demoTimer.Stop(); _scanTimer.Stop(); _vrOverlay.Dispose(); _vrPanel.Dispose(); _vrPanelCommands.Dispose(); await StopPhoneMonitorAsync(); await _locomotion.DisposeAsync(); };
+        Closed += async (_, _) => { _demoTimer.Stop(); _scanTimer.Stop(); _vrOverlay.Dispose(); _vrPanel.Dispose(); _vrPanelCommands.Dispose(); if (_alyxTelemetry is not null) await _alyxTelemetry.DisposeAsync(); await StopPhoneMonitorAsync(); await _locomotion.DisposeAsync(); };
     }
     private async void AutoScanTick(object? sender, EventArgs e)
     {
@@ -576,7 +577,7 @@ public partial class MainWindow : Window
         if (game?.InstallPath is null) throw new InvalidOperationException("Seçili oyunun Steam kurulum klasörü doğrulanamadı.");
         if (IsGameRunning(game.InstallPath)) return;
         var steam = SteamInstallLocator.FindSteamExe() ?? throw new FileNotFoundException("Steam çalıştırıcısı bulunamadı.");
-        var telemetryArgument = appId == "546560" ? " -vconsole" : "";
+        var telemetryArgument = appId == "546560" ? $" -netconport {AlyxNetConsoleClient.DefaultPort}" : "";
         SetGameLaunchStage(game, GameLaunchStage.StartingGame, $"{game.Definition.Name} Steam üzerinden başlatılıyor…");
         Process.Start(new ProcessStartInfo(steam, $"-applaunch {appId} -vr{telemetryArgument}") { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(steam)! });
         if (_gameLaunchStatus is not null) { _gameLaunchStatus.Text = $"{game.Definition.Name} başlatılıyor…"; _gameLaunchStatus.Foreground = Brush("#55DDB8"); }
@@ -586,6 +587,17 @@ public partial class MainWindow : Window
             if (IsGameRunning(game.InstallPath))
             {
                 SetGameLaunchStage(game, GameLaunchStage.Running, $"✓ {game.Definition.Name} çalışıyor · NiiMotion oturumu hazır");
+                if (appId == "546560" && _locomotion.IsRunning)
+                {
+                    if (_alyxTelemetry is not null) await _alyxTelemetry.DisposeAsync();
+                    _alyxTelemetry = new(_locomotion, _profile.Id);
+                    _alyxTelemetry.StatusChanged += (_, status) => Dispatcher.BeginInvoke(() =>
+                    {
+                        if (_gameLaunchStatus is not null) { _gameLaunchStatus.Text = status; _gameLaunchStatus.Foreground = Brush("#55DDB8"); }
+                        PublishVrPanel("Adım eşleme");
+                    });
+                    _alyxTelemetry.Start();
+                }
                 _pendingGame = null;
                 return;
             }
