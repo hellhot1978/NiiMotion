@@ -270,7 +270,7 @@ static void VrDashboardOverlayContract()
     Assert(source.Contains("NiiMotion.VrOverlay.Show") && source.Contains("ShowDashboard(kOverlayKey)"), "Overlay cannot be opened explicitly from the desktop application.");
     Assert(source.Contains("bgra[pixel * 4 + 3] = 255"), "GDI dashboard pixels are not made opaque and can render invisibly in SteamVR.");
     Assert(source.Contains("SetOverlayFromFile") && source.Contains("com.niirmotion.dashboard"), "Overlay has no persistent dashboard icon/application identity.");
-    Assert(source.Contains("ShowDashboard(\"system.desktop\")"), "Desktop button is not connected to SteamVR's native desktop dashboard.");
+    Assert(source.Contains("ShowSteamVrDesktop") && source.Contains("valve.steam.desktop") && source.Contains("system.desktop.1"), "Desktop button is not connected to compatible SteamVR desktop overlays.");
     Assert(source.Contains("WriteRuntimeManifest") && source.Contains("MouseButtonUp"), "Dashboard icon or resilient click handling is missing.");
 }
 

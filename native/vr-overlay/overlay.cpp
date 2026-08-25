@@ -43,6 +43,15 @@ void Trace(const std::string& message) {
     wchar_t temp[MAX_PATH]{}; GetTempPathW(MAX_PATH, temp); std::ofstream log(std::filesystem::path(temp) / L"NiiMotion.VrOverlay.log", std::ios::app); if (log) log << message << '\n';
 }
 
+void ShowSteamVrDesktop(vr::IVROverlay* overlays) {
+    const char* keys[] = { "valve.steam.desktop", "system.desktop.1", "system.desktop" };
+    for (const char* key : keys) {
+        vr::VROverlayHandle_t handle = vr::k_ulOverlayHandleInvalid; const auto found = overlays->FindOverlay(key, &handle); Trace(std::string("desktop key=") + key + " result=" + std::to_string(found));
+        if (found == vr::VROverlayError_None) { overlays->ShowDashboard(key); overlays->ShowOverlay(handle); Trace(std::string("desktop shown=") + key); return; }
+    }
+    overlays->ShowDashboard("valve.steam.desktop"); Trace("desktop fallback=valve.steam.desktop");
+}
+
 std::string JsonPath(const std::wstring& value) { std::string utf8 = Utf8(value), result; for (const char c : utf8) { if (c == '\\' || c == '"') result.push_back('\\'); result.push_back(c); } return result; }
 
 std::string WriteRuntimeManifest() {
@@ -152,7 +161,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     vr::EVRInitError error = vr::VRInitError_None; vr::VR_Init(&error, vr::VRApplication_Overlay); if (error != vr::VRInitError_None) { CloseHandle(showEvent); CloseHandle(mutex); return 2; }
     auto* overlays = vr::VROverlay(); if (!overlays) { vr::VR_Shutdown(); CloseHandle(mutex); return 3; }
     if (auto* applications = vr::VRApplications()) {
-        const auto manifest = WriteRuntimeManifest(); applications->AddApplicationManifest(manifest.c_str(), false); applications->IdentifyApplication(GetCurrentProcessId(), "com.niirmotion.dashboard");
+        const auto packagedManifest = Utf8(SiblingPath(L"niirmotion.vrmanifest")); applications->RemoveApplicationManifest(packagedManifest.c_str()); const auto manifest = WriteRuntimeManifest(); applications->AddApplicationManifest(manifest.c_str(), false); applications->IdentifyApplication(GetCurrentProcessId(), "com.niirmotion.dashboard");
     }
     vr::VROverlayHandle_t mainHandle = vr::k_ulOverlayHandleInvalid, thumbnailHandle = vr::k_ulOverlayHandleInvalid;
     if (overlays->CreateDashboardOverlay(kOverlayKey, "NiiMotion", &mainHandle, &thumbnailHandle) != vr::VROverlayError_None) { vr::VR_Shutdown(); CloseHandle(mutex); return 4; }
@@ -169,7 +178,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
             if (event.eventType == vr::VREvent_MouseButtonDown || event.eventType == vr::VREvent_MouseButtonUp) {
                 float x = event.data.mouse.x, rawY = event.data.mouse.y; if (x >= 0 && x <= 1.5f) x *= kWidth; if (rawY >= 0 && rawY <= 1.5f) rawY *= kHeight; const float flippedY = kHeight - rawY; const bool buttonRow = (rawY >= 410 && rawY <= 555) || (flippedY >= 410 && flippedY <= 555);
                 Trace("mouse event=" + std::to_string(event.eventType) + " x=" + std::to_string(x) + " y=" + std::to_string(rawY));
-                if (event.eventType == vr::VREvent_MouseButtonUp && buttonRow) { if (x >= 10 && x <= 335) { Trace("command movement"); shared.Send(active ? 1 : 3); } else if (x >= 335 && x <= 670) { Trace("command devices"); shared.Send(2); } else if (x >= 670 && x <= 1014) { Trace("command desktop"); overlays->ShowDashboard("system.desktop"); } }
+                if (event.eventType == vr::VREvent_MouseButtonUp && buttonRow) { if (x >= 10 && x <= 335) { Trace("command movement"); shared.Send(active ? 1 : 3); } else if (x >= 335 && x <= 670) { Trace("command devices"); shared.Send(2); } else if (x >= 670 && x <= 1014) { Trace("command desktop"); ShowSteamVrDesktop(overlays); } }
             }
         }
         if (!vr::VR_IsRuntimeInstalled()) running = false;
