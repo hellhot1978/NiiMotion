@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using NiiRMotion.Core;
 using NiiRMotion.Infrastructure;
 
@@ -15,7 +16,9 @@ public partial class DeviceCalibrationWindow : Window
     private DeviceCalibrationProgress _progress;
     private bool _connected;
     private bool _recording;
+    private bool _scanningConnection;
     private GuidedCalibrationResult? _pendingResult;
+    private readonly DispatcherTimer _connectionTimer = new() { Interval = TimeSpan.FromSeconds(3) };
 
     public DeviceCalibrationWindow(SensorFamily sensor)
     {
@@ -24,6 +27,8 @@ public partial class DeviceCalibrationWindow : Window
         InitializeComponent();
         ConfigureVisuals();
         Loaded += async (_, _) => await LoadAsync();
+        _connectionTimer.Tick += async (_, _) => await RefreshLiveConnectionAsync();
+        Closed += (_, _) => _connectionTimer.Stop();
     }
 
     private void ConfigureVisuals()
@@ -52,8 +57,44 @@ public partial class DeviceCalibrationWindow : Window
         var document = await _store.LoadCalibrationAsync();
         _progress = document.Devices.FirstOrDefault(x => x.Sensor == _sensor) ?? _progress;
         _pendingResult = _repairStore.Load(_sensor);
-        if (_pendingResult is not null) { _connected = true; RepairSegmentButton.Visibility = Visibility.Visible; ShowPendingRepair(); }
+        if (_pendingResult is not null) { RepairSegmentButton.Visibility = Visibility.Visible; ShowPendingRepair(); }
+        await RefreshLiveConnectionAsync();
+        _connectionTimer.Start();
         RefreshPhaseButtons();
+    }
+
+    private async Task RefreshLiveConnectionAsync()
+    {
+        if (_scanningConnection || _recording) return;
+        _scanningConnection = true;
+        try
+        {
+            var devices = await new HardwareDiscoveryService().ScanAsync();
+            _connected = RequiredKinds().All(kind => devices.Any(x => x.Kind == kind && x.IsConnected));
+            UpdateConnectionVisual();
+            RefreshPhaseButtons();
+        }
+        catch
+        {
+            _connected = false;
+            UpdateConnectionVisual();
+            RefreshPhaseButtons();
+        }
+        finally { _scanningConnection = false; }
+    }
+
+    private void UpdateConnectionVisual()
+    {
+        if (_connected)
+        {
+            ConnectionText.Text = _progress.IsReady ? "✓ Bağlı · kalibrasyon tamamlandı" : "✓ Cihaz bağlı";
+            ConnectionText.Foreground = MainWindow.Brush("#55DDB8");
+        }
+        else
+        {
+            ConnectionText.Text = _progress.IsReady ? "Kalibrasyon tamamlandı · cihaz bağlı değil" : "Cihaz bağlı değil";
+            ConnectionText.Foreground = MainWindow.Brush("#F1C566");
+        }
     }
 
     private async void ConnectionClick(object sender, RoutedEventArgs e)
@@ -83,7 +124,7 @@ public partial class DeviceCalibrationWindow : Window
                 _connected = RequiredKinds().All(kind => devices.Any(x => x.Kind == kind && x.IsConnected));
             }
             if (!_connected) throw new InvalidOperationException(ConnectionHelp());
-            ConnectionText.Text = "✓ Bağlantı tamamlandı"; ConnectionText.Foreground = MainWindow.Brush("#55DDB8");
+            UpdateConnectionVisual();
             if (_progress.Stage == CalibrationStage.NotConnected) await SaveProgressAsync(0, CalibrationStage.ConnectionReady);
             InstructionText.Text = "Bağlantı hazır. Faz 1 ile başla; ekrandaki yönergeleri kayıt boyunca uygula.";
         }
@@ -184,7 +225,7 @@ public partial class DeviceCalibrationWindow : Window
             await _store.SaveCalibrationAsync(new(1, devices, Array.Empty<ProfileCalibrationProgress>()));
             await new OfflineCalibrationPipeline().ApplyAvailableAsync();
             InstructionText.Text = $"↻ Faz {phase} yeniden kayda açıldı. Bu cihazı kullanan birlikte-kalibrasyonlar güvenlik için sıfırlandı.";
-            ConnectionText.Text = "✓ Bağlantı hazır · yeniden kayıt bekleniyor"; ConnectionText.Foreground = MainWindow.Brush("#F1C566"); _connected = true;
+            ConnectionText.Text = "Faz yeniden kayda açıldı · canlı bağlantı kontrol ediliyor"; ConnectionText.Foreground = MainWindow.Brush("#F1C566");
         }
         catch (Exception ex) { InstructionText.Text = "Faz silinemedi: " + ex.GetBaseException().Message; }
         finally { _recording = false; RefreshPhaseButtons(); }
@@ -205,7 +246,7 @@ public partial class DeviceCalibrationWindow : Window
             resetButtons[i].Background = MainWindow.Brush(done ? "#39242A" : "#101820");
             resetButtons[i].Foreground = MainWindow.Brush("#FF9AAF");
         }
-        if (_progress.IsReady) { ConnectionText.Text = "✓ Kalibre edildi ve kullanıma hazır"; ConnectionText.Foreground = MainWindow.Brush("#55DDB8"); _connected = true; }
+        if (_progress.IsReady && !_recording) UpdateConnectionVisual();
     }
 
     private IReadOnlyList<DeviceKind> RequiredKinds() => _sensor switch
