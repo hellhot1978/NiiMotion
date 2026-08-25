@@ -13,14 +13,14 @@ public sealed class GameMotionProfileStore
     {
         var config = Path.GetDirectoryName(_path)!; var selected = new GameSelectionStore(config).Load(); var stored = LoadAll().FirstOrDefault(x => x.GameId == selected);
         if (stored is not null) return stored.Safe();
-        var customSpeed = new GameAdapterStore(Path.GetDirectoryName(config)).Load().FirstOrDefault(x => x.Id == selected)?.SpeedMultiplier ?? 1;
+        var customSpeed = ResolveCustomSpeed(config, selected);
         return BuiltIn(selected) with { SpeedMultiplier = customSpeed };
     }
 
     public GameMotionProfile Load(string gameId)
     {
         var stored = LoadAll().FirstOrDefault(x => x.GameId == gameId); if (stored is not null) return stored.Safe();
-        var config = Path.GetDirectoryName(_path)!; var customSpeed = new GameAdapterStore(Path.GetDirectoryName(config)).Load().FirstOrDefault(x => x.Id == gameId)?.SpeedMultiplier ?? 1;
+        var config = Path.GetDirectoryName(_path)!; var customSpeed = ResolveCustomSpeed(config, gameId);
         return BuiltIn(gameId) with { SpeedMultiplier = customSpeed };
     }
 
@@ -50,4 +50,12 @@ public sealed class GameMotionProfileStore
         "metro-awakening" => GameMotionProfile.Default(gameId, "metro-openxr-layer-v1"),
         _ => GameMotionProfile.Default(gameId)
     };
+
+    private static double ResolveCustomSpeed(string configDirectory, string gameId)
+    {
+        var root = Path.GetDirectoryName(configDirectory);
+        var steamVr = new GameAdapterStore(root).Load().FirstOrDefault(x => x.Id.Equals(gameId, StringComparison.OrdinalIgnoreCase))?.SpeedMultiplier;
+        if (steamVr is not null) return steamVr.Value;
+        return new OpenXrGameAdapterStore(configDirectory).Find(gameId)?.SpeedMultiplier ?? 1;
+    }
 }

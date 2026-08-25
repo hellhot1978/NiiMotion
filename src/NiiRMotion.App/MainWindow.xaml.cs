@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Threading;
 using System.Diagnostics;
 using System.Text.Json;
@@ -38,7 +39,7 @@ public partial class MainWindow : Window
     private string? _pendingGameAppId;
     private TextBlock? _gameLaunchStatus;
     private readonly GameLaunchJournalStore _gameLaunchJournal = new();
-    private AlyxStrideTelemetryCoordinator? _alyxTelemetry;
+    private IGameTelemetrySession? _gameTelemetry;
     private InstalledGame? _pendingGame;
     private double _demoPhase;
     private long _demoSteps;
@@ -103,7 +104,7 @@ public partial class MainWindow : Window
             _vrOverlay.EnsureRunning(); _scanTimer.Start();
         };
         _vrCommandTimer.Start();
-        Closed += async (_, _) => { _demoTimer.Stop(); _scanTimer.Stop(); _vrOverlay.Dispose(); _vrPanel.Dispose(); _vrPanelCommands.Dispose(); if (_alyxTelemetry is not null) await _alyxTelemetry.DisposeAsync(); await StopPhoneMonitorAsync(); await _locomotion.DisposeAsync(); };
+        Closed += async (_, _) => { _demoTimer.Stop(); _scanTimer.Stop(); _vrOverlay.Dispose(); _vrPanel.Dispose(); _vrPanelCommands.Dispose(); if (_gameTelemetry is not null) await _gameTelemetry.DisposeAsync(); await StopPhoneMonitorAsync(); await _locomotion.DisposeAsync(); };
     }
     private async void AutoScanTick(object? sender, EventArgs e)
     {
@@ -427,7 +428,7 @@ public partial class MainWindow : Window
         var speedValue = Label("1,00×", "#55DDB8", 13, FontWeights.Bold); speed.ValueChanged += (_, _) => speedValue.Text = $"{speed.Value:0.00}×"; speedLine.Children.Add(speed); Grid.SetColumn(speedValue, 1); speedLine.Children.Add(speedValue); body.Children.Add(speedLine);
         var vrConfirmed = new CheckBox { Content = "Bu oyun VR olarak çalışıyor (yerel SteamVR/OpenXR veya çalışan bir VR modu)", Foreground = Brush("#E8F0F5"), Margin = new Thickness(0, 0, 0, 12), FontWeight = FontWeights.SemiBold }; body.Children.Add(vrConfirmed);
         var safety = new Border { Background = Brush("#0D1820"), BorderBrush = Brush("#29404D"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(7), Padding = new Thickness(13) };
-        safety.Child = Label("GÜVENLİ KURULUM · Oyun dosyaları değiştirilmez. NiiMotion eşlemesi ayrı oluşturulur; mevcut sürücü profili ilk değişiklikten önce yedeklenir.", "#A9BBC5", 10, FontWeights.Normal); body.Children.Add(safety); root.Children.Add(body);
+        safety.Child = Label("GÜVENLİ KURULUM · Oyun dosyaları değiştirilmez. İlk oyunda yaklaşık 10 adım yürüdükten sonra yalnızca yavaş, doğru veya hızlı seçerek bu oyunun hızını tamamlayabilirsin.", "#A9BBC5", 10, FontWeights.Normal); body.Children.Add(safety); root.Children.Add(body);
         var footer = new Grid { Margin = new Thickness(0, 20, 0, 0) }; footer.ColumnDefinitions.Add(new ColumnDefinition()); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(10) }); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var cancel = new Button { Content = "VAZGEÇ", Padding = new Thickness(20, 10, 20, 10) }; cancel.Click += (_, _) => window.Close(); Grid.SetColumn(cancel, 1); footer.Children.Add(cancel);
         var save = new Button { Content = "EŞLEMEYİ OLUŞTUR", IsEnabled = false, Padding = new Thickness(22, 10, 22, 10) }; Grid.SetColumn(save, 3); footer.Children.Add(save); Grid.SetRow(footer, 1); root.Children.Add(footer);
@@ -442,7 +443,7 @@ public partial class MainWindow : Window
             var runActions = actions.Where(x => new[] { "run", "sprint", "walk", "press", "click" }.Any(term => x.Path.Contains(term, StringComparison.OrdinalIgnoreCase))).ToArray(); activation.ItemsSource = runActions; activation.SelectedIndex = runActions.Length > 0 ? 0 : -1;
             activation.IsEnabled = !openXrMode;
             discoveryStatus.Text = openXrMode ? $"OpenXR algılandı · {OpenXrGameAdapterStore.DetectEngine(selected.InstallPath)}. Oyun dosyaları değiştirilmeden yalnız seçilen çalıştırma dosyasına güvenli hareket katmanı uygulanır." : inspection.Message; discoveryStatus.Foreground = Brush(actions.Count > 0 || openXrMode ? "#55DDB8" : "#FF8AA5");
-            save.IsEnabled = movement.Items.Count > 0;
+            save.IsEnabled = openXrMode ? movement.Items.Count > 0 : true;
         };
         save.Click += async (_, _) =>
         {
@@ -496,11 +497,27 @@ public partial class MainWindow : Window
         var motionProfileId = new ActiveMotionProfileStore().Load() ?? "joycon-only";
         var optimizationStore = new GameSensorOptimizationStore();
         var optimization = optimizationStore.Load(game.Definition.Id, motionProfileId);
+        var telemetryCapability = GameTelemetryProviderFactory.Create(game.Definition.Id, game.Definition.SteamAppId).Capability;
         var optimizationCard = new Border { Background = Brush("#0A1B24"), BorderBrush = Brush("#285165"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(7), Padding = new Thickness(13), Margin = new Thickness(0, 4, 0, 8) };
         var optimizationBody = new StackPanel();
-        optimizationBody.Children.Add(Label("OTOMATİK ADIM EŞLEME", "#55DDB8", 9, FontWeights.Bold));
+        optimizationBody.Children.Add(Label(telemetryCapability.Title, "#55DDB8", 9, FontWeights.Bold));
         optimizationBody.Children.Add(Label($"{_profile.Name} · {optimization.Source} · Güven {optimization.Confidence * 100:0}%", "#DCEAF1", 10, FontWeights.SemiBold, new Thickness(0, 3, 0, 2)));
-        optimizationBody.Children.Add(Label("Oyun içi konum güvenle okunabildiğinde NiiMotion fiziksel adımı avatar mesafesiyle eşleştirir. Işınlanma ve keskin dönüş içeren ölçümler uygulanmaz.", "#91A7B4", 9, FontWeights.Normal));
+        optimizationBody.Children.Add(Label(telemetryCapability.Description, "#91A7B4", 9, FontWeights.Normal));
+        if (telemetryCapability.Mode == GameTelemetryMode.Guided)
+        {
+            optimizationBody.Children.Add(Label("Oyunda yaklaşık 10 doğal adım yürü, sonra hissini seç:", "#DCEAF1", 9, FontWeights.SemiBold, new Thickness(0, 9, 0, 5)));
+            var feedback = new UniformGrid { Columns = 3 };
+            Button FeedbackButton(string text, GamePaceFeedback answer)
+            {
+                var button = new Button { Content = text, Foreground = Brush("#F4F7FA"), Background = Brush("#163044"), BorderBrush = Brush("#39718B"), BorderThickness = new Thickness(1), Padding = new Thickness(9, 7, 9, 7), Margin = new Thickness(0, 0, 6, 0), FontWeight = FontWeights.SemiBold };
+                button.Click += (_, _) => { optimizationStore.ApplyFeedback(game.Definition.Id, motionProfileId, answer); window.DialogResult = true; window.Close(); OpenGameTuningWindow(game); };
+                return button;
+            }
+            feedback.Children.Add(FeedbackButton("OYUNDA YAVAŞ", GamePaceFeedback.TooSlow));
+            feedback.Children.Add(FeedbackButton("TAM DOĞRU", GamePaceFeedback.Correct));
+            feedback.Children.Add(FeedbackButton("OYUNDA HIZLI", GamePaceFeedback.TooFast));
+            optimizationBody.Children.Add(feedback);
+        }
         var optimizationActions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 9, 0, 0) };
         Button OptimizationButton(string text) => new() { Content = text, Foreground = Brush("#F4F7FA"), Background = Brush("#172A37"), BorderBrush = Brush("#315066"), BorderThickness = new Thickness(1), Padding = new Thickness(12, 7, 12, 7), FontWeight = FontWeights.SemiBold };
         var undoOptimization = OptimizationButton("ÖNCEKİ EŞLEME"); undoOptimization.IsEnabled = optimization.UpdatedAt != DateTimeOffset.MinValue;
@@ -577,7 +594,8 @@ public partial class MainWindow : Window
         if (game?.InstallPath is null) throw new InvalidOperationException("Seçili oyunun Steam kurulum klasörü doğrulanamadı.");
         if (IsGameRunning(game.InstallPath)) return;
         var steam = SteamInstallLocator.FindSteamExe() ?? throw new FileNotFoundException("Steam çalıştırıcısı bulunamadı.");
-        var telemetryArgument = appId == "546560" ? $" -netconport {AlyxNetConsoleClient.DefaultPort}" : "";
+        var telemetryProvider = GameTelemetryProviderFactory.Create(game.Definition.Id, appId);
+        var telemetryArgument = telemetryProvider.LaunchArguments;
         SetGameLaunchStage(game, GameLaunchStage.StartingGame, $"{game.Definition.Name} Steam üzerinden başlatılıyor…");
         Process.Start(new ProcessStartInfo(steam, $"-applaunch {appId} -vr{telemetryArgument}") { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(steam)! });
         if (_gameLaunchStatus is not null) { _gameLaunchStatus.Text = $"{game.Definition.Name} başlatılıyor…"; _gameLaunchStatus.Foreground = Brush("#55DDB8"); }
@@ -587,16 +605,16 @@ public partial class MainWindow : Window
             if (IsGameRunning(game.InstallPath))
             {
                 SetGameLaunchStage(game, GameLaunchStage.Running, $"✓ {game.Definition.Name} çalışıyor · NiiMotion oturumu hazır");
-                if (appId == "546560" && _locomotion.IsRunning)
+                if (_locomotion.IsRunning)
                 {
-                    if (_alyxTelemetry is not null) await _alyxTelemetry.DisposeAsync();
-                    _alyxTelemetry = new(_locomotion, _profile.Id);
-                    _alyxTelemetry.StatusChanged += (_, status) => Dispatcher.BeginInvoke(() =>
+                    if (_gameTelemetry is not null) await _gameTelemetry.DisposeAsync();
+                    _gameTelemetry = telemetryProvider.CreateSession(_locomotion, _profile.Id);
+                    if (_gameTelemetry is not null) _gameTelemetry.StatusChanged += (_, status) => Dispatcher.BeginInvoke(() =>
                     {
                         if (_gameLaunchStatus is not null) { _gameLaunchStatus.Text = status; _gameLaunchStatus.Foreground = Brush("#55DDB8"); }
                         PublishVrPanel("Adım eşleme");
                     });
-                    _alyxTelemetry.Start();
+                    _gameTelemetry?.Start();
                 }
                 _pendingGame = null;
                 return;

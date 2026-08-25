@@ -7,6 +7,44 @@ using NiiRMotion.Core;
 
 namespace NiiRMotion.Infrastructure;
 
+public enum GameTelemetryMode { Direct, Guided }
+public sealed record GameTelemetryCapability(GameTelemetryMode Mode, string Title, string Description);
+
+public interface IGameTelemetrySession : IAsyncDisposable
+{
+    event EventHandler<string>? StatusChanged;
+    void Start();
+}
+
+public interface IGameTelemetryProvider
+{
+    GameTelemetryCapability Capability { get; }
+    string LaunchArguments { get; }
+    IGameTelemetrySession? CreateSession(LiveLocomotionService locomotion, string motionProfileId);
+}
+
+public static class GameTelemetryProviderFactory
+{
+    public static IGameTelemetryProvider Create(string gameId, string? steamAppId) =>
+        steamAppId == "546560" || gameId.Equals("half-life-alyx", StringComparison.OrdinalIgnoreCase)
+            ? new AlyxTelemetryProvider()
+            : new GuidedTelemetryProvider();
+
+    private sealed class AlyxTelemetryProvider : IGameTelemetryProvider
+    {
+        public GameTelemetryCapability Capability => new(GameTelemetryMode.Direct, "OTOMATİK OYUN TELEMETRİSİ", "Avatar mesafesi doğrudan okunur; temiz yürüyüş bölümleri kendiliğinden eşlenir.");
+        public string LaunchArguments => $" -netconport {AlyxNetConsoleClient.DefaultPort}";
+        public IGameTelemetrySession CreateSession(LiveLocomotionService locomotion, string motionProfileId) => new AlyxStrideTelemetryCoordinator(locomotion, motionProfileId);
+    }
+
+    private sealed class GuidedTelemetryProvider : IGameTelemetryProvider
+    {
+        public GameTelemetryCapability Capability => new(GameTelemetryMode.Guided, "EVRENSEL OYUN EŞLEME", "Bu oyun konum verisi sunmuyor. Oyunda kısa yürüyüşten sonra yalnızca yavaş, doğru veya hızlı seçmen yeterli.");
+        public string LaunchArguments => "";
+        public IGameTelemetrySession? CreateSession(LiveLocomotionService locomotion, string motionProfileId) => null;
+    }
+}
+
 public sealed record AlyxPlayerPose(double X, double Y, double Z, double Pitch, double Yaw, double Roll, DateTimeOffset CapturedAt)
 {
     public double HorizontalDistanceTo(AlyxPlayerPose other)
@@ -76,7 +114,7 @@ public sealed class AlyxNetConsoleClient : IAsyncDisposable
     }
 }
 
-public sealed class AlyxStrideTelemetryCoordinator : IAsyncDisposable
+public sealed class AlyxStrideTelemetryCoordinator : IGameTelemetrySession
 {
     private readonly LiveLocomotionService _locomotion;
     private readonly string _motionProfileId;

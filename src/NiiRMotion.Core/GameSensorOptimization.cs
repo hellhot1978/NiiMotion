@@ -26,6 +26,18 @@ public sealed record StrideTelemetryMeasurement(
     bool HadTeleport,
     bool HadLargeTurn);
 
+public enum GamePaceFeedback { TooSlow, Correct, TooFast }
+
+public static class GuidedGameOptimizer
+{
+    public static double Apply(double currentScale, GamePaceFeedback feedback) => feedback switch
+    {
+        GamePaceFeedback.TooSlow => Math.Clamp(currentScale * 1.10, .15, 2.5),
+        GamePaceFeedback.TooFast => Math.Clamp(currentScale * .90, .15, 2.5),
+        _ => Math.Clamp(currentScale, .15, 2.5)
+    };
+}
+
 public static class AutomaticStrideOptimizer
 {
     public static bool TryOptimize(double currentScale, StrideTelemetryMeasurement measurement, out double proposedScale, out string reason)

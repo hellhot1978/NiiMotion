@@ -39,6 +39,14 @@ public sealed class GameSensorOptimizationStore
         return Save(current with { PreviousDistanceScale = current.DistanceScale, DistanceScale = scale, Source = "Oyun telemetrisi", Confidence = confidence, UpdatedAt = DateTimeOffset.UtcNow });
     }
 
+    public GameSensorOptimization ApplyFeedback(string gameId, string motionProfileId, GamePaceFeedback feedback)
+    {
+        var current = Load(gameId, motionProfileId);
+        var scale = GuidedGameOptimizer.Apply(current.DistanceScale, feedback);
+        var source = feedback == GamePaceFeedback.Correct ? "Oyun içi hız doğrulandı" : "Oyun içi kısa doğrulama";
+        return Save(current with { PreviousDistanceScale = current.DistanceScale, DistanceScale = scale, Source = source, Confidence = feedback == GamePaceFeedback.Correct ? 1 : .7, UpdatedAt = DateTimeOffset.UtcNow });
+    }
+
     public GameSensorOptimization RestorePrevious(string gameId, string motionProfileId)
     {
         var current = Load(gameId, motionProfileId);
