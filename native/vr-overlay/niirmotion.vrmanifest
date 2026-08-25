@@ -1,0 +1,16 @@
+{
+  "source": "builtin",
+  "applications": [
+    {
+      "app_key": "com.niirmotion.dashboard",
+      "launch_type": "binary",
+      "binary_path_windows": "NiiMotion.VrOverlay.exe",
+      "is_dashboard_overlay": true,
+      "image_path": "dashboard-icon.png",
+      "strings": {
+        "en_us": { "name": "NiiMotion" },
+        "tr_tr": { "name": "NiiMotion" }
+      }
+    }
+  ]
+}

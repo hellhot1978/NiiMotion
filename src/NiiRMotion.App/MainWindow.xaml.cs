@@ -18,10 +18,12 @@ public partial class MainWindow : Window
     private readonly SystemModeService _systemMode = new();
     private readonly DispatcherTimer _demoTimer = new() { Interval = TimeSpan.FromMilliseconds(80) };
     private readonly DispatcherTimer _scanTimer = new() { Interval = TimeSpan.FromSeconds(4) };
+    private readonly DispatcherTimer _vrCommandTimer = new() { Interval = TimeSpan.FromMilliseconds(150) };
     private readonly VrPanelStatePublisher _vrPanel = new();
     private readonly VrPanelCommandChannel _vrPanelCommands = new();
     private readonly VrOverlayProcessManager _vrOverlay = new();
     private bool _autoScanBusy;
+    private bool _vrCommandBusy;
     private bool _phonePairing;
     private bool _moveIdentifyBusy;
     private bool _suppressAutomaticLocomotion;
@@ -49,14 +51,21 @@ public partial class MainWindow : Window
         _locomotion.CriticalSensorLost += LocomotionCriticalSensorLost;
         _demoTimer.Tick += DemoTick;
         _scanTimer.Tick += AutoScanTick;
-        _scanTimer.Tick += async (_, _) =>
+        _scanTimer.Tick += (_, _) => _vrOverlay.EnsureRunning();
+        _vrCommandTimer.Tick += async (_, _) =>
         {
-            _vrOverlay.EnsureRunning();
+            if (_vrCommandBusy) return;
             var command = _vrPanelCommands.Receive();
-            if (command == VrPanelCommand.EmergencyStop) StopClick(this, new RoutedEventArgs());
-            else if (command == VrPanelCommand.Rescan) await ScanAsync();
-            else if (command == VrPanelCommand.StartLocomotion) { _suppressAutomaticLocomotion = false; await StartLocomotionAsync(); }
-            else if (command == VrPanelCommand.ShowDesktop) { if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal; Show(); Activate(); Topmost = true; Topmost = false; }
+            if (command == VrPanelCommand.None) return;
+            _vrCommandBusy = true;
+            try
+            {
+                if (command == VrPanelCommand.EmergencyStop) StopClick(this, new RoutedEventArgs());
+                else if (command == VrPanelCommand.Rescan) await ScanAsync();
+                else if (command == VrPanelCommand.StartLocomotion) { _suppressAutomaticLocomotion = false; await StartLocomotionAsync(); }
+                else if (command == VrPanelCommand.ShowDesktop) { if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal; Show(); Activate(); Topmost = true; Topmost = false; }
+            }
+            finally { _vrCommandBusy = false; }
         };
         Loaded += async (_, _) =>
         {
@@ -90,6 +99,7 @@ public partial class MainWindow : Window
             if (arguments.Contains("--game-tuning", StringComparer.OrdinalIgnoreCase)) { GamesNavClick(this, new RoutedEventArgs()); var selectedGame = new SteamGameCatalog().Detect().FirstOrDefault(x => x.IsInstalled && x.State == GameIntegrationState.Ready && x.Definition.Id == _selectedGameId); if (selectedGame is not null) OpenGameTuningWindow(selectedGame); }
             _vrOverlay.EnsureRunning(); _scanTimer.Start();
         };
+        _vrCommandTimer.Start();
         Closed += async (_, _) => { _demoTimer.Stop(); _scanTimer.Stop(); _vrOverlay.Dispose(); _vrPanel.Dispose(); _vrPanelCommands.Dispose(); await StopPhoneMonitorAsync(); await _locomotion.DisposeAsync(); };
     }
     private async void AutoScanTick(object? sender, EventArgs e)

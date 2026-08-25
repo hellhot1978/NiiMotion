@@ -27,6 +27,16 @@ std::wstring Wide(const std::string& value) {
     std::wstring output(count, L' '); MultiByteToWideChar(CP_UTF8, 0, value.data(), static_cast<int>(value.size()), output.data(), count); return output;
 }
 
+std::string Utf8(const std::wstring& value) {
+    if (value.empty()) return {};
+    const int count = WideCharToMultiByte(CP_UTF8, 0, value.data(), static_cast<int>(value.size()), nullptr, 0, nullptr, nullptr);
+    std::string output(count, ' '); WideCharToMultiByte(CP_UTF8, 0, value.data(), static_cast<int>(value.size()), output.data(), count, nullptr, nullptr); return output;
+}
+
+std::wstring SiblingPath(const wchar_t* name) {
+    wchar_t executable[MAX_PATH]{}; GetModuleFileNameW(nullptr, executable, MAX_PATH); std::wstring path(executable); const auto slash = path.find_last_of(L"\\/"); return path.substr(0, slash + 1) + name;
+}
+
 void AppendUtf8(std::string& output, uint32_t code) {
     if (code <= 0x7F) output.push_back(static_cast<char>(code));
     else if (code <= 0x7FF) { output.push_back(static_cast<char>(0xC0 | code >> 6)); output.push_back(static_cast<char>(0x80 | (code & 0x3F))); }
@@ -128,18 +138,22 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     HANDLE showEvent = CreateEventW(nullptr, FALSE, FALSE, kShowEvent); if (!showEvent) { ReleaseMutex(mutex); CloseHandle(mutex); return 6; }
     vr::EVRInitError error = vr::VRInitError_None; vr::VR_Init(&error, vr::VRApplication_Overlay); if (error != vr::VRInitError_None) { CloseHandle(showEvent); CloseHandle(mutex); return 2; }
     auto* overlays = vr::VROverlay(); if (!overlays) { vr::VR_Shutdown(); CloseHandle(mutex); return 3; }
+    if (auto* applications = vr::VRApplications()) {
+        const auto manifest = Utf8(SiblingPath(L"niirmotion.vrmanifest")); applications->AddApplicationManifest(manifest.c_str(), false); applications->IdentifyApplication(GetCurrentProcessId(), "com.niirmotion.dashboard");
+    }
     vr::VROverlayHandle_t mainHandle = vr::k_ulOverlayHandleInvalid, thumbnailHandle = vr::k_ulOverlayHandleInvalid;
     if (overlays->CreateDashboardOverlay(kOverlayKey, "NiiMotion", &mainHandle, &thumbnailHandle) != vr::VROverlayError_None) { vr::VR_Shutdown(); CloseHandle(mutex); return 4; }
     overlays->SetOverlayInputMethod(mainHandle, vr::VROverlayInputMethod_Mouse); vr::HmdVector2_t mouseScale{{static_cast<float>(kWidth), static_cast<float>(kHeight)}}; overlays->SetOverlayMouseScale(mainHandle, &mouseScale); overlays->SetOverlayWidthInMeters(mainHandle, 2.4f);
     TextureSurface surface, thumbnailSurface; Canvas canvas, thumbnailCanvas; SharedPanel shared; if (!surface.Initialize() || !thumbnailSurface.Initialize()) { overlays->DestroyOverlay(mainHandle); overlays->DestroyOverlay(thumbnailHandle); vr::VR_Shutdown(); CloseHandle(showEvent); CloseHandle(mutex); return 5; }
-    thumbnailCanvas.RenderIcon(); thumbnailSurface.Upload(thumbnailCanvas.Pixels()); vr::Texture_t thumbnailTexture{thumbnailSurface.Handle(), vr::TextureType_DirectX, vr::ColorSpace_Auto}; overlays->SetOverlayTexture(thumbnailHandle, &thumbnailTexture);
+    const auto iconPath = Utf8(SiblingPath(L"dashboard-icon.png"));
+    if (overlays->SetOverlayFromFile(thumbnailHandle, iconPath.c_str()) != vr::VROverlayError_None) { thumbnailCanvas.RenderIcon(); thumbnailSurface.Upload(thumbnailCanvas.Pixels()); vr::Texture_t thumbnailTexture{thumbnailSurface.Handle(), vr::TextureType_DirectX, vr::ColorSpace_Auto}; overlays->SetOverlayTexture(thumbnailHandle, &thumbnailTexture); }
     bool running = true; auto nextFrame = std::chrono::steady_clock::now();
     while (running) {
         if (WaitForSingleObject(showEvent, 0) == WAIT_OBJECT_0) overlays->ShowDashboard(kOverlayKey);
         const PanelState state = shared.Read(); const bool active = state.locomotion != "Kapalı" && state.locomotion != "Off" && state.locomotion != "OFF"; canvas.Render(state); surface.Upload(canvas.Pixels()); vr::Texture_t texture{surface.Handle(), vr::TextureType_DirectX, vr::ColorSpace_Auto}; overlays->SetOverlayTexture(mainHandle, &texture);
         vr::VREvent_t event{}; while (overlays->PollNextOverlayEvent(mainHandle, &event, sizeof(event))) {
             if (event.eventType == vr::VREvent_Quit) running = false;
-            if (event.eventType == vr::VREvent_MouseButtonDown) { const float x = event.data.mouse.x; const float y = kHeight - event.data.mouse.y; if (y >= 430 && y <= 535) { if (x >= 28 && x <= 330) shared.Send(active ? 1 : 3); else if (x >= 345 && x <= 661) shared.Send(2); else if (x >= 676 && x <= 996) shared.Send(4); } }
+            if (event.eventType == vr::VREvent_MouseButtonDown) { const float x = event.data.mouse.x; const float rawY = event.data.mouse.y; const float flippedY = kHeight - rawY; const bool buttonRow = (rawY >= 430 && rawY <= 535) || (flippedY >= 430 && flippedY <= 535); if (buttonRow) { if (x >= 28 && x <= 330) shared.Send(active ? 1 : 3); else if (x >= 345 && x <= 661) shared.Send(2); else if (x >= 676 && x <= 996) shared.Send(4); } }
         }
         if (!vr::VR_IsRuntimeInstalled()) running = false;
         nextFrame += std::chrono::milliseconds(100); std::this_thread::sleep_until(nextFrame);
