@@ -153,7 +153,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
         const PanelState state = shared.Read(); const bool active = state.locomotion != "Kapalı" && state.locomotion != "Off" && state.locomotion != "OFF"; canvas.Render(state); surface.Upload(canvas.Pixels()); vr::Texture_t texture{surface.Handle(), vr::TextureType_DirectX, vr::ColorSpace_Auto}; overlays->SetOverlayTexture(mainHandle, &texture);
         vr::VREvent_t event{}; while (overlays->PollNextOverlayEvent(mainHandle, &event, sizeof(event))) {
             if (event.eventType == vr::VREvent_Quit) running = false;
-            if (event.eventType == vr::VREvent_MouseButtonDown) { const float x = event.data.mouse.x; const float rawY = event.data.mouse.y; const float flippedY = kHeight - rawY; const bool buttonRow = (rawY >= 430 && rawY <= 535) || (flippedY >= 430 && flippedY <= 535); if (buttonRow) { if (x >= 28 && x <= 330) shared.Send(active ? 1 : 3); else if (x >= 345 && x <= 661) shared.Send(2); else if (x >= 676 && x <= 996) shared.Send(4); } }
+            if (event.eventType == vr::VREvent_MouseButtonDown) { const float x = event.data.mouse.x; const float rawY = event.data.mouse.y; const float flippedY = kHeight - rawY; const bool buttonRow = (rawY >= 430 && rawY <= 535) || (flippedY >= 430 && flippedY <= 535); if (buttonRow) { if (x >= 28 && x <= 330) shared.Send(active ? 1 : 3); else if (x >= 345 && x <= 661) shared.Send(2); else if (x >= 676 && x <= 996) overlays->ShowDashboard("system.desktop"); } }
         }
         if (!vr::VR_IsRuntimeInstalled()) running = false;
         nextFrame += std::chrono::milliseconds(100); std::this_thread::sleep_until(nextFrame);
