@@ -271,6 +271,7 @@ static void VrDashboardOverlayContract()
     Assert(source.Contains("bgra[pixel * 4 + 3] = 255"), "GDI dashboard pixels are not made opaque and can render invisibly in SteamVR.");
     Assert(source.Contains("SetOverlayFromFile") && source.Contains("com.niirmotion.dashboard"), "Overlay has no persistent dashboard icon/application identity.");
     Assert(source.Contains("ShowDashboard(\"system.desktop\")"), "Desktop button is not connected to SteamVR's native desktop dashboard.");
+    Assert(source.Contains("WriteRuntimeManifest") && source.Contains("MouseButtonUp"), "Dashboard icon or resilient click handling is missing.");
 }
 
 static void GenericOpenXrAdapter()
