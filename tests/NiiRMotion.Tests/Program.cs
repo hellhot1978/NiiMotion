@@ -332,6 +332,8 @@ static void VrPanelCommands()
     using var sender = new VrPanelCommandChannel(); using var receiver = new VrPanelCommandChannel();
     sender.Send(VrPanelCommand.EmergencyStop); Assert(receiver.Receive() == VrPanelCommand.EmergencyStop, "Emergency stop command was not delivered."); Assert(receiver.Receive() == VrPanelCommand.None, "A VR command was delivered twice.");
     sender.Send(VrPanelCommand.Rescan); Assert(receiver.Receive() == VrPanelCommand.Rescan, "Rescan command was not delivered.");
+    sender.Send(VrPanelCommand.StartLocomotion); Assert(receiver.Receive() == VrPanelCommand.StartLocomotion, "Start locomotion command was not delivered.");
+    sender.Send(VrPanelCommand.ShowDesktop); Assert(receiver.Receive() == VrPanelCommand.ShowDesktop, "Show desktop command was not delivered.");
 }
 
 static void OpenXrEngineDiscovery()

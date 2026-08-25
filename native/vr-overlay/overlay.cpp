@@ -91,13 +91,20 @@ public:
         Text(L"DEVICES", {535,245,700,273}, 14, RGB(73,188,244), true); Text(Wide(state.devices), {535,273,960,317}, 22, RGB(224,234,240), true);
         Fill({55,342,960,358}, RGB(29,49,63)); const int speedWidth = static_cast<int>(905 * state.speed); if (speedWidth > 0) Fill({55,342,55 + speedWidth,358}, RGB(30,159,224));
         Text(Wide(state.message), {55,365,960,395}, 16, RGB(156,177,190), false, DT_LEFT | DT_VCENTER | DT_END_ELLIPSIS | DT_SINGLELINE);
-        Fill({28,430,485,535}, RGB(18,54,78)); Text(L"↻  CHECK DEVICES", {28,430,485,535}, 23, RGB(239,247,251), true, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-        Fill({539,430,996,535}, RGB(83,28,48)); Text(L"■  STOP MOVEMENT", {539,430,996,535}, 23, RGB(255,225,233), true, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        Fill({28,430,330,535}, active ? RGB(83,28,48) : RGB(16,77,103)); Text(active ? L"■  STOP" : L"▶  START", {28,430,330,535}, 23, active ? RGB(255,225,233) : RGB(228,247,255), true, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        Fill({345,430,661,535}, RGB(18,54,78)); Text(L"↻  DEVICES", {345,430,661,535}, 22, RGB(239,247,251), true, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        Fill({676,430,996,535}, RGB(24,43,57)); Text(L"▣  DESKTOP", {676,430,996,535}, 22, RGB(239,247,251), true, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         Text(L"Open from the SteamVR dashboard. Movement stops safely if a required sensor disconnects.", {35,555,989,612}, 16, RGB(126,150,164), false, DT_CENTER | DT_VCENTER | DT_WORDBREAK);
         // GDI writes BGR but leaves the alpha byte at zero. OpenVR honors that
         // byte, so without normalizing it the dashboard texture is invisible.
         auto* bgra = static_cast<uint8_t*>(pixels_);
         for (int pixel = 0; pixel < kWidth * kHeight; ++pixel) bgra[pixel * 4 + 3] = 255;
+    }
+    void RenderIcon() {
+        Fill({0,0,kWidth,kHeight}, RGB(5,12,18));
+        Fill({300,55,724,585}, RGB(9,94,153));
+        Text(L"N", {300,55,724,585}, 310, RGB(246,251,255), true, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        auto* bgra = static_cast<uint8_t*>(pixels_); for (int pixel = 0; pixel < kWidth * kHeight; ++pixel) bgra[pixel * 4 + 3] = 255;
     }
     const void* Pixels() const { return pixels_; }
 };
@@ -119,19 +126,20 @@ public:
 int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     HANDLE mutex = CreateMutexW(nullptr, TRUE, L"Local\\NiiMotion.VrOverlay.Singleton"); if (!mutex || GetLastError() == ERROR_ALREADY_EXISTS) return 0;
     HANDLE showEvent = CreateEventW(nullptr, FALSE, FALSE, kShowEvent); if (!showEvent) { ReleaseMutex(mutex); CloseHandle(mutex); return 6; }
-    vr::EVRInitError error = vr::VRInitError_None; vr::VR_Init(&error, vr::VRApplication_Overlay); if (error != vr::VRInitError_None) { CloseHandle(mutex); return 2; }
+    vr::EVRInitError error = vr::VRInitError_None; vr::VR_Init(&error, vr::VRApplication_Overlay); if (error != vr::VRInitError_None) { CloseHandle(showEvent); CloseHandle(mutex); return 2; }
     auto* overlays = vr::VROverlay(); if (!overlays) { vr::VR_Shutdown(); CloseHandle(mutex); return 3; }
     vr::VROverlayHandle_t mainHandle = vr::k_ulOverlayHandleInvalid, thumbnailHandle = vr::k_ulOverlayHandleInvalid;
     if (overlays->CreateDashboardOverlay(kOverlayKey, "NiiMotion", &mainHandle, &thumbnailHandle) != vr::VROverlayError_None) { vr::VR_Shutdown(); CloseHandle(mutex); return 4; }
     overlays->SetOverlayInputMethod(mainHandle, vr::VROverlayInputMethod_Mouse); vr::HmdVector2_t mouseScale{{static_cast<float>(kWidth), static_cast<float>(kHeight)}}; overlays->SetOverlayMouseScale(mainHandle, &mouseScale); overlays->SetOverlayWidthInMeters(mainHandle, 2.4f);
-    TextureSurface surface; Canvas canvas; SharedPanel shared; if (!surface.Initialize()) { overlays->DestroyOverlay(mainHandle); overlays->DestroyOverlay(thumbnailHandle); vr::VR_Shutdown(); CloseHandle(mutex); return 5; }
+    TextureSurface surface, thumbnailSurface; Canvas canvas, thumbnailCanvas; SharedPanel shared; if (!surface.Initialize() || !thumbnailSurface.Initialize()) { overlays->DestroyOverlay(mainHandle); overlays->DestroyOverlay(thumbnailHandle); vr::VR_Shutdown(); CloseHandle(showEvent); CloseHandle(mutex); return 5; }
+    thumbnailCanvas.RenderIcon(); thumbnailSurface.Upload(thumbnailCanvas.Pixels()); vr::Texture_t thumbnailTexture{thumbnailSurface.Handle(), vr::TextureType_DirectX, vr::ColorSpace_Auto}; overlays->SetOverlayTexture(thumbnailHandle, &thumbnailTexture);
     bool running = true; auto nextFrame = std::chrono::steady_clock::now();
     while (running) {
         if (WaitForSingleObject(showEvent, 0) == WAIT_OBJECT_0) overlays->ShowDashboard(kOverlayKey);
-        const PanelState state = shared.Read(); canvas.Render(state); surface.Upload(canvas.Pixels()); vr::Texture_t texture{surface.Handle(), vr::TextureType_DirectX, vr::ColorSpace_Auto}; overlays->SetOverlayTexture(mainHandle, &texture); overlays->SetOverlayTexture(thumbnailHandle, &texture);
+        const PanelState state = shared.Read(); const bool active = state.locomotion != "Kapalı" && state.locomotion != "Off" && state.locomotion != "OFF"; canvas.Render(state); surface.Upload(canvas.Pixels()); vr::Texture_t texture{surface.Handle(), vr::TextureType_DirectX, vr::ColorSpace_Auto}; overlays->SetOverlayTexture(mainHandle, &texture);
         vr::VREvent_t event{}; while (overlays->PollNextOverlayEvent(mainHandle, &event, sizeof(event))) {
             if (event.eventType == vr::VREvent_Quit) running = false;
-            if (event.eventType == vr::VREvent_MouseButtonDown) { const float x = event.data.mouse.x; const float y = kHeight - event.data.mouse.y; if (y >= 430 && y <= 535) { if (x >= 28 && x <= 485) shared.Send(2); else if (x >= 539 && x <= 996) shared.Send(1); } }
+            if (event.eventType == vr::VREvent_MouseButtonDown) { const float x = event.data.mouse.x; const float y = kHeight - event.data.mouse.y; if (y >= 430 && y <= 535) { if (x >= 28 && x <= 330) shared.Send(active ? 1 : 3); else if (x >= 345 && x <= 661) shared.Send(2); else if (x >= 676 && x <= 996) shared.Send(4); } }
         }
         if (!vr::VR_IsRuntimeInstalled()) running = false;
         nextFrame += std::chrono::milliseconds(100); std::this_thread::sleep_until(nextFrame);

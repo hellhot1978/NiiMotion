@@ -42,7 +42,7 @@ public sealed class VrPanelStateReader : IDisposable
     public void Dispose() { _view?.Dispose(); _mapping?.Dispose(); }
 }
 
-public enum VrPanelCommand { None, EmergencyStop, Rescan }
+public enum VrPanelCommand { None, EmergencyStop, Rescan, StartLocomotion, ShowDesktop }
 public sealed class VrPanelCommandChannel : IDisposable
 {
     public const string MappingName = "NiiMotion.VrPanel.Commands.v1";

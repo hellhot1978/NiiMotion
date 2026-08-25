@@ -49,7 +49,15 @@ public partial class MainWindow : Window
         _locomotion.CriticalSensorLost += LocomotionCriticalSensorLost;
         _demoTimer.Tick += DemoTick;
         _scanTimer.Tick += AutoScanTick;
-        _scanTimer.Tick += async (_, _) => { _vrOverlay.EnsureRunning(); var command = _vrPanelCommands.Receive(); if (command == VrPanelCommand.EmergencyStop) StopClick(this, new RoutedEventArgs()); else if (command == VrPanelCommand.Rescan) await ScanAsync(); };
+        _scanTimer.Tick += async (_, _) =>
+        {
+            _vrOverlay.EnsureRunning();
+            var command = _vrPanelCommands.Receive();
+            if (command == VrPanelCommand.EmergencyStop) StopClick(this, new RoutedEventArgs());
+            else if (command == VrPanelCommand.Rescan) await ScanAsync();
+            else if (command == VrPanelCommand.StartLocomotion) { _suppressAutomaticLocomotion = false; await StartLocomotionAsync(); }
+            else if (command == VrPanelCommand.ShowDesktop) { if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal; Show(); Activate(); Topmost = true; Topmost = false; }
+        };
         Loaded += async (_, _) =>
         {
             var arguments = Environment.GetCommandLineArgs();
