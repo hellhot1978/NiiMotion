@@ -268,6 +268,7 @@ static void VrDashboardOverlayContract()
     Assert(source.Contains("CreateDashboardOverlay") && source.Contains("SetOverlayTexture") && source.Contains("PollNextOverlayEvent"), "Overlay does not implement the SteamVR dashboard contract.");
     Assert(source.Contains("NiiMotion.VrPanel.v1") && source.Contains("NiiMotion.VrPanel.Commands.v1"), "Overlay is not connected to the existing state and command channels.");
     Assert(source.Contains("NiiMotion.VrOverlay.Show") && source.Contains("ShowDashboard(kOverlayKey)"), "Overlay cannot be opened explicitly from the desktop application.");
+    Assert(source.Contains("bgra[pixel * 4 + 3] = 255"), "GDI dashboard pixels are not made opaque and can render invisibly in SteamVR.");
 }
 
 static void GenericOpenXrAdapter()

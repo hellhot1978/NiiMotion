@@ -94,6 +94,10 @@ public:
         Fill({28,430,485,535}, RGB(18,54,78)); Text(L"↻  CHECK DEVICES", {28,430,485,535}, 23, RGB(239,247,251), true, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         Fill({539,430,996,535}, RGB(83,28,48)); Text(L"■  STOP MOVEMENT", {539,430,996,535}, 23, RGB(255,225,233), true, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         Text(L"Open from the SteamVR dashboard. Movement stops safely if a required sensor disconnects.", {35,555,989,612}, 16, RGB(126,150,164), false, DT_CENTER | DT_VCENTER | DT_WORDBREAK);
+        // GDI writes BGR but leaves the alpha byte at zero. OpenVR honors that
+        // byte, so without normalizing it the dashboard texture is invisible.
+        auto* bgra = static_cast<uint8_t*>(pixels_);
+        for (int pixel = 0; pixel < kWidth * kHeight; ++pixel) bgra[pixel * 4 + 3] = 255;
     }
     const void* Pixels() const { return pixels_; }
 };
