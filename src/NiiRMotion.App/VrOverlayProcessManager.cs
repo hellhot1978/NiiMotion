@@ -1,10 +1,13 @@
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 
 namespace NiiRMotion.App;
 
 internal sealed class VrOverlayProcessManager : IDisposable
 {
+    private const string ShowEventName = @"Local\NiiMotion.VrOverlay.Show";
+    private const uint EventModifyState = 0x0002;
     private Process? _ownedProcess;
     private string OverlayPath => Path.Combine(AppContext.BaseDirectory, "VrOverlay", "NiiMotion.VrOverlay.exe");
 
@@ -28,6 +31,22 @@ internal sealed class VrOverlayProcessManager : IDisposable
         catch { _ownedProcess = null; }
     }
 
+    public bool ShowInHeadset()
+    {
+        EnsureRunning();
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            var handle = OpenEvent(EventModifyState, false, ShowEventName);
+            if (handle != IntPtr.Zero)
+            {
+                try { return SetEvent(handle); }
+                finally { CloseHandle(handle); }
+            }
+            Thread.Sleep(100);
+        }
+        return false;
+    }
+
     public void Stop()
     {
         foreach (var process in Process.GetProcessesByName("NiiMotion.VrOverlay"))
@@ -46,4 +65,9 @@ internal sealed class VrOverlayProcessManager : IDisposable
     }
 
     public void Dispose() => Stop();
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern IntPtr OpenEvent(uint desiredAccess, bool inheritHandle, string name);
+    [DllImport("kernel32.dll", SetLastError = true)] private static extern bool SetEvent(IntPtr handle);
+    [DllImport("kernel32.dll", SetLastError = true)] private static extern bool CloseHandle(IntPtr handle);
 }

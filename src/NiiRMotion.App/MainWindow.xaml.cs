@@ -240,7 +240,14 @@ public partial class MainWindow : Window
     }
 
     private void OverviewNavClick(object sender, RoutedEventArgs e) => ShowPage(OverviewPage, "Genel Bakış", "Sistem durumu ve hızlı başlangıç", OverviewNav);
-    private void VrPanelNavClick(object sender, RoutedEventArgs e) => new VrPanelWindow { Owner = this }.Show();
+    private void VrPanelNavClick(object sender, RoutedEventArgs e)
+    {
+        var shownInHeadset = _vrOverlay.ShowInHeadset();
+        var window = new VrPanelWindow { Owner = this };
+        window.Show();
+        if (!shownInHeadset && Process.GetProcessesByName("vrserver").Length > 0)
+            MessageBox.Show(this, "SteamVR çalışıyor ancak VR paneli henüz hazır değil. Birkaç saniye sonra VR Paneli düğmesine yeniden bas.", "NiiMotion VR Paneli", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
     private void UpdatesNavClick(object sender, RoutedEventArgs e) => new UpdateWindow { Owner = this }.ShowDialog();
     private async void GuideNavClick(object sender, RoutedEventArgs e) => new GettingStartedWindow(_inventory, await new UserSetupStore().LoadCalibrationAsync()) { Owner = this }.ShowDialog();
     private async void AccessibilityNavClick(object sender, RoutedEventArgs e)

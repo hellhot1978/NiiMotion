@@ -16,6 +16,7 @@ constexpr int kHeight = 640;
 constexpr uint32_t kStateMagic = 0x3150564E;
 constexpr wchar_t kStateMap[] = L"NiiMotion.VrPanel.v1";
 constexpr wchar_t kCommandMap[] = L"NiiMotion.VrPanel.Commands.v1";
+constexpr wchar_t kShowEvent[] = L"Local\\NiiMotion.VrOverlay.Show";
 constexpr char kOverlayKey[] = "niirmotion.dashboard";
 
 struct PanelState { std::string profile = "—", game = "—", locomotion = "—", devices = "—", message; float speed = 0; };
@@ -113,6 +114,7 @@ public:
 
 int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     HANDLE mutex = CreateMutexW(nullptr, TRUE, L"Local\\NiiMotion.VrOverlay.Singleton"); if (!mutex || GetLastError() == ERROR_ALREADY_EXISTS) return 0;
+    HANDLE showEvent = CreateEventW(nullptr, FALSE, FALSE, kShowEvent); if (!showEvent) { ReleaseMutex(mutex); CloseHandle(mutex); return 6; }
     vr::EVRInitError error = vr::VRInitError_None; vr::VR_Init(&error, vr::VRApplication_Overlay); if (error != vr::VRInitError_None) { CloseHandle(mutex); return 2; }
     auto* overlays = vr::VROverlay(); if (!overlays) { vr::VR_Shutdown(); CloseHandle(mutex); return 3; }
     vr::VROverlayHandle_t mainHandle = vr::k_ulOverlayHandleInvalid, thumbnailHandle = vr::k_ulOverlayHandleInvalid;
@@ -121,6 +123,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     TextureSurface surface; Canvas canvas; SharedPanel shared; if (!surface.Initialize()) { overlays->DestroyOverlay(mainHandle); overlays->DestroyOverlay(thumbnailHandle); vr::VR_Shutdown(); CloseHandle(mutex); return 5; }
     bool running = true; auto nextFrame = std::chrono::steady_clock::now();
     while (running) {
+        if (WaitForSingleObject(showEvent, 0) == WAIT_OBJECT_0) overlays->ShowDashboard(kOverlayKey);
         const PanelState state = shared.Read(); canvas.Render(state); surface.Upload(canvas.Pixels()); vr::Texture_t texture{surface.Handle(), vr::TextureType_DirectX, vr::ColorSpace_Auto}; overlays->SetOverlayTexture(mainHandle, &texture); overlays->SetOverlayTexture(thumbnailHandle, &texture);
         vr::VREvent_t event{}; while (overlays->PollNextOverlayEvent(mainHandle, &event, sizeof(event))) {
             if (event.eventType == vr::VREvent_Quit) running = false;
@@ -129,5 +132,5 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
         if (!vr::VR_IsRuntimeInstalled()) running = false;
         nextFrame += std::chrono::milliseconds(100); std::this_thread::sleep_until(nextFrame);
     }
-    overlays->ClearOverlayTexture(mainHandle); overlays->ClearOverlayTexture(thumbnailHandle); overlays->DestroyOverlay(mainHandle); overlays->DestroyOverlay(thumbnailHandle); vr::VR_Shutdown(); ReleaseMutex(mutex); CloseHandle(mutex); return 0;
+    overlays->ClearOverlayTexture(mainHandle); overlays->ClearOverlayTexture(thumbnailHandle); overlays->DestroyOverlay(mainHandle); overlays->DestroyOverlay(thumbnailHandle); vr::VR_Shutdown(); CloseHandle(showEvent); ReleaseMutex(mutex); CloseHandle(mutex); return 0;
 }
