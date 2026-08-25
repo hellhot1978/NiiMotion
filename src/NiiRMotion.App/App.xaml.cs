@@ -20,7 +20,9 @@ public partial class App : Application
         if (!firstInstance) { _singleInstanceMutex.Dispose(); _singleInstanceMutex = null; Shutdown(); return; }
         base.OnStartup(e);
         NiiMotionPaths.Initialize();
-        EventManager.RegisterClassHandler(typeof(Window), FrameworkElement.LoadedEvent, new RoutedEventHandler((sender, _) => UiLocalization.Apply((DependencyObject)sender)));
+        // Localize every control as it enters the visual tree. This also covers
+        // cards and dialogs created after the parent window's Loaded event.
+        EventManager.RegisterClassHandler(typeof(FrameworkElement), FrameworkElement.LoadedEvent, new RoutedEventHandler((sender, _) => UiLocalization.ApplyLoaded((DependencyObject)sender)));
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;

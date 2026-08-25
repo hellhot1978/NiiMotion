@@ -1240,8 +1240,8 @@ public partial class MainWindow : Window
     private void PublishVrPanel(string state, IReadOnlyList<DeviceStatus>? devices = null, float speed = 0)
     {
         var game = new SteamGameCatalog().Detect().FirstOrDefault(x => x.Definition.Id == _selectedGameId)?.Definition.Name ?? _selectedGameId;
-        var summary = devices is null ? "Canlı oturum" : $"{devices.Count(x => x.IsConnected)}/{devices.Count} bağlı";
-        try { _vrPanel.Publish(new(1, _profile.Name, game, state, speed, summary, ReadinessMessage?.Text ?? "", DateTimeOffset.UtcNow)); } catch { }
+        var summary = devices is null ? UiLocalization.Text("Canlı oturum") : $"{devices.Count(x => x.IsConnected)}/{devices.Count} {(UiLocalization.IsEnglish ? "connected" : "bağlı")}";
+        try { _vrPanel.Publish(new(1, _profile.Name, game, UiLocalization.Text(state), speed, summary, ReadinessMessage?.Text ?? "", DateTimeOffset.UtcNow)); } catch { }
     }
     private void DemoTick(object? sender, EventArgs e)
     {
