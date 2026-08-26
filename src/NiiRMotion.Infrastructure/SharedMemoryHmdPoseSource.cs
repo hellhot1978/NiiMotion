@@ -19,6 +19,21 @@ public sealed class SharedMemoryHmdPoseSource : IHmdPoseSource
 
     public SharedMemoryHmdPoseSource(string? mappingName = null) => _mappingName = mappingName ?? MappingName;
 
+    public static bool TryGetFreshTracking(out bool tracked, string? mappingName = null)
+    {
+        tracked = false;
+        if (!OperatingSystem.IsWindows()) return false;
+        try
+        {
+            using var map = MemoryMappedFile.OpenExisting(mappingName ?? MappingName, MemoryMappedFileRights.Read);
+            using var view = map.CreateViewAccessor(0, 64, MemoryMappedFileAccess.Read);
+            if (!TryRead(view, out _, out var qpc, out tracked, out _, out _)) return false;
+            var age = Stopwatch.GetTimestamp() - qpc;
+            return age >= 0 && age <= Stopwatch.Frequency;
+        }
+        catch (FileNotFoundException) { return false; }
+    }
+
     public Task StartAsync(CancellationToken cancellationToken = default)
     {
         if (_lifetime is not null) return Task.CompletedTask;

@@ -165,6 +165,7 @@ Ayrıntı: `phase-2-psmove-status.md`.
 - HMD yalnız son doğrulama başarılıysa ve örnek 350 ms'den tazeyse kullanılır. Güçlü cadence/confidence ile gerçek yürüyüş dönüş sırasında korunur; yalnız zayıf ileri kanıtla eşzamanlı belirgin dönüşte sahte ileri çıkış sıfırlanır.
 - HMD hiçbir profili başlatamaz, zorunlu cihaz değildir ve stale/untracked durumda locomotion kararını değiştirmez. Kararlar canlı tanı günlüğüne yazılır.
 - İzole paylaşımlı bellek testi canlı SteamVR açıkken de deterministik hale getirildi; otomatik paket 91/91 geçmektedir. Sonraki kapı oyun içinde kısa dönüş/doğal yürüyüş doğrulamasıdır.
+- Quest bağlantı kartı eski SteamVR günlüklerinden kaynaklanan hayalet bağlı durumuna karşı güçlendirildi. Bir saniyeden taze canlı HMD kanalı varsa `tracked` değeri kesin kaynak kabul edilir; yalnız canlı kanal yoksa OpenVR/günlük yedeğine düşülür. Regresyon paketi 92/92'ye çıkarıldı.
 
 ### Faz 19–21 — Son regresyon, güvenli kişisel reset ve temiz eğitim
 

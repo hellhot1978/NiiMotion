@@ -20,6 +20,8 @@ public sealed class HardwareDiscoveryService : IHardwareDiscoveryService
             || processes.Contains("VirtualDesktopStreamer")
             || processes.Contains("Virtual Desktop Streamer");
         var virtualDesktop = VirtualDesktopSessionPresence.IsStable();
+        var hasLiveHmdState = SharedMemoryHmdPoseSource.TryGetFreshTracking(out var liveHmdTracked);
+        var headsetPresent = hasLiveHmdState ? liveHmdTracked : OpenVrHeadsetPresence.IsPresent();
         IReadOnlyList<JoyConDeviceDescriptor> joyCons;
         try { joyCons = HidDeviceEnumerator.FindJoyCons(); } catch { joyCons = Array.Empty<JoyConDeviceDescriptor>(); }
         var leftJoyCon = joyCons.Any(x => x.Side == JoyConSide.Left);
@@ -40,7 +42,7 @@ public sealed class HardwareDiscoveryService : IHardwareDiscoveryService
         IReadOnlyList<DeviceStatus> statuses =
         [
             steamVr
-                ? FoundOrMissing(DeviceKind.Quest3, "Quest 3", OpenVrHeadsetPresence.IsPresent(),
+                ? FoundOrMissing(DeviceKind.Quest3, "Quest 3", headsetPresent,
                     "OpenVR üzerinden aktif başlık doğrulandı.",
                     "SteamVR çalışıyor ancak aktif başlık bulunamadı.",
                     "Quest 3'ü açın ve Virtual Desktop bağlantısını kurun.")
