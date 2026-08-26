@@ -683,10 +683,13 @@ public partial class MainWindow : Window
         hmdGrid.ColumnDefinitions.Add(new ColumnDefinition());
         hmdGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         hmdGrid.Children.Add(new Image { Source = new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/NiiRMotion.App;component/Assets/device-v3-quest3.png")), Width = 62, Height = 52, Stretch = Stretch.Uniform });
+        var lastHmdValidation = HmdValidationCaptureService.LoadLatest();
         var hmdText = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         hmdText.Children.Add(Label("İSTEĞE BAĞLI · HMD", "#35B8F5", 9, FontWeights.Bold));
         hmdText.Children.Add(Label("Başlık yön ve dönüş doğrulaması", "#F4F7FA", 15, FontWeights.SemiBold, new Thickness(0, 4, 0, 2)));
-        hmdText.Children.Add(Label("Tek seferlik 3 dakikalık kayıt; kişisel yürüyüş modelini değiştirmez.", "#94A1AD", 10, FontWeights.Normal));
+        hmdText.Children.Add(Label(lastHmdValidation is null ? "Tek seferlik 3 dakikalık kayıt; kişisel yürüyüş modelini değiştirmez."
+            : lastHmdValidation.Passed ? $"✓ Son kayıt hazır · {lastHmdValidation.SampleRateHz:0.0} Hz · {lastHmdValidation.TrackedRatio * 100:0}% takip"
+            : "Son kayıt kalite kontrolünden geçmedi; güvenle yeniden alınabilir.", lastHmdValidation?.Passed == true ? "#55DDB8" : "#94A1AD", 10, FontWeights.Normal));
         Grid.SetColumn(hmdText, 1); hmdGrid.Children.Add(hmdText);
         var hmdArrow = Label("BUGÜN DAHA SONRA  →", "#55DDB8", 9, FontWeights.Bold); hmdArrow.VerticalAlignment = VerticalAlignment.Center; hmdArrow.Margin = new Thickness(18, 0, 0, 0); Grid.SetColumn(hmdArrow, 2); hmdGrid.Children.Add(hmdArrow);
         hmdValidation.Content = hmdGrid;
@@ -1032,7 +1035,7 @@ public partial class MainWindow : Window
     private async void PhoneProfileClick(object sender, RoutedEventArgs e) { SelectProfile(MotionProfile.PhoneOnly); await ScanAsync(); }
     private async void BoardOnlyProfileClick(object sender, RoutedEventArgs e) { SelectProfile(MotionProfile.BoardOnly); await ScanAsync(); }
     private void OpenBoardLabClick(object sender, RoutedEventArgs e) => new BoardLabWindow { Owner = this }.ShowDialog();
-    private async void OpenHmdValidationClick(object sender, RoutedEventArgs e) { await _locomotion.StopAsync(); SetStopControl(false); new HmdValidationWindow { Owner = this }.ShowDialog(); }
+    private async void OpenHmdValidationClick(object sender, RoutedEventArgs e) { await _locomotion.StopAsync(); SetStopControl(false); new HmdValidationWindow { Owner = this }.ShowDialog(); await BuildCalibrationCenterAsync(); }
     private async void OpenRecoveryCenterClick(object sender, RoutedEventArgs e)
     {
         await _locomotion.StopAsync(); SetStopControl(false);

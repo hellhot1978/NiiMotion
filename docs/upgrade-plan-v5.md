@@ -150,6 +150,14 @@ Ayrıntı: `phase-2-psmove-status.md`.
 - Canlı locomotion oturumları HMD kaynağını opsiyonel tanı akışı olarak açar. Başlık yoksa veya akış kesilirse core yürüyüş etkilenmez.
 - Fiziksel doğrulama yapılmadan HMD verisi yürüyüş hızını, başlangıcı veya duruşu değiştirmez. Sonraki kapı tek kısa 3–5 dk replayable pose kaydıdır.
 
+**2026-08-26 Faz 16 hazırlığı — SOFTWARE IMPLEMENTED / OWNER RECORDING PENDING**
+
+- Test ve Kalibrasyon Merkezi'ne temel cihaz fazlarından ayrı, isteğe bağlı tek seferlik üç dakikalık HMD yön/dönüş doğrulaması eklendi.
+- Akış duraklatılabilir; ham pose örnekleri ve kalite özeti sürümlü kayıt klasöründe saklanır. İptal edilen veya hata alan yarım kayıtlar otomatik temizlenir.
+- Kalite kapısı örnek hızı, takip oranı ve gerçek sol/sağ yaw aralığını denetler. Açı sarmalanması dönüş aralığını yanlış büyütemez.
+- Son başarılı/başarısız sonuç Kalibrasyon Merkezi'nde görünür. HMD verisi bu doğrulama yapılmadan locomotion kararına bağlanmaz.
+- Otomatik kalite ve regresyon paketi 90/90 geçmiştir. Fiziksel başlık kaydı daha sonra tek oturumda alınacaktır.
+
 ### Faz 19–21 — Son regresyon, güvenli kişisel reset ve temiz eğitim
 
 **NOT IMPLEMENTED**

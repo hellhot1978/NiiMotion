@@ -51,6 +51,11 @@ public static class UiLocalization
         ["Yedekleme ve geri yükleme"]="Backup & Restore", ["ÖĞRENİLMİŞ HAREKET VERİSİ"]="LEARNED MOTION DATA", ["GÜVENLİ SIFIRLA"]="SAFE RESET",
         ["Birlikte çalışma kalibrasyonu"]="Combined operation calibration", ["Aktif profil"]="Active profile", ["3 FAZ · 15 DAKİKA"]="3 PHASES · 15 MINUTES", ["BU KAYIT NE YAPAR?"]="WHAT DOES THIS RECORDING DO?", ["Sensörleri aynı zaman çizgisinde ölçer"]="Measures sensors on the same timeline", ["Faz 1 ile başla."]="Start with Phase 1.",
         ["Profil"]="Profile", ["Oyun"]="Game", ["Durum"]="Status", ["Cihazlar"]="Devices", ["Canlı oturum"]="Live session", ["Kapalı"]="Off", ["Hazırlanıyor"]="Preparing", ["Başlıkta kullanılacak güvenli, büyük kontroller"]="Large, safe controls for monitoring a VR session", ["NiiMotion VR Panel"]="NiiMotion Live Status Panel",
+        ["HMD yön doğrulaması"]="HMD direction validation", ["Başlık yön ve dönüş doğrulaması"]="Headset direction and turn validation", ["İSTEĞE BAĞLI · HMD"]="OPTIONAL · HMD", ["BUGÜN DAHA SONRA  →"]="DO LATER TODAY  →",
+        ["Tek seferlik 3 dakikalık kayıt; kişisel yürüyüş modelini değiştirmez."]="One 3-minute recording; it does not change the personal gait model.", ["Son kayıt kalite kontrolünden geçmedi; güvenle yeniden alınabilir."]="The latest recording did not pass quality checks and can be safely repeated.",
+        ["HMD yön ve dönüş doğrulaması"]="HMD direction and turn validation", ["Tek kayıt · kişisel yürüyüş modelini değiştirmez · oyun hareketi gönderilmez"]="One recording · does not change the personal gait model · sends no game movement",
+        ["Sabit dur ve doğal biçimde etrafa bak"]="Stand still and look around naturally", ["Yerinde doğal yürü"]="Walk naturally in place", ["Sola ve sağa bak"]="Look left and right", ["Vücudunla sola ve sağa dön"]="Turn your body left and right", ["Başla, yürü ve birkaç kez dur"]="Start, walk and stop several times",
+        ["Ⅱ  DURAKLAT"]="Ⅱ  PAUSE", ["▶  DEVAM ET"]="▶  CONTINUE", ["SteamVR HMD akışı başlatılıyor…"]="Starting SteamVR HMD stream…", ["Kayıt ve sayaç duraklatıldı."]="Recording and timer paused.", ["Kayıt devam ediyor."]="Recording resumed.",
         ["SOL"]="LEFT", ["SAĞ"]="RIGHT", ["YAVAŞ"]="SLOW", ["DOĞAL"]="NATURAL", ["HIZLI"]="FAST", ["İVME"]="ACCELERATION", ["HAREKET"]="MOTION"
     };
 
