@@ -72,6 +72,7 @@ public static class UiLocalization
         ["Basınç ve bacak sensörleri"]="Pressure and leg sensors", ["Basınç ve gövde sensörü"]="Pressure and torso sensor", ["Cihaz"]="Device", ["Faz"]="Phase", ["Joy-Con çifti"]="Joy-Con pair", ["Sadece Board · Deneysel"]="Board Only · Experimental"
         ,["Joy-Con + Telefon"]="Joy-Con + Phone", ["Board + Joy-Con"]="Board + Joy-Con", ["NORMAL VR"]="NORMAL VR", ["SADECE JOY-CON"]="JOY-CON ONLY", ["SADECE TELEFON"]="PHONE ONLY", ["BALANCE BOARD"]="BALANCE BOARD", ["BOARD + TELEFON"]="BOARD + PHONE"
         ,["NiiMotion · Başlangıç Rehberi"]="NiiMotion · Getting Started", ["TERCİHLER"]="PREFERENCES", ["GÜNCELLEMELERİ KONTROL ET"]="CHECK FOR UPDATES", ["UYGULAMA GÜNCELLEMESİ"]="APP UPDATE", ["Yeni NiiMotion sürümünü denetle"]="Check for a new NiiMotion version", ["KONTROL ET"]="CHECK", ["ARAYÜZ DİLİ"]="INTERFACE LANGUAGE", ["Uygulamanın görüntüleneceği dili seç"]="Choose the language used by the app"
+        ,["OYUN İÇİ HIZ UYUMU"]="IN-GAME PACE TUNING", ["DAHA HIZLI OLMALI"]="SHOULD BE FASTER", ["HIZ DOĞRU"]="PACE IS RIGHT", ["DAHA YAVAŞ OLMALI"]="SHOULD BE SLOWER", ["SON HIZ AYARINI GERİ AL"]="UNDO LAST PACE CHANGE", ["ÖĞRENİLEN HIZI SIFIRLA"]="RESET LEARNED PACE", ["TÜM AYARLARI SIFIRLA"]="RESET ALL SETTINGS"
     };
 
     public static bool IsEnglish => new UserExperienceStore().Load().Language == "en";

@@ -487,12 +487,12 @@ public partial class MainWindow : Window
         var telemetryCapability = GameTelemetryProviderFactory.Create(game.Definition.Id, game.Definition.SteamAppId).Capability;
         var optimizationCard = new Border { Background = Brush("#0A1B24"), BorderBrush = Brush("#285165"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(7), Padding = new Thickness(13), Margin = new Thickness(0, 4, 0, 8) };
         var optimizationBody = new StackPanel();
-        optimizationBody.Children.Add(Label(telemetryCapability.Title, "#55DDB8", 9, FontWeights.Bold));
-        optimizationBody.Children.Add(Label($"{_profile.Name} · {optimization.Source} · Güven {optimization.Confidence * 100:0}%", "#DCEAF1", 10, FontWeights.SemiBold, new Thickness(0, 3, 0, 2)));
-        optimizationBody.Children.Add(Label(telemetryCapability.Description, "#91A7B4", 9, FontWeights.Normal));
+        optimizationBody.Children.Add(Label("OYUN İÇİ HIZ UYUMU", "#55DDB8", 9, FontWeights.Bold));
+        optimizationBody.Children.Add(Label($"Aktif yürüyüş profili: {_profile.Name}", "#DCEAF1", 10, FontWeights.SemiBold, new Thickness(0, 3, 0, 2)));
+        optimizationBody.Children.Add(Label("Oyundaki hareket mesafesi farklı geliyorsa kısa bir yürüyüşten sonra aşağıdan düzelt.", "#91A7B4", 9, FontWeights.Normal));
         if (telemetryCapability.Mode == GameTelemetryMode.Guided)
         {
-            optimizationBody.Children.Add(Label("Oyunda yaklaşık 10 doğal adım yürü, sonra hissini seç:", "#DCEAF1", 9, FontWeights.SemiBold, new Thickness(0, 9, 0, 5)));
+            optimizationBody.Children.Add(Label("Yaklaşık 10 doğal adım yürü. Oyundaki mesafe nasıl hissettirdi?", "#DCEAF1", 9, FontWeights.SemiBold, new Thickness(0, 9, 0, 5)));
             var feedback = new UniformGrid { Columns = 3 };
             Button FeedbackButton(string text, GamePaceFeedback answer)
             {
@@ -500,25 +500,23 @@ public partial class MainWindow : Window
                 button.Click += (_, _) => { optimizationStore.ApplyFeedback(game.Definition.Id, motionProfileId, answer); window.DialogResult = true; window.Close(); OpenGameTuningWindow(game); };
                 return button;
             }
-            feedback.Children.Add(FeedbackButton("OYUNDA YAVAŞ", GamePaceFeedback.TooSlow));
-            feedback.Children.Add(FeedbackButton("TAM DOĞRU", GamePaceFeedback.Correct));
-            feedback.Children.Add(FeedbackButton("OYUNDA HIZLI", GamePaceFeedback.TooFast));
+            feedback.Children.Add(FeedbackButton("DAHA HIZLI OLMALI", GamePaceFeedback.TooSlow));
+            feedback.Children.Add(FeedbackButton("HIZ DOĞRU", GamePaceFeedback.Correct));
+            feedback.Children.Add(FeedbackButton("DAHA YAVAŞ OLMALI", GamePaceFeedback.TooFast));
             optimizationBody.Children.Add(feedback);
         }
-        var optimizationActions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 9, 0, 0) };
+        var optimizationActions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
         Button OptimizationButton(string text) => new() { Content = text, Foreground = Brush("#F4F7FA"), Background = Brush("#172A37"), BorderBrush = Brush("#315066"), BorderThickness = new Thickness(1), Padding = new Thickness(12, 7, 12, 7), FontWeight = FontWeights.SemiBold };
-        var undoOptimization = OptimizationButton("ÖNCEKİ EŞLEME"); undoOptimization.IsEnabled = optimization.UpdatedAt != DateTimeOffset.MinValue;
+        var undoOptimization = OptimizationButton("SON HIZ AYARINI GERİ AL"); undoOptimization.IsEnabled = optimization.UpdatedAt != DateTimeOffset.MinValue;
         undoOptimization.Visibility = undoOptimization.IsEnabled ? Visibility.Visible : Visibility.Collapsed;
         undoOptimization.Click += (_, _) => { optimizationStore.RestorePrevious(game.Definition.Id, motionProfileId); window.DialogResult = true; window.Close(); OpenGameTuningWindow(game); };
-        var resetOptimization = OptimizationButton("CİHAZ VARSAYILANI"); resetOptimization.Margin = new Thickness(8, 0, 0, 0);
+        var resetOptimization = OptimizationButton("ÖĞRENİLEN HIZI SIFIRLA"); resetOptimization.Margin = new Thickness(8, 0, 0, 0);
         resetOptimization.Click += (_, _) => { optimizationStore.Reset(game.Definition.Id, motionProfileId); window.DialogResult = true; window.Close(); OpenGameTuningWindow(game); };
         optimizationActions.Children.Add(undoOptimization); optimizationActions.Children.Add(resetOptimization); optimizationBody.Children.Add(optimizationActions); optimizationCard.Child = optimizationBody; body.Children.Add(optimizationCard);
-        var version = new Border { Background = Brush("#0D1820"), BorderBrush = Brush("#29404D"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6), Padding = new Thickness(12), Margin = new Thickness(0, 8, 0, 0) };
-        version.Child = Label($"EŞLEME SÜRÜMÜ  ·  {profile.MappingVersion}    YÖN  ·  OYUNUN KENDİ YÖNÜ", "#8FA4B0", 9, FontWeights.SemiBold); body.Children.Add(version);
 
         var footer = new Grid { Margin = new Thickness(0, 18, 0, 0) }; footer.ColumnDefinitions.Add(new ColumnDefinition()); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) }); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) }); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); Grid.SetRow(footer, 1); root.Children.Add(footer);
         Button ActionButton(string text, string background) => new() { Content = text, Foreground = Brush("#F4F7FA"), Background = Brush(background), BorderBrush = Brush("#315066"), BorderThickness = new Thickness(1), Padding = new Thickness(18, 10, 18, 10), FontWeight = FontWeights.SemiBold };
-        var reset = ActionButton("VARSAYILANA DÖN", "#173044"); reset.BorderBrush = Brush("#37627A"); reset.Click += (_, _) => { if (MessageBox.Show(window, "Bu oyunun kişisel hareket ayarları kaldırılıp güvenli varsayılanlara dönülsün mü?", "Varsayılana dön", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes) { store.Reset(game.Definition.Id); optimizationStore.Reset(game.Definition.Id, motionProfileId); window.DialogResult = true; window.Close(); BuildGamesPage(); } }; footer.Children.Add(reset);
+        var reset = ActionButton("TÜM AYARLARI SIFIRLA", "#173044"); reset.BorderBrush = Brush("#37627A"); reset.Click += (_, _) => { if (MessageBox.Show(window, "Bu oyunun kişisel hareket ayarları kaldırılıp güvenli varsayılanlara dönülsün mü?", "Ayarları sıfırla", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes) { store.Reset(game.Definition.Id); optimizationStore.Reset(game.Definition.Id, motionProfileId); window.DialogResult = true; window.Close(); BuildGamesPage(); } }; footer.Children.Add(reset);
         var cancel = ActionButton("VAZGEÇ", "#101923"); cancel.Click += (_, _) => window.Close(); Grid.SetColumn(cancel, 3); footer.Children.Add(cancel);
         var save = ActionButton("AYARLARI KAYDET", "#087DC4"); save.Click += (_, _) => { store.Save(profile with { SpeedMultiplier = speed.Value, MaximumOutput = maximum.Value, Deadzone = deadzone.Value, AccelerationPerSecond = acceleration.Value, DecelerationPerSecond = deceleration.Value }); window.DialogResult = true; window.Close(); BuildGamesPage(); }; Grid.SetColumn(save, 5); footer.Children.Add(save);
         window.Content = root; window.ShowDialog();
@@ -526,7 +524,7 @@ public partial class MainWindow : Window
 
     private static Slider AddTuningSlider(Panel parent, string title, string detail, double minimum, double maximum, double value, double tick, string format)
     {
-        var panel = new StackPanel { Margin = new Thickness(0, 0, 0, 13) }; var heading = new Grid(); heading.ColumnDefinitions.Add(new ColumnDefinition()); heading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var panel = new StackPanel { Margin = new Thickness(0, 0, 0, 9) }; var heading = new Grid(); heading.ColumnDefinitions.Add(new ColumnDefinition()); heading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         heading.Children.Add(Label(title, "#4ABCF4", 9, FontWeights.Bold)); var valueText = Label(FormatTuningValue(value, format), "#55DDB8", 11, FontWeights.Bold); Grid.SetColumn(valueText, 1); heading.Children.Add(valueText); panel.Children.Add(heading);
         panel.Children.Add(Label(detail, "#8FA1AD", 9, FontWeights.Normal, new Thickness(0, 2, 0, 4))); var slider = new Slider { Minimum = minimum, Maximum = maximum, Value = value, TickFrequency = tick, SmallChange = tick, LargeChange = tick, IsSnapToTickEnabled = true, IsMoveToPointEnabled = true, Height = 22 };
         slider.ValueChanged += (_, _) => valueText.Text = FormatTuningValue(slider.Value, format); panel.Children.Add(slider); parent.Children.Add(panel); return slider;
