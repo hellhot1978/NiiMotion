@@ -40,6 +40,14 @@ public partial class App : Application
         _safety = new ApplicationSafetyService(); _previousRun = _safety.Begin();
         _ = new DataMigrationService().Run();
         _ = new WorkspaceMaintenanceService().Run();
+        var gettingStartedScreenshotArg = e.Args.FirstOrDefault(x => x.StartsWith("--getting-started-screenshot=", StringComparison.OrdinalIgnoreCase));
+        if (gettingStartedScreenshotArg is not null)
+        {
+            var guidePath = gettingStartedScreenshotArg[(gettingStartedScreenshotArg.IndexOf('=') + 1)..];
+            var inventory = new NiiRMotion.Core.UserHardwareInventory(1, true, true, true, true, true, DateTimeOffset.UtcNow);
+            var progress = new NiiRMotion.Core.CalibrationProgressDocument(1, Array.Empty<NiiRMotion.Core.DeviceCalibrationProgress>());
+            var guide = new GettingStartedWindow(inventory, progress); MainWindow = guide; guide.Show(); SaveScreenshotAndExit(guide, guidePath); return;
+        }
         var deviceCalibrationScreenshotArg = e.Args.FirstOrDefault(x => x.StartsWith("--device-calibration-screenshot=", StringComparison.OrdinalIgnoreCase));
         if (deviceCalibrationScreenshotArg is not null)
         {

@@ -56,4 +56,21 @@ $compactTurkish = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $Outpu
 $compactEnglish = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $OutputDirectory 'overview-en-compact.png')).Hash
 if ($compactTurkish -eq $compactEnglish) { throw 'Turkish and English UI renders are unexpectedly identical.' }
 
-Write-Host "UI smoke verification passed: $($cases.Count) bilingual viewport cases." -ForegroundColor Green
+foreach ($language in @('tr', 'en')) {
+    $path = Join-Path $OutputDirectory "getting-started-$language.png"
+    [System.IO.File]::Delete($path)
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $app
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.Arguments = "--ui-language=$language --getting-started-screenshot=`"$path`""
+    $process = [System.Diagnostics.Process]::Start($startInfo)
+    $deadline = [DateTime]::UtcNow.AddSeconds(10)
+    while (-not (Test-Path -LiteralPath $path) -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 100 }
+    if (-not (Test-Path -LiteralPath $path) -or (Get-Item -LiteralPath $path).Length -lt 10000) { throw "Getting Started UI render failed: $language" }
+}
+$guideTurkish = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $OutputDirectory 'getting-started-tr.png')).Hash
+$guideEnglish = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $OutputDirectory 'getting-started-en.png')).Hash
+if ($guideTurkish -eq $guideEnglish) { throw 'Getting Started language renders are unexpectedly identical.' }
+
+Write-Host "UI smoke verification passed: $($cases.Count) viewport cases and 2 Getting Started renders." -ForegroundColor Green

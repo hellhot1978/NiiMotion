@@ -335,14 +335,15 @@ public partial class MainWindow : Window
             var button = new Button { Style = (Style)FindResource("ProfileOption"), HorizontalContentAlignment = HorizontalAlignment.Stretch };
             var grid = new Grid(); grid.ColumnDefinitions.Add(new ColumnDefinition()); grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             var text = new StackPanel();
-            text.Children.Add(new TextBlock { Text = recommendation.Profile.Name, FontWeight = FontWeights.SemiBold });
-            text.Children.Add(new TextBlock { Text = recommendation.Summary, Foreground = Brush("#8EA0AD"), FontSize = 9, Margin = new Thickness(0, 2, 0, 0) });
+            text.Children.Add(new TextBlock { Text = DisplayProfileName(recommendation.Profile), FontWeight = FontWeights.SemiBold });
+            text.Children.Add(new TextBlock { Text = UiLocalization.Text(recommendation.Summary), Foreground = Brush("#8EA0AD"), FontSize = 9, Margin = new Thickness(0, 2, 0, 0) });
             grid.Children.Add(text);
             var score = new TextBlock { Text = recommendation.Experimental ? "DENEYSEL" : $"{recommendation.PerformanceScore}/100", Foreground = Brush(recommendation.Experimental ? "#E6B85A" : "#55DDB8"), FontSize = 9, FontWeight = FontWeights.Bold, VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(score, 1); grid.Children.Add(score); button.Content = grid;
             var profile = recommendation.Profile; button.Click += async (_, _) => { SelectProfile(profile); await ScanAsync(); };
             panel.Children.Add(button);
         }
+        UiLocalization.Apply(panel);
     }
     private void ToolsNavClick(object sender, RoutedEventArgs e)
     {
@@ -706,7 +707,7 @@ public partial class MainWindow : Window
             : lastHmdValidation.Passed ? $"✓ Son kayıt hazır · {lastHmdValidation.SampleRateHz:0.0} Hz · {lastHmdValidation.TrackedRatio * 100:0}% takip"
             : "Son kayıt kalite kontrolünden geçmedi; güvenle yeniden alınabilir.", lastHmdValidation?.Passed == true ? "#55DDB8" : "#94A1AD", 10, FontWeights.Normal));
         Grid.SetColumn(hmdText, 1); hmdGrid.Children.Add(hmdText);
-        var hmdArrow = Label("BUGÜN DAHA SONRA  →", "#55DDB8", 9, FontWeights.Bold); hmdArrow.VerticalAlignment = VerticalAlignment.Center; hmdArrow.Margin = new Thickness(18, 0, 0, 0); Grid.SetColumn(hmdArrow, 2); hmdGrid.Children.Add(hmdArrow);
+        var hmdArrow = Label("DOĞRULAMAYI AÇ  →", "#55DDB8", 9, FontWeights.Bold); hmdArrow.VerticalAlignment = VerticalAlignment.Center; hmdArrow.Margin = new Thickness(18, 0, 0, 0); Grid.SetColumn(hmdArrow, 2); hmdGrid.Children.Add(hmdArrow);
         hmdValidation.Content = hmdGrid;
         hmdValidation.Click += OpenHmdValidationClick;
         root.Children.Add(hmdValidation);
@@ -1138,6 +1139,24 @@ public partial class MainWindow : Window
             .Select(kind => byKind.TryGetValue(kind, out var status) ? status : new DeviceStatus(kind, kind.ToString(), DeviceState.Missing, "Tarama sonucu yok.", "Cihazı bağla."))
             .ToArray();
     }
+    private static string DisplayProfileName(MotionProfile profile)
+    {
+        if (profile.Id == "classic-vr") return "Normal VR";
+        var sensors = ProfileSensors(profile).Distinct().ToArray();
+        if (sensors.Length == 0) return UiLocalization.Text(profile.Name);
+        if (sensors.Length == 4) return UiLocalization.IsEnglish ? "All Devices" : "Tüm Cihazlar";
+        var names = sensors.Select(sensor => sensor switch
+        {
+            SensorFamily.JoyCon => "Joy-Con",
+            SensorFamily.PsMove => "PS Move",
+            SensorFamily.Phone => UiLocalization.IsEnglish ? "Phone" : "Telefon",
+            SensorFamily.BalanceBoard => "Balance Board",
+            _ => sensor.ToString()
+        }).ToArray();
+        if (names.Length == 1) return UiLocalization.IsEnglish ? names[0] + " Only" : "Sadece " + names[0];
+        return string.Join(" + ", names);
+    }
+
     private void SelectProfile(MotionProfile profile)
     {
         _profile = profile;
@@ -1157,9 +1176,10 @@ public partial class MainWindow : Window
         selected.Background = Brush("#12283A"); selected.BorderBrush = Brush("#38A8F3"); selected.BorderThickness = new Thickness(2); selected.Opacity = 1;
         selectedBadge.Visibility = Visibility.Visible;
         foreach (var tile in tiles.Where(x => x != selected)) tile.BorderThickness = new Thickness(1);
-        SidebarProfileName.Text = ActiveProfileName.Text = profile.Name;
+        SidebarProfileName.Text = ActiveProfileName.Text = DisplayProfileName(profile);
         ActiveProfileDetail.Text = profile.LocomotionAllowed ? "Yerinde yürüyüş çıkışı" : "Özgün kontrolcü hareketi";
         UpdateProfileInformation(profile);
+        UiLocalization.Apply(this);
     }
 
     private void UpdateProfileInformation(MotionProfile profile)
