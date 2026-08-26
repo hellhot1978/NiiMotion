@@ -25,5 +25,19 @@ recordings/
 /config/game-metadata/
 /config/game-motion-profiles.json
 /config/game-motion-profiles.json.backup-*
+/config/active-motion-profile.txt
+/config/calibration-analysis.json
+/config/calibration-progress.json.*.backup
+/config/data-schema.json
+/config/game-motion-profiles.json.*.backup
+/config/game-sensor-optimization.json
+/config/model-history/
+/config/running-session.json
+/config/user-experience.json
+/config/user-hardware.json.*.backup
+/config/game-launch-session.json
+/config/game-validation-receipt.json
+/native/openvr-driver/dist/resources/input/*.niirmotion.backup
+/native/vr-overlay/dist/*.pdb
 # Local portable build toolchains/SDKs
 .tools/

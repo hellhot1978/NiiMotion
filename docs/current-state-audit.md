@@ -1,4 +1,6 @@
-# NiiMotion V5 Güncel Durum Denetimi
+# NiiMotion V5 Tarihsel Durum Denetimi
+
+> **TARİHSEL BELGE — GÜNCEL DURUM İÇİN KULLANMA.** Bu dosya 21 Ağustos 2026'daki Faz 0 anlık görüntüsüdür. PS Move, oyun sistemi, OpenXR, HMD, bağımsız kalibrasyon ve kurtarma hakkındaki aşağıdaki “NOT IMPLEMENTED” ifadeleri artık geçerli değildir. Güncel agent devri için `docs/OPENCODE_HANDOFF.md`, kabul sonucu için `docs/standalone-acceptance.md`, faz geçmişi için `docs/upgrade-plan-v5.md` okunmalıdır.
 
 Tarih: 2026-08-21  
 Kapsam: V5 Faz 0 — yalnız mevcut sistemi anlama, koruma sınırlarını belirleme ve regresyon tabanı oluşturma.

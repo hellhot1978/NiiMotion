@@ -10,6 +10,8 @@ NiiMotion, yerinde yürüme hareketini Windows üzerinde SteamVR/OpenVR analog h
 - [Cihaz kurulumu](docs/device-setup-tr.md)
 - [Sorun giderme](docs/troubleshooting-tr.md)
 - [Mimari](docs/architecture.md)
+- [OpenCode / AI agent devralma rehberi](docs/OPENCODE_HANDOFF.md)
+- [Bağımsız kullanım kabulü](docs/standalone-acceptance.md)
 - [Üçüncü taraf bileşenleri](THIRD_PARTY_NOTICES.md)
 
 ## Güvenlik ve gizlilik
@@ -26,6 +28,12 @@ NiiMotion, yerinde yürüme hareketini Windows üzerinde SteamVR/OpenVR analog h
 .\.dotnet\dotnet.exe build NiiRMotion.slnx -c Release
 .\.dotnet\dotnet.exe run --project tests\NiiRMotion.Tests\NiiRMotion.Tests.csproj -c Release
 .\scripts\build-installer.ps1
+```
+
+Kod devri ve günlük doğrulama için önerilen tek komut:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\verify-development.ps1
 ```
 
 Depolama bütçesi: proje 15 GB'ı aşmamalı ve C: sürücüsünde en az 10 GB boş alan korunmalıdır.
