@@ -2,6 +2,9 @@
 
 ## 0.7.0-dev
 
+- Added bilingual compact/standard UI smoke rendering and made it part of optional development acceptance.
+- Added standalone/runtime readiness, local model integrity repair, privacy-safe diagnostics, and OpenCode handoff documentation.
+- Expanded the automated regression suite to 102 passing checks.
 - Added crash recovery, safe-zero startup, and versioned configuration migration.
 - Added generic process-scoped OpenXR game adapters and engine-aware discovery.
 - Added guided onboarding, accessibility preferences, Turkish/English UI localization foundations, and a live VR panel viewer with emergency-stop commands.

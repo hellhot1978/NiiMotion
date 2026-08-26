@@ -12,6 +12,7 @@ NiiMotion, yerinde yürüme hareketini Windows üzerinde SteamVR/OpenVR analog h
 - [Mimari](docs/architecture.md)
 - [OpenCode / AI agent devralma rehberi](docs/OPENCODE_HANDOFF.md)
 - [Bağımsız kullanım kabulü](docs/standalone-acceptance.md)
+- [Sürüm adayı kontrol listesi](docs/release-checklist.md)
 - [Üçüncü taraf bileşenleri](THIRD_PARTY_NOTICES.md)
 
 ## Güvenlik ve gizlilik
@@ -35,5 +36,7 @@ Kod devri ve günlük doğrulama için önerilen tek komut:
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\verify-development.ps1
 ```
+
+Arayüz veya çeviri değişikliklerinde aynı komuta `-UiSmoke` eklenerek Türkçe/İngilizce kompakt görünüm doğrulanır. Katkı kuralları için [CONTRIBUTING.md](CONTRIBUTING.md), güvenlik bildirimi için [SECURITY.md](SECURITY.md) dosyasına bakın.
 
 Depolama bütçesi: proje 15 GB'ı aşmamalı ve C: sürücüsünde en az 10 GB boş alan korunmalıdır.
