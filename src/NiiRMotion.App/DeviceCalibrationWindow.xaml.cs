@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
@@ -18,6 +19,7 @@ public partial class DeviceCalibrationWindow : Window
     private bool _recording;
     private bool _scanningConnection;
     private GuidedCalibrationResult? _pendingResult;
+    private IReadOnlyList<DeviceStatus> _lastDevices = [];
     private readonly DispatcherTimer _connectionTimer = new() { Interval = TimeSpan.FromSeconds(3) };
 
     public DeviceCalibrationWindow(SensorFamily sensor)
@@ -45,6 +47,7 @@ public partial class DeviceCalibrationWindow : Window
         SoftwareHelpText.Text = SoftwareHelp();
         SetupHelpText.Text = SetupHelp();
         RePairButton.Visibility = _sensor == SensorFamily.PsMove ? Visibility.Visible : Visibility.Collapsed;
+        ConnectionHelpButton.Visibility = _sensor == SensorFamily.PsMove ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void RePairClick(object sender, RoutedEventArgs e)
@@ -70,7 +73,7 @@ public partial class DeviceCalibrationWindow : Window
         _scanningConnection = true;
         try
         {
-            var devices = await new HardwareDiscoveryService().ScanAsync();
+            var devices = await new HardwareDiscoveryService().ScanAsync(); _lastDevices = devices;
             _connected = RequiredKinds().All(kind => devices.Any(x => x.Kind == kind && x.IsConnected));
             UpdateConnectionVisual();
             RefreshPhaseButtons();
@@ -90,17 +93,21 @@ public partial class DeviceCalibrationWindow : Window
         {
             ConnectionText.Text = _progress.IsReady ? "✓ Bağlı · kalibrasyon tamamlandı" : "✓ Cihaz bağlı";
             ConnectionText.Foreground = MainWindow.Brush("#55DDB8");
+            SetupProgress.Value = 100; SetupProgressText.Text = "3 / 3 · Sensör doğrulandı"; SetupProgress.Foreground = MainWindow.Brush("#55DDB8"); TroubleshootingText.Text = "Hazır · temel kalibrasyona geçebilirsin.";
         }
         else
         {
             ConnectionText.Text = _progress.IsReady ? "Kalibrasyon tamamlandı · cihaz bağlı değil" : "Cihaz bağlı değil";
             ConnectionText.Foreground = MainWindow.Brush("#F1C566");
+            SetupProgress.Value = 34; SetupProgressText.Text = "1 / 3 · Yazılım hazır"; SetupProgress.Foreground = MainWindow.Brush("#20A5ED");
+            var missing = _lastDevices.Where(x => RequiredKinds().Contains(x.Kind) && !x.IsConnected).ToArray();
+            TroubleshootingText.Text = missing.Length == 0 ? ConnectionHelp() : string.Join(" ", missing.Select(x => x.Action).Distinct());
         }
     }
 
     private async void ConnectionClick(object sender, RoutedEventArgs e)
     {
-        ConnectionButton.IsEnabled = false; ConnectionText.Text = "Cihaz aranıyor…";
+        ConnectionButton.IsEnabled = false; ConnectionText.Text = "Cihaz aranıyor…"; SetupProgress.Value = 67; SetupProgressText.Text = "2 / 3 · Bağlantı denetleniyor"; TroubleshootingText.Text = "Canlı sensör akışı bekleniyor…";
         try
         {
             if (_sensor == SensorFamily.PsMove)
@@ -121,7 +128,7 @@ public partial class DeviceCalibrationWindow : Window
             }
             else
             {
-                var devices = await new HardwareDiscoveryService().ScanAsync();
+                var devices = await new HardwareDiscoveryService().ScanAsync(); _lastDevices = devices;
                 _connected = RequiredKinds().All(kind => devices.Any(x => x.Kind == kind && x.IsConnected));
             }
             if (!_connected) throw new InvalidOperationException(ConnectionHelp());
@@ -131,6 +138,18 @@ public partial class DeviceCalibrationWindow : Window
         }
         catch (Exception ex) { _connected = false; ConnectionText.Text = ex.Message; ConnectionText.Foreground = MainWindow.Brush("#FF829D"); }
         finally { ConnectionButton.IsEnabled = true; RefreshPhaseButtons(); }
+    }
+
+    private void ConnectionHelpClick(object sender, RoutedEventArgs e)
+    {
+        if (_sensor is SensorFamily.JoyCon or SensorFamily.BalanceBoard)
+        {
+            try { Process.Start(new ProcessStartInfo("ms-settings:bluetooth") { UseShellExecute = true }); }
+            catch { MessageBox.Show(this, ConnectionHelp(), "Bağlantı yardımı", MessageBoxButton.OK, MessageBoxImage.Information); }
+            return;
+        }
+        if (_sensor == SensorFamily.Phone)
+            MessageBox.Show(this, "1. Android telefonda owoTrack'i aç.\n2. Telefon ve bilgisayarı aynı Wi-Fi ağına bağla.\n3. owoTrack içinde bağlantıyı başlat.\n4. Bu ekrana dönüp Bağlantıyı Kontrol Et'e bas.", "owoTrack bağlantısı", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     private async void PhaseClick(object sender, RoutedEventArgs e)
