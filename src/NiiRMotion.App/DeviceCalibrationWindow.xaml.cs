@@ -42,6 +42,7 @@ public partial class DeviceCalibrationWindow : Window
         };
         TitleText.Text = $"{name} · temel kalibrasyon"; DeviceName.Text = name;
         DeviceImage.Source = new BitmapImage(new Uri($"pack://application:,,,/NiiRMotion.App;component/Assets/{icon}"));
+        SoftwareHelpText.Text = SoftwareHelp();
         SetupHelpText.Text = SetupHelp();
         RePairButton.Visibility = _sensor == SensorFamily.PsMove ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -271,6 +272,14 @@ public partial class DeviceCalibrationWindow : Window
         SensorFamily.PsMove => "1. Sol Move'u tek başına USB ile bağla; NiiMotion eşleştirip kırmızı atar.\n2. Aynı işlemi sağ Move için yap; otomatik mavi atanır.\n3. Kabloları çıkarıp Move düğmelerine bas, sonra küre yukarı bakacak şekilde diz altına/baldıra sabitle.",
         SensorFamily.Phone => "1. Android telefona owoTrack kur ve aç.\n2. Telefon ile bilgisayarı aynı ağa bağla.\n3. Göğüste yatay; ekran sana, üst kenar sola bakacak şekilde sabitle.",
         _ => "1. Windows Bluetooth'tan Nintendo RVL-WBC-01 olarak eşleştir.\n2. Gerekirse karttaki SYNC ve güç düğmesini kullan.\n3. İlk kontrol sırasında kart boş ve düz zeminde olsun."
+    };
+
+    private string SoftwareHelp() => _sensor switch
+    {
+        SensorFamily.JoyCon => "Ek uygulama gerekmez · Windows Bluetooth + NiiMotion Joy-Con HID desteği",
+        SensorFamily.PsMove => "PSMoveAPI eşleştirme aracı · gerektiğinde NiiMotion güvenli biçimde kurar",
+        SensorFamily.Phone => "Android telefonda owoTrack · bilgisayarda ek telefon uygulaması gerekmez",
+        _ => "Ek uygulama gerekmez · Windows Bluetooth + NiiMotion Balance Board desteği"
     };
 
     private string PhaseInstruction(int phase) => (phase, _sensor) switch

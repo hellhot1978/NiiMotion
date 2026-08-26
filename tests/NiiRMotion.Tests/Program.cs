@@ -212,6 +212,7 @@ tests = [("Update download is hash verified before staging", UpdateDownloadVerif
 tests = [Sync("VR panel commands are delivered once", VrPanelCommands), Sync("OpenXR wizard prioritizes common engine executables", OpenXrEngineDiscovery), .. tests];
 tests = [Sync("Static UI text has English localization coverage", StaticUiLocalizationCoverage), .. tests];
 tests = [Sync("Standalone package contains local models and has no AI runtime dependency", StandaloneRuntimeContract), .. tests];
+tests = [Sync("Every motion device declares its software requirement", DeviceSoftwareGuidanceContract), .. tests];
 var failures = new List<string>();
 foreach (var test in tests) { try { await test.Run(); Console.WriteLine($"PASS  {test.Name}"); } catch (Exception ex) { failures.Add($"FAIL  {test.Name}: {ex.Message}"); } }
 foreach (var failure in failures) Console.Error.WriteLine(failure); Console.WriteLine($"{tests.Length - failures.Count}/{tests.Length} tests passed."); return failures.Count == 0 ? 0 : 1;
@@ -255,6 +256,14 @@ static void StandaloneRuntimeContract()
     var runtimeSources = Directory.EnumerateFiles(Path.Combine(root, "src"), "*.cs", SearchOption.AllDirectories).Select(File.ReadAllText);
     var forbidden = new[] { "api.openai.com", "generativelanguage.googleapis.com", "api.anthropic.com", "Azure.AI.OpenAI" };
     Assert(!runtimeSources.Any(source => forbidden.Any(term => source.Contains(term, StringComparison.OrdinalIgnoreCase))), "An external AI service dependency exists in runtime source.");
+}
+
+static void DeviceSoftwareGuidanceContract()
+{
+    var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+    var source = File.ReadAllText(Path.Combine(root, "src", "NiiRMotion.App", "DeviceCalibrationWindow.xaml.cs"));
+    foreach (var requirement in new[] { "NiiMotion Joy-Con HID", "PSMoveAPI", "owoTrack", "NiiMotion Balance Board" })
+        Assert(source.Contains(requirement, StringComparison.Ordinal), $"Device software guidance is missing: {requirement}");
 }
 
 static void ApplicationSafetyMarker()
