@@ -22,6 +22,9 @@
     <Content Include="..\..\native\vr-overlay\niirmotion.vrmanifest" Link="VrOverlay\niirmotion.vrmanifest" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\models\*.json" Link="Models\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\calibration\*.json" Link="Calibration\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\third_party\psmoveapi\4.0.12\psmove.exe" Link="Tools\PSMoveAPI\4.0.12\psmove.exe" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\third_party\psmoveapi\4.0.12\psmoveapi.dll" Link="Tools\PSMoveAPI\4.0.12\psmoveapi.dll" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\third_party\psmoveapi\4.0.12\COPYING" Link="Tools\PSMoveAPI\4.0.12\COPYING" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Assets\niirmotion-icon.png" Link="VrOverlay\dashboard-icon.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

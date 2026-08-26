@@ -213,6 +213,7 @@ tests = [Sync("VR panel commands are delivered once", VrPanelCommands), Sync("Op
 tests = [Sync("Static UI text has English localization coverage", StaticUiLocalizationCoverage), .. tests];
 tests = [Sync("Standalone package contains local models and has no AI runtime dependency", StandaloneRuntimeContract), .. tests];
 tests = [Sync("Every motion device declares its software requirement", DeviceSoftwareGuidanceContract), .. tests];
+tests = [Sync("PS Move pairing has a verified offline bundle", PsMoveOfflineBundleContract), .. tests];
 var failures = new List<string>();
 foreach (var test in tests) { try { await test.Run(); Console.WriteLine($"PASS  {test.Name}"); } catch (Exception ex) { failures.Add($"FAIL  {test.Name}: {ex.Message}"); } }
 foreach (var failure in failures) Console.Error.WriteLine(failure); Console.WriteLine($"{tests.Length - failures.Count}/{tests.Length} tests passed."); return failures.Count == 0 ? 0 : 1;
@@ -264,6 +265,23 @@ static void DeviceSoftwareGuidanceContract()
     var source = File.ReadAllText(Path.Combine(root, "src", "NiiRMotion.App", "DeviceCalibrationWindow.xaml.cs"));
     foreach (var requirement in new[] { "NiiMotion Joy-Con HID", "PSMoveAPI", "owoTrack", "NiiMotion Balance Board" })
         Assert(source.Contains(requirement, StringComparison.Ordinal), $"Device software guidance is missing: {requirement}");
+}
+
+static void PsMoveOfflineBundleContract()
+{
+    var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+    var bundle = Path.Combine(root, "third_party", "psmoveapi", "4.0.12");
+    var expected = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["psmove.exe"] = "FEDE4BBE0675CE9A78FDAF6E5D99985D1ED18674F539DA2F1F4428458390D42D",
+        ["psmoveapi.dll"] = "B0CF9D566D35D7ADF4CDD08829D1BA89B2A8462CF695E3A7456A56D90B2427B7",
+        ["COPYING"] = "1A5007D3E29F1E89DFCB6471BB6EE1353D82DBD7071A5789EA28A64F5A27EB5F"
+    };
+    foreach (var item in expected)
+    {
+        var path = Path.Combine(bundle, item.Key); Assert(File.Exists(path), $"Offline PS Move component is missing: {item.Key}");
+        Assert(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))) == item.Value, $"Offline PS Move component hash mismatch: {item.Key}");
+    }
 }
 
 static void ApplicationSafetyMarker()

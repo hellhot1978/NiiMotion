@@ -16,6 +16,9 @@ public sealed class PsMovePairingService
 {
     internal const string Version = "4.0.12";
     internal const string ArchiveSha256 = "78993822FE76A3F102CA24A66C19C51637E398549081EA6FECC9D6B2C3399236";
+    internal const string ExecutableSha256 = "FEDE4BBE0675CE9A78FDAF6E5D99985D1ED18674F539DA2F1F4428458390D42D";
+    internal const string LibrarySha256 = "B0CF9D566D35D7ADF4CDD08829D1BA89B2A8462CF695E3A7456A56D90B2427B7";
+    internal const string LicenseSha256 = "1A5007D3E29F1E89DFCB6471BB6EE1353D82DBD7071A5789EA28A64F5A27EB5F";
     internal const string ArchiveUrl = "https://github.com/thp/psmoveapi/releases/download/4.0.12/psmoveapi-4.0.12-windows-msvc2017-x64.zip";
     private const string PackageRoot = "psmoveapi-4.0.12-windows-msvc2017-x64/";
 
@@ -71,9 +74,20 @@ public sealed class PsMovePairingService
         var executable = Path.Combine(_toolDirectory, "psmove.exe");
         var library = Path.Combine(_toolDirectory, "psmoveapi.dll");
         var license = Path.Combine(_toolDirectory, "COPYING");
-        if (File.Exists(executable) && File.Exists(library) && File.Exists(license)) return;
+        if (IsVerified(executable, ExecutableSha256) && IsVerified(library, LibrarySha256) && IsVerified(license, LicenseSha256)) return;
 
         Directory.CreateDirectory(_toolDirectory);
+        var bundled = Path.Combine(AppContext.BaseDirectory, "Tools", "PSMoveAPI", Version);
+        var bundledExecutable = Path.Combine(bundled, "psmove.exe");
+        var bundledLibrary = Path.Combine(bundled, "psmoveapi.dll");
+        var bundledLicense = Path.Combine(bundled, "COPYING");
+        if (IsVerified(bundledExecutable, ExecutableSha256) && IsVerified(bundledLibrary, LibrarySha256) && IsVerified(bundledLicense, LicenseSha256))
+        {
+            File.Copy(bundledExecutable, executable, true); File.Copy(bundledLibrary, library, true); File.Copy(bundledLicense, license, true);
+            await NiiMotionEventLog.WriteAsync("psmove", "pair-tool-installed", $"Bundled PSMoveAPI {Version} pairing components installed.", new { source = "offline-bundle" }, cancellationToken);
+            return;
+        }
+
         var archive = Path.Combine(_toolDirectory, $"psmoveapi-{Version}.zip.download");
         try
         {
@@ -93,12 +107,21 @@ public sealed class PsMovePairingService
             Extract(zip, PackageRoot + "bin/psmove.exe", executable);
             Extract(zip, PackageRoot + "lib/psmoveapi.dll", library);
             Extract(zip, PackageRoot + "COPYING", license);
+            if (!IsVerified(executable, ExecutableSha256) || !IsVerified(library, LibrarySha256) || !IsVerified(license, LicenseSha256))
+                throw new InvalidDataException("PS Move eşleştirme bileşenlerinin bütünlüğü doğrulanamadı.");
             await NiiMotionEventLog.WriteAsync("psmove", "pair-tool-installed", $"Official PSMoveAPI {Version} pairing components installed.", new { sha256 = ArchiveSha256 }, cancellationToken);
         }
         finally
         {
             if (File.Exists(archive)) File.Delete(archive);
         }
+    }
+
+    private static bool IsVerified(string path, string expectedSha256)
+    {
+        if (!File.Exists(path)) return false;
+        using var stream = File.OpenRead(path);
+        return Convert.ToHexString(SHA256.HashData(stream)).Equals(expectedSha256, StringComparison.OrdinalIgnoreCase);
     }
 
     private static void Extract(ZipArchive zip, string entryName, string destination)
