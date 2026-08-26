@@ -20,7 +20,7 @@
     <Content Include="..\..\native\vr-overlay\dist\NiiMotion.VrOverlay.exe" Link="VrOverlay\NiiMotion.VrOverlay.exe" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\native\vr-overlay\dist\openvr_api.dll" Link="VrOverlay\openvr_api.dll" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\native\vr-overlay\niirmotion.vrmanifest" Link="VrOverlay\niirmotion.vrmanifest" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="Assets\niirmotion-icon.png" Link="VrOverlay\dashboard-icon.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Assets\niirmotion-icon.png" Link="VrOverlay\dashboard-icon.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <PropertyGroup>
