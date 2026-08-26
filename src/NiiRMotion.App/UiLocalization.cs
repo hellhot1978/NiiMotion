@@ -10,6 +10,7 @@ namespace NiiRMotion.App;
 
 public static class UiLocalization
 {
+    private static string? _languageOverride;
     private sealed class State { public string? OriginalText, OriginalContent, OriginalTitle, LastText, LastContent, LastTitle; public bool TextHooked, ContentHooked, TitleHooked, Updating; }
     private static readonly ConditionalWeakTable<DependencyObject, State> States = new();
     private static readonly IReadOnlyDictionary<string, string> English = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -68,7 +69,7 @@ public static class UiLocalization
         ["Sabit dur ve doğal biçimde etrafa bak"]="Stand still and look around naturally", ["Yerinde doğal yürü"]="Walk naturally in place", ["Sola ve sağa bak"]="Look left and right", ["Vücudunla sola ve sağa dön"]="Turn your body left and right", ["Başla, yürü ve birkaç kez dur"]="Start, walk and stop several times",
         ["Ⅱ  DURAKLAT"]="Ⅱ  PAUSE", ["▶  DEVAM ET"]="▶  CONTINUE", ["SteamVR HMD akışı başlatılıyor…"]="Starting SteamVR HMD stream…", ["Kayıt ve sayaç duraklatıldı."]="Recording and timer paused.", ["Kayıt devam ediyor."]="Recording resumed.",
         ["SOL"]="LEFT", ["SAĞ"]="RIGHT", ["YAVAŞ"]="SLOW", ["DOĞAL"]="NATURAL", ["HIZLI"]="FAST", ["İVME"]="ACCELERATION", ["HAREKET"]="MOTION"
-        ,["NiiMotion oyun girişine müdahale etmez"]="NiiMotion does not interfere with game input", ["KAYDI BAŞLAT"]="START RECORDING", ["KALİBRASYONU UYGULA"]="APPLY CALIBRATION", ["DAHİL"]="INCLUDED", ["BAĞLANTI KONTROLÜ"]="CONNECTION CHECK",
+        ,["NiiMotion oyun girişine müdahale etmez"]="NiiMotion does not interfere with game input", ["NiiMotion hareket üretmez"]="NiiMotion generates no movement", ["Quest ve kontrolcüler özgün VR davranışıyla çalışır; sensör verileri oyun girişine aktarılmaz."]="Quest and controllers keep their native VR behavior; sensor data is not sent to game input.", ["KAYDI BAŞLAT"]="START RECORDING", ["KALİBRASYONU UYGULA"]="APPLY CALIBRATION", ["DAHİL"]="INCLUDED", ["BAĞLANTI KONTROLÜ"]="CONNECTION CHECK",
         ["Basınç ve bacak sensörleri"]="Pressure and leg sensors", ["Basınç ve gövde sensörü"]="Pressure and torso sensor", ["Cihaz"]="Device", ["Faz"]="Phase", ["Joy-Con çifti"]="Joy-Con pair", ["Sadece Board · Deneysel"]="Board Only · Experimental"
         ,["Joy-Con + Telefon"]="Joy-Con + Phone", ["Board + Joy-Con"]="Board + Joy-Con", ["NORMAL VR"]="NORMAL VR", ["SADECE JOY-CON"]="JOY-CON ONLY", ["SADECE TELEFON"]="PHONE ONLY", ["BALANCE BOARD"]="BALANCE BOARD", ["BOARD + TELEFON"]="BOARD + PHONE"
         ,["NiiMotion · Başlangıç Rehberi"]="NiiMotion · Getting Started", ["TERCİHLER"]="PREFERENCES", ["GÜNCELLEMELERİ KONTROL ET"]="CHECK FOR UPDATES", ["UYGULAMA GÜNCELLEMESİ"]="APP UPDATE", ["Yeni NiiMotion sürümünü denetle"]="Check for a new NiiMotion version", ["KONTROL ET"]="CHECK", ["ARAYÜZ DİLİ"]="INTERFACE LANGUAGE", ["Uygulamanın görüntüleneceği dili seç"]="Choose the language used by the app"
@@ -95,7 +96,10 @@ public static class UiLocalization
         ["Geri yükle"]="Restore", ["Öğrenilmiş veriyi sıfırla"]="Reset learned data", ["Sıfırlama tamamlandı"]="Reset complete", ["YENİDEN KONTROL ET"]="CHECK AGAIN", ["İNDİR VE DOĞRULA"]="DOWNLOAD & VERIFY", ["DOSYAYI GÖSTER"]="SHOW FILE"
     };
 
-    public static bool IsEnglish => new UserExperienceStore().Load().Language == "en";
+    public static bool IsEnglish => string.Equals(_languageOverride, "en", StringComparison.OrdinalIgnoreCase)
+        || (_languageOverride is null && new UserExperienceStore().Load().Language == "en");
+    internal static void SetLanguageOverride(string? language) =>
+        _languageOverride = language is "en" or "tr" ? language : null;
     public static string Text(string value) => IsEnglish ? Translate(value) : value;
     public static void Apply(DependencyObject root) => Visit(root);
     public static void ApplyLoaded(DependencyObject value) => VisitSelf(value);

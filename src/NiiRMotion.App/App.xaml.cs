@@ -20,6 +20,17 @@ public partial class App : Application
         if (!firstInstance) { _singleInstanceMutex.Dispose(); _singleInstanceMutex = null; Shutdown(); return; }
         base.OnStartup(e);
         NiiMotionPaths.Initialize();
+        var languageArg = e.Args.FirstOrDefault(x => x.StartsWith("--ui-language=", StringComparison.OrdinalIgnoreCase));
+        var previewLanguage = languageArg?[(languageArg.IndexOf('=') + 1)..].Trim().ToLowerInvariant()
+            ?? Environment.GetEnvironmentVariable("NIIRMOTION_UI_LANGUAGE")?.Trim().ToLowerInvariant();
+        UiLocalization.SetLanguageOverride(previewLanguage);
+        var languageAuditArg = e.Args.FirstOrDefault(x => x.StartsWith("--ui-language-audit=", StringComparison.OrdinalIgnoreCase));
+        if (languageAuditArg is not null)
+        {
+            var auditPath = languageAuditArg[(languageAuditArg.IndexOf('=') + 1)..];
+            Directory.CreateDirectory(Path.GetDirectoryName(auditPath)!);
+            File.WriteAllText(auditPath, $"language={previewLanguage ?? "preference"};english={UiLocalization.IsEnglish};overview={UiLocalization.Text("Genel Bakış")}");
+        }
         // Localize every control as it enters the visual tree. This also covers
         // cards and dialogs created after the parent window's Loaded event.
         EventManager.RegisterClassHandler(typeof(FrameworkElement), FrameworkElement.LoadedEvent, new RoutedEventHandler((sender, _) => UiLocalization.ApplyLoaded((DependencyObject)sender)));
@@ -52,7 +63,9 @@ public partial class App : Application
             SaveScreenshotAndExit(guided, raw.Length > 1 ? raw[1] : Path.Combine(NiiMotionPaths.Logs, "guided-calibration-preview.png")); return;
         }
         var boardLabScreenshotArg = e.Args.FirstOrDefault(x => x.StartsWith("--board-lab-screenshot=", StringComparison.OrdinalIgnoreCase));
-        Window window = boardLabScreenshotArg is null ? new MainWindow() : new BoardLabWindow(); MainWindow = window; window.Show();
+        Window window = boardLabScreenshotArg is null ? new MainWindow() : new BoardLabWindow();
+        ApplyPreviewWindowSize(window, e.Args);
+        MainWindow = window; window.Show();
         if (_previousRun?.WasUnclean == true && boardLabScreenshotArg is null)
             window.Dispatcher.BeginInvoke(() => MessageBox.Show(window, _previousRun.Message, "Güvenli kurtarma", MessageBoxButton.OK, MessageBoxImage.Information), DispatcherPriority.ApplicationIdle);
         if (boardLabScreenshotArg is not null)
@@ -92,10 +105,22 @@ public partial class App : Application
         window.Dispatcher.BeginInvoke(() =>
         {
             window.UpdateLayout();
+            UiLocalization.Apply(window);
+            window.UpdateLayout();
             var width = Math.Max(1, (int)Math.Ceiling(window.ActualWidth)); var height = Math.Max(1, (int)Math.Ceiling(window.ActualHeight));
             var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32); bitmap.Render(window);
             var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap)); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             using var stream = File.Create(path); encoder.Save(stream); window.Close(); Shutdown();
         }, DispatcherPriority.ApplicationIdle);
+    }
+
+    private static void ApplyPreviewWindowSize(Window window, IEnumerable<string> args)
+    {
+        var sizeArg = args.FirstOrDefault(x => x.StartsWith("--window-size=", StringComparison.OrdinalIgnoreCase));
+        if (sizeArg is null) return;
+        var raw = sizeArg[(sizeArg.IndexOf('=') + 1)..].Split('x', 'X');
+        if (raw.Length != 2 || !double.TryParse(raw[0], out var width) || !double.TryParse(raw[1], out var height)) return;
+        window.Width = Math.Max(window.MinWidth, width);
+        window.Height = Math.Max(window.MinHeight, height);
     }
 }

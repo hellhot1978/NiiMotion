@@ -79,8 +79,8 @@ Sonuçlar `hardware-verified`, `replay-tested` ve `software-only` olarak ayrı e
 
 ### P2 — Yayın adayı
 
-- Türkçe ve İngilizce arayüzün son görsel/metin turu.
-- DPI ölçekleri ve küçük ekran taşma matrisi.
+- Ana Genel Bakış ekranı için Türkçe/İngilizce ve 1100×700/1200×760 otomatik görsel duman testi eklendi (`scripts/verify-ui.ps1`, geliştirme doğrulamasında `-UiSmoke`). Diğer diyalogların son görsel/metin turu sürüyor.
+- Ana ekranın kompakt ve standart görünüm matrisi otomatik doğrulanıyor; Windows %125/%150 gerçek DPI ve kalan diyalogların taşma matrisi yayın adayı öncesinde tamamlanmalı.
 - Temiz Windows kullanıcı hesabında kurulum, kaldırma, güncelleme ve sürücü geri dönüş testi.
 - GitHub README, katkı rehberi, lisans ve sürüm notlarının son düzeni.
 - En sonda tek kez kurucu ve checksum üretimi.

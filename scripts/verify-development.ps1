@@ -1,5 +1,6 @@
 param(
-    [switch]$Publish
+    [switch]$Publish,
+    [switch]$UiSmoke
 )
 
 $ErrorActionPreference = 'Stop'
@@ -8,7 +9,7 @@ $localDotnet = Join-Path $projectRoot '.dotnet\dotnet.exe'
 $dotnet = if (Test-Path -LiteralPath $localDotnet) { $localDotnet } else { (Get-Command dotnet -ErrorAction Stop).Source }
 
 $drive = Get-PSDrive -Name C
-if ($drive.Free -lt 10GB) { throw "C: sürücüsünde en az 10 GB boş alan gerekli. Mevcut: $([math]::Round($drive.Free / 1GB, 2)) GB" }
+if ($drive.Free -lt 10GB) { throw "At least 10 GB free space is required on C:. Available: $([math]::Round($drive.Free / 1GB, 2)) GB" }
 
 Push-Location $projectRoot
 try {
@@ -17,6 +18,11 @@ try {
 
     & $dotnet run --project tests\NiiRMotion.Tests\NiiRMotion.Tests.csproj -c Release --no-build
     if ($LASTEXITCODE -ne 0) { throw 'Regression tests failed.' }
+
+    if ($UiSmoke) {
+        & powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'verify-ui.ps1')
+        if ($LASTEXITCODE -ne 0) { throw 'UI smoke verification failed.' }
+    }
 
     if ($Publish) {
         $output = Join-Path $projectRoot 'artifacts\app'
