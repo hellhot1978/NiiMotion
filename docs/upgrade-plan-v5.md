@@ -176,6 +176,13 @@ Ayrıntı: `phase-2-psmove-status.md`.
 - Uygulama, sürücüler, VD/SteamVR, oyunlar ve statik tanımlar korunur.
 - Sahibi temiz gerçek eğitim kayıtlarına başlar.
 
+**2026-08-26 Faz 19 güvenli fallback hazırlığı — IMPLEMENTED / AUTOMATED TESTED**
+
+- Seçili karma profilde zorunlu bir hareket sensörü eksildiğinde NiiMotion artık bağlı cihazlar ve tamamlanmış temel kalibrasyonlar arasından en güçlü güvenli alt profili hesaplıyor.
+- Profil hiçbir zaman sessizce değiştirilmiyor. Genel Bakış ekranında açık bir “kullan” düğmesi gösteriliyor; geçiş yalnız kullanıcı tıklarsa yapılıyor.
+- Seçili profil yeniden hazır olduğunda veya Normal VR kullanıldığında öneri otomatik kaldırılıyor. Eksik cihaz politikası güvenli sıfır olarak kalıyor.
+- Alt profil seçimi; hazır profil, tüm cihazlar hazır ve sessiz otomatik geçiş regresyonlarıyla doğrulandı. Otomatik paket 99/99 test geçiyor.
+
 ## Bir sonraki somut çalışma
 
 Move Only yazılım zinciri tamamlandı. Bir sonraki kapı, iki atanmış Move Bluetooth ile bağlıyken gerçek SteamVR oyun doğrulamasıdır. Bu doğrulama geçmeden Move + Joy-Con saat hizalama ve hibrit profile başlanmaz.

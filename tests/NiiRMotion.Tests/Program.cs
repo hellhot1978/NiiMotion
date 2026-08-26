@@ -216,6 +216,7 @@ tests = [Sync("Standalone package contains local models and has no AI runtime de
 tests = [Sync("Every motion device declares its software requirement", DeviceSoftwareGuidanceContract), .. tests];
 tests = [Sync("PS Move pairing has a verified offline bundle", PsMoveOfflineBundleContract), .. tests];
 tests = [Sync("Game launch compatibility blocks broken adapters locally", GameLaunchCompatibilityContract), .. tests];
+tests = [Sync("Sensor loss offers only an explicit safe fallback profile", SafeProfileFallback), .. tests];
 var failures = new List<string>();
 foreach (var test in tests) { try { await test.Run(); Console.WriteLine($"PASS  {test.Name}"); } catch (Exception ex) { failures.Add($"FAIL  {test.Name}: {ex.Message}"); } }
 foreach (var failure in failures) Console.Error.WriteLine(failure); Console.WriteLine($"{tests.Length - failures.Count}/{tests.Length} tests passed."); return failures.Count == 0 ? 0 : 1;
@@ -264,6 +265,19 @@ static void DynamicUiLocalizationCoverage()
         Assert(localization.Contains(phrase, StringComparison.Ordinal), $"Dynamic English translation rule is missing: {phrase}");
     Assert(localization.Contains("Regex.Replace(result", StringComparison.Ordinal), "Parameterized runtime messages are not localized by templates.");
     Assert(localization.Contains("value.EndsWith(pair.Key", StringComparison.Ordinal), "Icon-decorated runtime status text is not localized.");
+}
+
+static void SafeProfileFallback()
+{
+    var inventory = new UserHardwareInventory(1, true, true, true, false, false, DateTimeOffset.UtcNow);
+    var profiles = MotionProfileCatalog.For(inventory);
+    var selected = profiles.Single(x => x.Profile.Name == "Joy-Con + PS Move + Telefon").Profile;
+    var connected = selected.Required.Select(kind => new DeviceStatus(kind, kind.ToString(), kind is DeviceKind.PsMoveLeft or DeviceKind.PsMoveRight or DeviceKind.Phone ? DeviceState.Missing : DeviceState.Connected, "", "")).ToArray();
+    var fallback = ProfileFallbackAdvisor.Find(selected, profiles, connected);
+    Assert(fallback?.Profile.Name == "Sadece Joy-Con", "The strongest connected safe subset was not offered.");
+    Assert(selected.Name == "Joy-Con + PS Move + Telefon", "Fallback selection changed the active profile silently.");
+    var allReady = selected.Required.Select(kind => new DeviceStatus(kind, kind.ToString(), DeviceState.Connected, "", "")).ToArray();
+    Assert(ProfileFallbackAdvisor.Find(selected, profiles, allReady) is null, "A fallback was offered although the selected profile was ready.");
 }
 
 static void StandaloneRuntimeContract()

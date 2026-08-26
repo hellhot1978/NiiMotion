@@ -31,6 +31,7 @@ public partial class MainWindow : Window
     private OwoTrackSensorSource? _phoneMonitor;
     private SessionReadiness? _readiness;
     private MotionProfile _profile = MotionProfile.AlyxFullFusion;
+    private MotionProfile? _fallbackProfile;
     private UserHardwareInventory _inventory = UserHardwareInventory.Empty;
     private IReadOnlyList<ProfileRecommendation> _profileRecommendations = Array.Empty<ProfileRecommendation>();
     private string _selectedGameId = new GameSelectionStore().Load();
@@ -188,6 +189,25 @@ public partial class MainWindow : Window
         var preflightBlocking = PreflightBlockingDevices(devices);
         PrepareVrButton.IsEnabled = preflightBlocking.Count == 0;
         PrepareVrButton.Content = preflightBlocking.Count == 0 ? "▶  VR'Yİ HAZIRLA VE BAŞLAT" : "EKSİK CİHAZLARI BAĞLA";
+        await RefreshFallbackProfileAsync(devices);
+    }
+    private async Task RefreshFallbackProfileAsync(IReadOnlyCollection<DeviceStatus> devices)
+    {
+        var progress = await new UserSetupStore().LoadCalibrationAsync();
+        var calibrated = _profileRecommendations.Where(candidate => ProfileSensors(candidate.Profile)
+            .All(sensor => progress.Devices.FirstOrDefault(x => x.Sensor == sensor)?.IsReady == true));
+        var suggestion = ProfileFallbackAdvisor.Find(_profile, calibrated, devices);
+        _fallbackProfile = suggestion?.Profile;
+        FallbackProfileButton.Visibility = suggestion is null ? Visibility.Collapsed : Visibility.Visible;
+        if (suggestion is null) return;
+        FallbackProfileButton.Content = $"↘  {suggestion.Profile.Name.ToUpperInvariant()} KULLAN";
+        FallbackProfileButton.ToolTip = suggestion.Reason;
+    }
+    private async void FallbackProfileClick(object sender, RoutedEventArgs e)
+    {
+        if (_fallbackProfile is null) return;
+        SelectProfile(_fallbackProfile);
+        await ScanAsync();
     }
     private async void RescanClick(object sender, RoutedEventArgs e) { await Task.Delay(900); await ScanAsync(); }
     private async void OpenGaitLabClick(object sender, RoutedEventArgs e)
@@ -1120,6 +1140,8 @@ public partial class MainWindow : Window
     {
         _profile = profile;
         if (!IsLoaded) return;
+        _fallbackProfile = null;
+        FallbackProfileButton.Visibility = Visibility.Collapsed;
         new ActiveMotionProfileStore().Save(profile.Id);
         _suppressAutomaticLocomotion = false;
         ProfilePopup.IsOpen = false;
