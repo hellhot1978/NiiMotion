@@ -102,14 +102,13 @@ public sealed class LiveLocomotionService : IAsyncDisposable
         if (!phoneOnly && !boardOnly && (leftDescriptor is null || rightDescriptor is null)) throw new InvalidOperationException("Sol ve sağ Joy-Con bağlı olmalı.");
 
         var threshold = await LoadThresholdAsync(calibrationPath, cancellationToken);
-        var paceModelPath = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "models", "deepgait-pace-v1.json");
-        paceModelPath = Path.GetFullPath(paceModelPath);
+        var paceModelPath = Path.Combine(NiiMotionPaths.Models, "deepgait-pace-v1.json");
         var pacePrior = File.Exists(paceModelPath) ? await GaitPacePrior.LoadAsync(paceModelPath, cancellationToken) : null;
-        var personalPath = @"C:\NiirMotion\config\personal-gait-pace.json";
+        var personalPath = Path.Combine(NiiMotionPaths.Config, "personal-gait-pace.json");
         var personalPace = File.Exists(personalPath) ? await PersonalGaitPace.LoadAsync(personalPath, cancellationToken) : null;
-        var phoneProfilePath = @"C:\NiirMotion\config\personal-phone-motion.json";
+        var phoneProfilePath = Path.Combine(NiiMotionPaths.Config, "personal-phone-motion.json");
         var phoneProfile = File.Exists(phoneProfilePath) ? await PersonalPhoneMotion.LoadAsync(phoneProfilePath, cancellationToken) : null;
-        var boardProfilePath = @"C:\NiirMotion\config\personal-board-motion.json";
+        var boardProfilePath = Path.Combine(NiiMotionPaths.Config, "personal-board-motion.json");
         var boardProfile = File.Exists(boardProfilePath) ? await PersonalBoardMotion.LoadAsync(boardProfilePath, cancellationToken) : null;
         _fusion = new SensorFusionEngine(threshold, pacePrior: pacePrior, personalPace: personalPace, phoneProfile: phoneProfile, boardProfile: boardProfile, allowPhoneOnly: phoneOnly, allowBoardOnly: boardOnly);
         _hmdFusionEnabled = HmdValidationCaptureService.LoadLatest()?.Passed == true;
@@ -154,7 +153,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
             gameProfile = gameProfile with { SpeedMultiplier = gameProfile.SpeedMultiplier * optimization.DistanceScale };
             _vrSession = new VrLocomotionSession(VrOutputSinkFactory.CreateActive(), gameProfile);
             await _vrSession.StartAsync(token);
-            var logFolder = @"C:\NiirMotion\logs\live"; Directory.CreateDirectory(logFolder);
+            var logFolder = NiiMotionPaths.LiveLogs;
             StorageRetention.EnforceDirectoryBudget(logFolder);
             _diagnosticWriter = new StreamWriter(Path.Combine(logFolder, DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".csv"));
             _diagnosticWriter.WriteLine("elapsed_ticks;state;target_speed;turn_target;confidence;cadence_hz;steps;phone_fresh;board_contact;board_cop_x;board_total_kg;board_transfer_velocity;hmd_fresh;hmd_turning;hmd_suppressed");

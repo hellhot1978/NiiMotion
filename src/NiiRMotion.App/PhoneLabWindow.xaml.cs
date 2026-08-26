@@ -24,7 +24,7 @@ public partial class PhoneLabWindow : Window
     private void RecordClick(object sender, RoutedEventArgs e)
     {
         if (_writer is not null) { FinishRecording(false); return; } _label = (LabelSelector.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "natural";
-        var folder = Path.Combine(@"C:\NiirMotion\data\user-phone", DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-" + _label); Directory.CreateDirectory(folder);
+        var folder = Path.Combine(NiiMotionPaths.UserPhoneData, DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-" + _label); Directory.CreateDirectory(folder);
         File.WriteAllText(Path.Combine(folder, "session.json"), JsonSerializer.Serialize(new { label = _label, movement = "walk_in_place", sensor = "phone_only", orientation = PhoneMounting.Id, placement = "chest_center", startedAt = DateTimeOffset.Now, output = "disabled" }, new JsonSerializerOptions { WriteIndented = true }));
         _writer = new StreamWriter(Path.Combine(folder, "phone.jsonl")); _samples = 0; _phase = 0; _phaseStarted = _clock.ElapsedMilliseconds; RecordButton.Content = "■  KAYDI BİTİR"; RecordInfo.Text = $"Kaydediliyor: {_label}"; System.Media.SystemSounds.Beep.Play(); _guide.Start();
     }

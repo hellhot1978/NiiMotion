@@ -13,9 +13,7 @@ public sealed class SystemModeService
         get
         {
             var installed = Path.Combine(AppContext.BaseDirectory, "OpenVRDriver");
-            return File.Exists(Path.Combine(installed, "driver.vrdrivermanifest"))
-                ? installed
-                : @"C:\NiirMotion\native\openvr-driver\dist";
+            return installed;
         }
     }
     private static string VrPathReg => Path.Combine(SteamInstallLocator.FindSteamVr() ?? @"C:\Program Files (x86)\Steam\steamapps\common\SteamVR", "bin", "win64", "vrpathreg.exe");

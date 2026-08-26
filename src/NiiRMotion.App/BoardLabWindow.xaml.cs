@@ -92,7 +92,7 @@ public partial class BoardLabWindow : Window
                     InstructionText.Text = elapsed < 4 ? "DOĞAL YERİNDE YÜRÜ" : elapsed < 6 ? "ŞİMDİ SABİT DUR" : "ŞİMDİ KARTTAN İN";
                 }
             }
-            var folder = @"C:\NiirMotion\data\user-board"; Directory.CreateDirectory(folder);
+            var folder = NiiMotionPaths.UserBoardData;
             var path = Path.Combine(folder, DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-" + label + ".json");
             var payload = fullCalibration
                 ? JsonSerializer.Serialize(new { type = "full-board-calibration-v1", durationSeconds, phases = FullCalibrationPhases, frames }, new JsonSerializerOptions { WriteIndented = false, IncludeFields = true })

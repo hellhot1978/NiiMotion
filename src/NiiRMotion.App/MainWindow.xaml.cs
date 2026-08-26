@@ -828,11 +828,11 @@ public partial class MainWindow : Window
         CalibrationLiveResult.Text = "PS Move renkleri 8 saniye gösteriliyor. Titreşim kapalıdır.";
         try
         {
-            var assignments = await new PsMoveAssignmentStore(@"C:\NiirMotion\config\psmove-assignments.json").LoadAsync();
+            var assignments = await new PsMoveAssignmentStore(NiiMotionPaths.PsMoveAssignments).LoadAsync();
             if (assignments is not { IsComplete: true }) throw new InvalidOperationException("Önce PS Move sol/sağ atamasını tamamla.");
             await new PsMoveDiagnosticsService().ShowAssignmentColorsAsync(assignments, TimeSpan.FromSeconds(8));
             CalibrationPsMoveStatus.Text = "Sensörler ölçülüyor…";
-            var stored = await new PsMoveCalibrationStore(@"C:\NiirMotion\config\psmove-calibrations.json").LoadAsync();
+            var stored = await new PsMoveCalibrationStore(NiiMotionPaths.PsMoveFactoryCalibration).LoadAsync();
             var health = await new PsMoveDiagnosticsService().CaptureCalibratedHealthAsync(stored, TimeSpan.FromSeconds(3));
             if (health.Count != 2) throw new InvalidOperationException("İki kalibre edilmiş PS Move akışı bulunamadı.");
             CalibrationPsMoveStatus.Text = "✓ İki Move bağlı · sensörler sağlıklı";
@@ -914,7 +914,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            var assignments = await new PsMoveAssignmentStore(@"C:\NiirMotion\config\psmove-assignments.json").LoadAsync();
+            var assignments = await new PsMoveAssignmentStore(NiiMotionPaths.PsMoveAssignments).LoadAsync();
             var probes = new PsMoveDiagnosticsService().Discover().Where(x => x.SensorReportsPossible).ToArray();
             var left = assignments is { IsComplete: true } && probes.Any(x => x.Device.StableId == assignments.LeftStableId);
             var right = assignments is { IsComplete: true } && probes.Any(x => x.Device.StableId == assignments.RightStableId);
@@ -935,7 +935,7 @@ public partial class MainWindow : Window
 
     private void RefreshCalibrationProgress()
     {
-        const string progressPath = @"C:\NiirMotion\data\user-gait\joycon-learning\progress-v2.json";
+        var progressPath = Path.Combine(NiiMotionPaths.UserGaitData, "joycon-learning", "progress-v2.json");
         var completed = 0;
         try
         {
@@ -954,8 +954,8 @@ public partial class MainWindow : Window
         try
         {
             var analyzer = new PersonalGaitAnalyzer();
-            var analysis = analyzer.Analyze(@"C:\NiirMotion\data\user-gait");
-            const string profilePath = @"C:\NiirMotion\config\personal-gait-pace.json";
+            var analysis = analyzer.Analyze(NiiMotionPaths.UserGaitData);
+            var profilePath = Path.Combine(NiiMotionPaths.Config, "personal-gait-pace.json");
             PersonalGaitPace? previous = null;
             try { if (File.Exists(profilePath)) previous = await PersonalGaitPace.LoadAsync(profilePath); } catch { }
             await analyzer.ApplyAsync(analysis, profilePath);
@@ -1318,7 +1318,7 @@ public partial class MainWindow : Window
         if (_discovery.IsTestMode) { _demoPhase = 0; _demoSteps = 0; _demoTimer.Start(); SetStopControl(true); SetRunningVisuals("DEMO OUTPUT — GERÇEK VR'A GÖNDERİLMEZ"); ReadinessMessage.Text = "Demo oturumu çalışıyor. Telemetri simülasyondur; gerçek donanım doğrulaması değildir."; return true; }
         try
         {
-            var calibration = Path.Combine(AppContext.BaseDirectory, "calibration", "gait-v1.json");
+            var calibration = Path.Combine(NiiMotionPaths.Calibration, "gait-v1.json");
             if (!File.Exists(calibration)) calibration = Path.Combine(Environment.CurrentDirectory, "calibration", "gait-v1.json");
             if (_systemMode.CurrentMode != SystemMode.NiiMotion) await _systemMode.ApplyAsync(SystemMode.NiiMotion);
             else _systemMode.EnsureGameOverrides(SystemMode.NiiMotion);

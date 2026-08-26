@@ -211,6 +211,7 @@ tests = [Sync("First-use preferences and guidance are deterministic", FirstUsePr
 tests = [("Update download is hash verified before staging", UpdateDownloadVerification), Sync("Release integrity detects tampering", ReleaseIntegrityVerification), .. tests];
 tests = [Sync("VR panel commands are delivered once", VrPanelCommands), Sync("OpenXR wizard prioritizes common engine executables", OpenXrEngineDiscovery), .. tests];
 tests = [Sync("Static UI text has English localization coverage", StaticUiLocalizationCoverage), .. tests];
+tests = [Sync("Standalone package contains local models and has no AI runtime dependency", StandaloneRuntimeContract), .. tests];
 var failures = new List<string>();
 foreach (var test in tests) { try { await test.Run(); Console.WriteLine($"PASS  {test.Name}"); } catch (Exception ex) { failures.Add($"FAIL  {test.Name}: {ex.Message}"); } }
 foreach (var failure in failures) Console.Error.WriteLine(failure); Console.WriteLine($"{tests.Length - failures.Count}/{tests.Length} tests passed."); return failures.Count == 0 ? 0 : 1;
@@ -241,6 +242,19 @@ static void StaticUiLocalizationCoverage()
         }
     }
     Assert(missing.Count == 0, "Missing English UI translations: " + string.Join(" | ", missing.Distinct()));
+}
+
+static void StandaloneRuntimeContract()
+{
+    var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+    var appProject = File.ReadAllText(Path.Combine(root, "src", "NiiRMotion.App", "NiiRMotion.App.csproj"));
+    Assert(appProject.Contains("<SelfContained>true</SelfContained>", StringComparison.Ordinal), "Windows application is not configured as self-contained.");
+    Assert(appProject.Contains("models\\*.json", StringComparison.OrdinalIgnoreCase) && appProject.Contains("calibration\\*.json", StringComparison.OrdinalIgnoreCase), "Local motion models or base calibration are missing from the package contract.");
+    var liveSource = File.ReadAllText(Path.Combine(root, "src", "NiiRMotion.Infrastructure", "LiveLocomotionService.cs"));
+    Assert(liveSource.Contains("NiiMotionPaths.Models", StringComparison.Ordinal) && !liveSource.Contains(@"C:\NiirMotion", StringComparison.OrdinalIgnoreCase), "Live locomotion still depends on the development checkout.");
+    var runtimeSources = Directory.EnumerateFiles(Path.Combine(root, "src"), "*.cs", SearchOption.AllDirectories).Select(File.ReadAllText);
+    var forbidden = new[] { "api.openai.com", "generativelanguage.googleapis.com", "api.anthropic.com", "Azure.AI.OpenAI" };
+    Assert(!runtimeSources.Any(source => forbidden.Any(term => source.Contains(term, StringComparison.OrdinalIgnoreCase))), "An external AI service dependency exists in runtime source.");
 }
 
 static void ApplicationSafetyMarker()

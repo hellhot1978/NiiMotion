@@ -9,6 +9,13 @@ public static class NiiMotionPaths
     public static string Config => Ensure("config");
     public static string Data => Ensure("data");
     public static string Logs => Ensure("logs");
+    public static string Models => ResolveBundled("Models", "models");
+    public static string Calibration => ResolveBundled("Calibration", "calibration");
+    public static string UserGaitData => Ensure(Path.Combine("data", "user-gait"));
+    public static string UserPhoneData => Ensure(Path.Combine("data", "user-phone"));
+    public static string UserBoardData => Ensure(Path.Combine("data", "user-board"));
+    public static string LiveLogs => Ensure(Path.Combine("logs", "live"));
+    public static string GaitLabLogs => Ensure(Path.Combine("logs", "gait-lab"));
     public static string PsMoveData => Ensure(Path.Combine("data", "psmove"));
     public static string PsMoveAssignments => Path.Combine(Config, "psmove-assignments.json");
     public static string PsMoveFactoryCalibration => Path.Combine(Config, "psmove-calibrations.json");
@@ -25,5 +32,11 @@ public static class NiiMotionPaths
     private static string Ensure(string relative)
     {
         var path = Path.Combine(Root, relative); Directory.CreateDirectory(path); return path;
+    }
+
+    private static string ResolveBundled(string installedName, string developmentName)
+    {
+        var installed = Path.Combine(AppContext.BaseDirectory, installedName);
+        return Directory.Exists(installed) ? installed : Path.Combine(DevelopmentRoot, developmentName);
     }
 }

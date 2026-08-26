@@ -47,8 +47,8 @@ public partial class GaitLabWindow : Window
         if (_liveCts is not null) { await StopAsync(); return; }
         var devices = HidDeviceEnumerator.FindJoyCons().GroupBy(x => x.Side).Select(x => x.First()).ToArray();
         if (!devices.Any(x => x.Side == JoyConSide.Left) || !devices.Any(x => x.Side == JoyConSide.Right)) { HintText.Text = "Sol ve sağ Joy-Con bağlı olmalı."; return; }
-        var gaitPace = await PersonalGaitPace.LoadAsync(@"C:\NiirMotion\config\personal-gait-pace.json");
-        var phonePace = await PersonalPhoneMotion.LoadAsync(@"C:\NiirMotion\config\personal-phone-motion.json");
+        var gaitPace = await PersonalGaitPace.LoadAsync(Path.Combine(NiiMotionPaths.Config, "personal-gait-pace.json"));
+        var phonePace = await PersonalPhoneMotion.LoadAsync(Path.Combine(NiiMotionPaths.Config, "personal-phone-motion.json"));
         _previewFusion = new SensorFusionEngine(56, personalPace: gaitPace, phoneProfile: phonePace);
         StartDiagnosticLog();
         _liveCts = new(); _clock.Restart(); _steps = 0; _lastStep = null; _lastStepMs = -1000; _leftHigh = _rightHigh = false; LiveButton.Content = "■  TESTİ DURDUR"; LabState.Text = "CANLI · VR ÇIKIŞI YOK"; HintText.Text = "Hareketlerini animasyonda görebilirsin.";
@@ -136,7 +136,7 @@ public partial class GaitLabWindow : Window
         if (_writer is not null) { StopRecording(); return; }
         var label = (LabelSelector.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "natural";
         _recordLabel = label;
-        var folder = Path.Combine(@"C:\NiirMotion\data\user-gait", DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-" + label); Directory.CreateDirectory(folder);
+        var folder = Path.Combine(NiiMotionPaths.UserGaitData, DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-" + label); Directory.CreateDirectory(folder);
         _recordFolder = folder; _recordSamples = 0;
         _writer = new StreamWriter(Path.Combine(folder, "joycons.jsonl"));
         File.WriteAllText(Path.Combine(folder, "session.json"), JsonSerializer.Serialize(new { label, movement = "walk_in_place", sensors = "joycons_only", startedAt = DateTimeOffset.Now, output = "disabled", joyConPlacement = "outer_thighs" }, new JsonSerializerOptions { WriteIndented = true }));
@@ -245,7 +245,7 @@ public partial class GaitLabWindow : Window
     }
     private void StartDiagnosticLog()
     {
-        var folder = @"C:\NiirMotion\logs\gait-lab"; Directory.CreateDirectory(folder);
+        var folder = NiiMotionPaths.GaitLabLogs;
         foreach (var old in new DirectoryInfo(folder).GetFiles("*.csv").OrderByDescending(x => x.LastWriteTimeUtc).Skip(19)) try { old.Delete(); } catch { }
         _diagnosticWriter = new StreamWriter(Path.Combine(folder, DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".csv"));
         _diagnosticWriter.WriteLine("elapsed_ms,state,target_speed,confidence,cadence_hz,steps");
