@@ -17,6 +17,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
     private PsMoveGaitEngine? _psMoveGait;
     private StreamWriter? _diagnosticWriter;
     private HmdPoseSample _latestHmdPose;
+    private bool _hmdFusionEnabled;
 
     public bool IsRunning => _lifetime is { IsCancellationRequested: false };
     public string ModeDescription { get; private set; } = "OFF";
@@ -34,6 +35,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
         var phoneProfile = File.Exists(Path.Combine(NiiMotionPaths.Config, "personal-phone-motion.json")) ? await PersonalPhoneMotion.LoadAsync(Path.Combine(NiiMotionPaths.Config, "personal-phone-motion.json"), cancellationToken) : null;
         var boardProfile = File.Exists(Path.Combine(NiiMotionPaths.Config, "personal-board-motion.json")) ? await PersonalBoardMotion.LoadAsync(Path.Combine(NiiMotionPaths.Config, "personal-board-motion.json"), cancellationToken) : null;
         _psMoveGait = new(profile);
+        _hmdFusionEnabled = HmdValidationCaptureService.LoadLatest()?.Passed == true;
         _auxFusion = new SensorFusionEngine(phoneProfile: phoneProfile, boardProfile: boardProfile, allowBoardTurn: includeBoard);
         _lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken); var token = _lifetime.Token;
         try
@@ -47,7 +49,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
             _vrSession = new VrLocomotionSession(VrOutputSinkFactory.CreateActive(), gameProfile); await _vrSession.StartAsync(token);
             var logFolder = Path.Combine(NiiMotionPaths.Logs, "live"); Directory.CreateDirectory(logFolder); StorageRetention.EnforceDirectoryBudget(logFolder);
             _diagnosticWriter = new StreamWriter(Path.Combine(logFolder, DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-psmove.csv"));
-            _diagnosticWriter.WriteLine("elapsed_ticks;state;target_speed;confidence;cadence_hz;steps;phone_fresh;board_fresh;board_contact;turn_target");
+            _diagnosticWriter.WriteLine("elapsed_ticks;state;target_speed;confidence;cadence_hz;steps;phone_fresh;board_fresh;board_contact;turn_target;hmd_fresh;hmd_turning;hmd_suppressed");
             var pump = PumpPsMoveAsync(source, token); var output = RunPsMoveOutputLoopAsync(token);
             var workers = new List<Task> { pump, output };
             var critical = new List<Task> { pump, output };
@@ -83,7 +85,8 @@ public sealed class LiveLocomotionService : IAsyncDisposable
             if (auxiliary.BoardFresh && !auxiliary.BoardContact) target = 0;
             if (auxiliary.TurnTarget != 0) target = 0;
             var snapshot = new FusionSnapshot(gait, gait.Confidence, target, auxiliary.PhoneFresh, auxiliary.BoardFresh, auxiliary.BoardContact, auxiliary.BoardTransferVelocity, auxiliary.TurnTarget, auxiliary.BoardCopX, auxiliary.BoardTotalKg);
-            _diagnosticWriter?.WriteLine(string.Join(';', now, gait.State, target.ToString("0.000", CultureInfo.InvariantCulture), gait.Confidence.ToString("0.000", CultureInfo.InvariantCulture), gait.CadenceHz.ToString("0.000", CultureInfo.InvariantCulture), gait.StepCount, auxiliary.PhoneFresh, auxiliary.BoardFresh, auxiliary.BoardContact, auxiliary.TurnTarget.ToString("0.000", CultureInfo.InvariantCulture)));
+            HmdFusionDecision hmdDecision; lock (_fusionLock) hmdDecision = HmdFusionPolicy.Apply(snapshot, _latestHmdPose, now, _hmdFusionEnabled); snapshot = hmdDecision.Snapshot; target = snapshot.TargetSpeed;
+            _diagnosticWriter?.WriteLine(string.Join(';', now, gait.State, target.ToString("0.000", CultureInfo.InvariantCulture), gait.Confidence.ToString("0.000", CultureInfo.InvariantCulture), gait.CadenceHz.ToString("0.000", CultureInfo.InvariantCulture), gait.StepCount, auxiliary.PhoneFresh, auxiliary.BoardFresh, auxiliary.BoardContact, auxiliary.TurnTarget.ToString("0.000", CultureInfo.InvariantCulture), hmdDecision.Fresh, hmdDecision.Turning, hmdDecision.SuppressedFalseForward));
             PublishTelemetry(now, gait, target, auxiliary.TurnTarget);
             var delta = TimeSpan.FromSeconds((now - previous) / (double)Stopwatch.Frequency); previous = now;
             await _vrSession!.UpdateAsync(snapshot, delta, token);
@@ -109,6 +112,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
         var boardProfilePath = @"C:\NiirMotion\config\personal-board-motion.json";
         var boardProfile = File.Exists(boardProfilePath) ? await PersonalBoardMotion.LoadAsync(boardProfilePath, cancellationToken) : null;
         _fusion = new SensorFusionEngine(threshold, pacePrior: pacePrior, personalPace: personalPace, phoneProfile: phoneProfile, boardProfile: boardProfile, allowPhoneOnly: phoneOnly, allowBoardOnly: boardOnly);
+        _hmdFusionEnabled = HmdValidationCaptureService.LoadLatest()?.Passed == true;
         if (includePsMove)
         {
             var onboarding = await new PsMoveOnboardingService().GetStatusAsync(cancellationToken);
@@ -153,7 +157,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
             var logFolder = @"C:\NiirMotion\logs\live"; Directory.CreateDirectory(logFolder);
             StorageRetention.EnforceDirectoryBudget(logFolder);
             _diagnosticWriter = new StreamWriter(Path.Combine(logFolder, DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".csv"));
-            _diagnosticWriter.WriteLine("elapsed_ticks;state;target_speed;turn_target;confidence;cadence_hz;steps;phone_fresh;board_contact;board_cop_x;board_total_kg;board_transfer_velocity");
+            _diagnosticWriter.WriteLine("elapsed_ticks;state;target_speed;turn_target;confidence;cadence_hz;steps;phone_fresh;board_contact;board_cop_x;board_total_kg;board_transfer_velocity;hmd_fresh;hmd_turning;hmd_suppressed");
 
             var outputLoop = RunOutputLoopAsync(token);
             var jobs = new List<Task> { outputLoop };
@@ -238,7 +242,8 @@ public sealed class LiveLocomotionService : IAsyncDisposable
                     snapshot = HybridGaitFusion.Combine(snapshot, move);
                 }
             }
-            _diagnosticWriter?.WriteLine(string.Join(';', now, snapshot.Gait.State, snapshot.TargetSpeed.ToString("0.000", CultureInfo.InvariantCulture), snapshot.TurnTarget.ToString("0.000", CultureInfo.InvariantCulture), snapshot.GlobalConfidence.ToString("0.000", CultureInfo.InvariantCulture), snapshot.Gait.CadenceHz.ToString("0.000", CultureInfo.InvariantCulture), snapshot.Gait.StepCount, snapshot.PhoneFresh, snapshot.BoardContact, snapshot.BoardCopX.ToString("0.000", CultureInfo.InvariantCulture), snapshot.BoardTotalKg.ToString("0.0", CultureInfo.InvariantCulture), snapshot.BoardTransferVelocity.ToString("0.000", CultureInfo.InvariantCulture)));
+            HmdFusionDecision hmdDecision; lock (_fusionLock) hmdDecision = HmdFusionPolicy.Apply(snapshot, _latestHmdPose, now, _hmdFusionEnabled); snapshot = hmdDecision.Snapshot;
+            _diagnosticWriter?.WriteLine(string.Join(';', now, snapshot.Gait.State, snapshot.TargetSpeed.ToString("0.000", CultureInfo.InvariantCulture), snapshot.TurnTarget.ToString("0.000", CultureInfo.InvariantCulture), snapshot.GlobalConfidence.ToString("0.000", CultureInfo.InvariantCulture), snapshot.Gait.CadenceHz.ToString("0.000", CultureInfo.InvariantCulture), snapshot.Gait.StepCount, snapshot.PhoneFresh, snapshot.BoardContact, snapshot.BoardCopX.ToString("0.000", CultureInfo.InvariantCulture), snapshot.BoardTotalKg.ToString("0.0", CultureInfo.InvariantCulture), snapshot.BoardTransferVelocity.ToString("0.000", CultureInfo.InvariantCulture), hmdDecision.Fresh, hmdDecision.Turning, hmdDecision.SuppressedFalseForward));
             PublishTelemetry(now, snapshot.Gait, snapshot.TargetSpeed, snapshot.TurnTarget);
             if (now % Stopwatch.Frequency < Stopwatch.Frequency / 100) _diagnosticWriter?.Flush();
             var delta = TimeSpan.FromSeconds((now - previous) / (double)Stopwatch.Frequency); previous = now;
@@ -261,7 +266,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
         if (_vrSession is not null) { await _vrSession.DisposeAsync(); _vrSession = null; }
         foreach (var source in _sources.AsEnumerable().Reverse()) await source.DisposeAsync();
         _diagnosticWriter?.Flush(); _diagnosticWriter?.Dispose(); _diagnosticWriter = null;
-        _sources.Clear(); _fusion = null; _auxFusion = null; _psMoveGait = null; _latestHmdPose = default; ModeDescription = "OFF";
+        _sources.Clear(); _fusion = null; _auxFusion = null; _psMoveGait = null; _latestHmdPose = default; _hmdFusionEnabled = false; ModeDescription = "OFF";
     }
 
     private static async Task<double> LoadThresholdAsync(string? path, CancellationToken cancellationToken)

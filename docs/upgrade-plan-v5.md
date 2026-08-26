@@ -158,6 +158,14 @@ Ayrıntı: `phase-2-psmove-status.md`.
 - Son başarılı/başarısız sonuç Kalibrasyon Merkezi'nde görünür. HMD verisi bu doğrulama yapılmadan locomotion kararına bağlanmaz.
 - Otomatik kalite ve regresyon paketi 90/90 geçmiştir. Fiziksel başlık kaydı daha sonra tek oturumda alınacaktır.
 
+**2026-08-26 Faz 16–17 — HMD RECORDING HARDWARE VERIFIED / CONSERVATIVE FUSION IMPLEMENTED**
+
+- Quest 3 ile 180 saniyede 1.801 örnek alındı: 10,0 Hz, %100 tracked, 254,8° sarmalanması düzeltilmiş yaw aralığı. Kayıt kalite kapısından geçti ve replay kaynağı olarak saklandı.
+- Kayıttaki doğal yürüyüş yaw-rate P95 değeri yaklaşık 0,61 rad/sn; bilinçli baş/vücut dönüşleri P95 değeri yaklaşık 2,2–2,7 rad/sn ölçüldü. Güvenli ayrım eşiği 1,2 rad/sn seçildi.
+- HMD yalnız son doğrulama başarılıysa ve örnek 350 ms'den tazeyse kullanılır. Güçlü cadence/confidence ile gerçek yürüyüş dönüş sırasında korunur; yalnız zayıf ileri kanıtla eşzamanlı belirgin dönüşte sahte ileri çıkış sıfırlanır.
+- HMD hiçbir profili başlatamaz, zorunlu cihaz değildir ve stale/untracked durumda locomotion kararını değiştirmez. Kararlar canlı tanı günlüğüne yazılır.
+- İzole paylaşımlı bellek testi canlı SteamVR açıkken de deterministik hale getirildi; otomatik paket 91/91 geçmektedir. Sonraki kapı oyun içinde kısa dönüş/doğal yürüyüş doğrulamasıdır.
+
 ### Faz 19–21 — Son regresyon, güvenli kişisel reset ve temiz eğitim
 
 **NOT IMPLEMENTED**

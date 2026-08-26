@@ -10,11 +10,14 @@ public sealed class SharedMemoryHmdPoseSource : IHmdPoseSource
     public const string MappingName = "NiiMotion.HmdPose.v1";
     private const uint Magic = 0x31444D48;
     private readonly BoundedSensorBuffer<HmdPoseSample> _buffer = new(64);
+    private readonly string _mappingName;
     private CancellationTokenSource? _lifetime;
     private Task? _worker;
     public string SourceId => "steamvr-hmd";
     public SensorMode Mode => SensorMode.Live;
     public System.Threading.Channels.ChannelReader<HmdPoseSample> Samples => _buffer.Reader;
+
+    public SharedMemoryHmdPoseSource(string? mappingName = null) => _mappingName = mappingName ?? MappingName;
 
     public Task StartAsync(CancellationToken cancellationToken = default)
     {
@@ -33,7 +36,7 @@ public sealed class SharedMemoryHmdPoseSource : IHmdPoseSource
             {
                 try
                 {
-                    using var map = MemoryMappedFile.OpenExisting(MappingName, MemoryMappedFileRights.Read);
+                    using var map = MemoryMappedFile.OpenExisting(_mappingName, MemoryMappedFileRights.Read);
                     using var view = map.CreateViewAccessor(0, 64, MemoryMappedFileAccess.Read);
                     if (!TryRead(view, out var sequence, out var qpc, out var tracked, out var position, out var orientation) || sequence == previousSequence) continue;
                     var yaw = Yaw(orientation); var dt = previousTicks == 0 ? 0 : (qpc - previousTicks) / (float)Stopwatch.Frequency;
