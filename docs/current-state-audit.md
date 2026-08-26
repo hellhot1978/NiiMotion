@@ -103,7 +103,7 @@ Zelda entegrasyonu varmış gibi kabul edilmeyecek. Sahibi daha sonra gerçek ko
 
 - PS Move keşfi, pairing, HID rapor çözümleme, L/R kimliği, IMU, diagnostics ve profiller: **NOT IMPLEMENTED**.
 - Move + Joy-Con zaman hizalama ve hybrid fusion: **NOT IMPLEMENTED**.
-- HMD pose kayıt/fusion: **NOT IMPLEMENTED**, V5 gereği geç faza erteli.
+- HMD pose kayıt/replay ve SteamVR canlı edinim kaynağı: **SOFTWARE IMPLEMENTED / HARDWARE VALIDATION PENDING**. Canlı veri henüz locomotion kararına katılmaz.
 - Oyunlar sayfası ve GameDefinition/adaptör sistemi: **NOT IMPLEMENTED**.
 - Metro/Skyrim/Zelda adaptörleri: **NOT IMPLEMENTED**.
 - Sürümlü birleşik çoklu-sensör session şeması ve segment bazlı redo/rollback: **PARTIAL**.

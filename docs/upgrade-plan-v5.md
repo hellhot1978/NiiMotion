@@ -143,11 +143,12 @@ Ayrıntı: `phase-2-psmove-status.md`.
 
 ### Faz 15–18 — HMD
 
-**DEFER UNTIL HMD**
+**FAZ 15 SOFTWARE IMPLEMENTED / OWNER HARDWARE VALIDATION PENDING**
 
-- Non-HMD regresyon tamamlanmadan başlanmaz.
-- Gerekirse tek kısa 3–5 dk oturumla replayable pose kaydı alınır.
-- HMD yalnız confidence/direction evidence; yürüyüşü tek başına hard-gate etmez.
+- SteamVR panel süreci başlığın standing-space konum ve quaternion pozunu 10 Hz güvenli paylaşımlı belleğe yayınlar.
+- Yönetilen `SharedMemoryHmdPoseSource`, takip durumu, monoton zaman, konum, yaw ve yaw hızını bounded akış olarak üretir; kayıt/replay sözleşmesiyle uyumludur.
+- Canlı locomotion oturumları HMD kaynağını opsiyonel tanı akışı olarak açar. Başlık yoksa veya akış kesilirse core yürüyüş etkilenmez.
+- Fiziksel doğrulama yapılmadan HMD verisi yürüyüş hızını, başlangıcı veya duruşu değiştirmez. Sonraki kapı tek kısa 3–5 dk replayable pose kaydıdır.
 
 ### Faz 19–21 — Son regresyon, güvenli kişisel reset ve temiz eğitim
 

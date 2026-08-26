@@ -16,6 +16,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
     private SensorFusionEngine? _auxFusion;
     private PsMoveGaitEngine? _psMoveGait;
     private StreamWriter? _diagnosticWriter;
+    private HmdPoseSample _latestHmdPose;
 
     public bool IsRunning => _lifetime is { IsCancellationRequested: false };
     public string ModeDescription { get; private set; } = "OFF";
@@ -58,6 +59,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
             {
                 var board = new BalanceBoardSensorSource(); await board.StartAsync(token); _sources.Add(board); var boardPump = PumpBoardAsync(board, token); workers.Add(boardPump); critical.Add(boardPump);
             }
+            var hmd = new SharedMemoryHmdPoseSource(); await hmd.StartAsync(token); _sources.Add(hmd); workers.Add(PumpHmdAsync(hmd, token));
             workers.Add(MonitorCriticalSensorsAsync(critical, token)); _workers = workers.ToArray();
             ModeDescription = includeBoard && includePhone ? "PS MOVE + TELEFON + BOARD" : includeBoard ? "PS MOVE + BOARD" : includePhone ? "PS MOVE + TELEFON" : "SADECE PS MOVE — KİŞİSEL BALDIR PROFİLİ";
         }
@@ -168,6 +170,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
             }
             if (phone is not null) jobs.Add(PumpPhoneAsync(phone, token));
             if (board is not null) jobs.Add(PumpBoardAsync(board, token));
+            var hmd = new SharedMemoryHmdPoseSource(); await hmd.StartAsync(token); _sources.Add(hmd); jobs.Add(PumpHmdAsync(hmd, token));
             if (criticalSensors.Count > 0) jobs.Add(MonitorCriticalSensorsAsync(criticalSensors, token));
             _workers = jobs.ToArray();
             var sensors = boardOnly ? "SADECE BALANCE BOARD — DENEYSEL" : phoneOnly && board is not null ? "BALANCE BOARD + TELEFON — DENEYSEL" : phoneOnly ? "SADECE TELEFON — DENEYSEL" : includePsMove && board is not null && phone is not null ? "JOY-CON + PS MOVE + TELEFON + BOARD" : includePsMove && board is not null ? "JOY-CON + PS MOVE + BOARD" : includePsMove && phone is not null ? "JOY-CON + PS MOVE + TELEFON" : includePsMove ? "JOY-CON + PS MOVE" : board is not null && phone is null ? "BALANCE BOARD + JOY-CON" : board is not null ? "JOY-CON + TELEFON + BOARD" : phone is null ? "SADECE JOY-CON" : "JOY-CON + TELEFON";
@@ -214,6 +217,11 @@ public sealed class LiveLocomotionService : IAsyncDisposable
             lock (_fusionLock) (_fusion ?? _auxFusion)!.ObserveBoard(sample);
     }
 
+    private async Task PumpHmdAsync(SharedMemoryHmdPoseSource source, CancellationToken token)
+    {
+        await foreach (var sample in source.Samples.ReadAllAsync(token)) lock (_fusionLock) _latestHmdPose = sample;
+    }
+
     private async Task RunOutputLoopAsync(CancellationToken token)
     {
         var previous = Stopwatch.GetTimestamp();
@@ -253,7 +261,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
         if (_vrSession is not null) { await _vrSession.DisposeAsync(); _vrSession = null; }
         foreach (var source in _sources.AsEnumerable().Reverse()) await source.DisposeAsync();
         _diagnosticWriter?.Flush(); _diagnosticWriter?.Dispose(); _diagnosticWriter = null;
-        _sources.Clear(); _fusion = null; _auxFusion = null; _psMoveGait = null; ModeDescription = "OFF";
+        _sources.Clear(); _fusion = null; _auxFusion = null; _psMoveGait = null; _latestHmdPose = default; ModeDescription = "OFF";
     }
 
     private static async Task<double> LoadThresholdAsync(string? path, CancellationToken cancellationToken)

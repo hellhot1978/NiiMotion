@@ -18,10 +18,30 @@ constexpr int kHeight = 640;
 constexpr uint32_t kStateMagic = 0x3150564E;
 constexpr wchar_t kStateMap[] = L"NiiMotion.VrPanel.v1";
 constexpr wchar_t kCommandMap[] = L"NiiMotion.VrPanel.Commands.v1";
+constexpr wchar_t kHmdPoseMap[] = L"Local\\NiiMotion.HmdPose.v1";
+constexpr uint32_t kHmdPoseMagic = 0x31444D48;
 constexpr wchar_t kShowEvent[] = L"Local\\NiiMotion.VrOverlay.Show";
 constexpr char kOverlayKey[] = "niirmotion.dashboard";
 
 struct PanelState { std::string profile = "—", game = "—", locomotion = "—", devices = "—", message; float speed = 0; };
+#pragma pack(push, 1)
+struct SharedHmdPose { uint32_t magic = kHmdPoseMagic; uint32_t version = 1; int64_t sequence = 0; int64_t qpcTicks = 0; uint32_t tracked = 0; float position[3]{}; float orientation[4]{0,0,0,1}; };
+#pragma pack(pop)
+
+class HmdPosePublisher {
+    HANDLE mapping_ = nullptr; SharedHmdPose* pose_ = nullptr; int64_t sequence_ = 0;
+    static void Quaternion(const vr::HmdMatrix34_t& m, float* q) {
+        const float trace = m.m[0][0] + m.m[1][1] + m.m[2][2];
+        if (trace > 0) { const float s = std::sqrt(trace + 1.0f) * 2; q[3] = .25f*s; q[0]=(m.m[2][1]-m.m[1][2])/s; q[1]=(m.m[0][2]-m.m[2][0])/s; q[2]=(m.m[1][0]-m.m[0][1])/s; }
+        else if (m.m[0][0] > m.m[1][1] && m.m[0][0] > m.m[2][2]) { const float s=std::sqrt(1+m.m[0][0]-m.m[1][1]-m.m[2][2])*2; q[3]=(m.m[2][1]-m.m[1][2])/s; q[0]=.25f*s; q[1]=(m.m[0][1]+m.m[1][0])/s; q[2]=(m.m[0][2]+m.m[2][0])/s; }
+        else if (m.m[1][1] > m.m[2][2]) { const float s=std::sqrt(1+m.m[1][1]-m.m[0][0]-m.m[2][2])*2; q[3]=(m.m[0][2]-m.m[2][0])/s; q[0]=(m.m[0][1]+m.m[1][0])/s; q[1]=.25f*s; q[2]=(m.m[1][2]+m.m[2][1])/s; }
+        else { const float s=std::sqrt(1+m.m[2][2]-m.m[0][0]-m.m[1][1])*2; q[3]=(m.m[1][0]-m.m[0][1])/s; q[0]=(m.m[0][2]+m.m[2][0])/s; q[1]=(m.m[1][2]+m.m[2][1])/s; q[2]=.25f*s; }
+    }
+public:
+    HmdPosePublisher() { mapping_ = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, sizeof(SharedHmdPose), kHmdPoseMap); if (mapping_) pose_ = static_cast<SharedHmdPose*>(MapViewOfFile(mapping_, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(SharedHmdPose))); }
+    ~HmdPosePublisher() { if (pose_) { pose_->tracked = 0; FlushViewOfFile(pose_, sizeof(SharedHmdPose)); UnmapViewOfFile(pose_); } if (mapping_) CloseHandle(mapping_); }
+    void Publish(vr::IVRSystem* system) { if (!pose_ || !system) return; vr::TrackedDevicePose_t poses[vr::k_unMaxTrackedDeviceCount]{}; system->GetDeviceToAbsoluteTrackingPose(vr::TrackingUniverseStanding, 0, poses, vr::k_unMaxTrackedDeviceCount); const auto& hmd=poses[vr::k_unTrackedDeviceIndex_Hmd]; SharedHmdPose next{}; next.sequence=++sequence_; LARGE_INTEGER tick{}; QueryPerformanceCounter(&tick); next.qpcTicks=tick.QuadPart; next.tracked=hmd.bPoseIsValid && hmd.bDeviceIsConnected; if (next.tracked) { const auto& m=hmd.mDeviceToAbsoluteTracking; next.position[0]=m.m[0][3]; next.position[1]=m.m[1][3]; next.position[2]=m.m[2][3]; Quaternion(m,next.orientation); } *pose_=next; FlushViewOfFile(pose_, sizeof(SharedHmdPose)); }
+};
 
 std::wstring Wide(const std::string& value) {
     if (value.empty()) return {};
@@ -166,11 +186,12 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     vr::VROverlayHandle_t mainHandle = vr::k_ulOverlayHandleInvalid, thumbnailHandle = vr::k_ulOverlayHandleInvalid;
     if (overlays->CreateDashboardOverlay(kOverlayKey, "NiiMotion", &mainHandle, &thumbnailHandle) != vr::VROverlayError_None) { vr::VR_Shutdown(); CloseHandle(mutex); return 4; }
     overlays->SetOverlayInputMethod(mainHandle, vr::VROverlayInputMethod_Mouse); vr::HmdVector2_t mouseScale{{static_cast<float>(kWidth), static_cast<float>(kHeight)}}; overlays->SetOverlayMouseScale(mainHandle, &mouseScale); overlays->SetOverlayWidthInMeters(mainHandle, 2.4f);
-    TextureSurface surface, thumbnailSurface; Canvas canvas, thumbnailCanvas; SharedPanel shared; if (!surface.Initialize() || !thumbnailSurface.Initialize()) { overlays->DestroyOverlay(mainHandle); overlays->DestroyOverlay(thumbnailHandle); vr::VR_Shutdown(); CloseHandle(showEvent); CloseHandle(mutex); return 5; }
+    TextureSurface surface, thumbnailSurface; Canvas canvas, thumbnailCanvas; SharedPanel shared; HmdPosePublisher hmdPose; if (!surface.Initialize() || !thumbnailSurface.Initialize()) { overlays->DestroyOverlay(mainHandle); overlays->DestroyOverlay(thumbnailHandle); vr::VR_Shutdown(); CloseHandle(showEvent); CloseHandle(mutex); return 5; }
     const auto iconPath = Utf8(SiblingPath(L"dashboard-icon.png"));
     if (overlays->SetOverlayFromFile(thumbnailHandle, iconPath.c_str()) != vr::VROverlayError_None) { thumbnailCanvas.RenderIcon(); thumbnailSurface.Upload(thumbnailCanvas.Pixels()); vr::Texture_t thumbnailTexture{thumbnailSurface.Handle(), vr::TextureType_DirectX, vr::ColorSpace_Auto}; overlays->SetOverlayTexture(thumbnailHandle, &thumbnailTexture); }
     bool running = true; auto nextFrame = std::chrono::steady_clock::now();
     while (running) {
+        hmdPose.Publish(vr::VRSystem());
         if (WaitForSingleObject(showEvent, 0) == WAIT_OBJECT_0) overlays->ShowDashboard(kOverlayKey);
         const PanelState state = shared.Read(); const bool active = state.locomotion != "Kapalı" && state.locomotion != "Off" && state.locomotion != "OFF"; canvas.Render(state); surface.Upload(canvas.Pixels()); vr::Texture_t texture{surface.Handle(), vr::TextureType_DirectX, vr::ColorSpace_Auto}; overlays->SetOverlayTexture(mainHandle, &texture);
         vr::VREvent_t event{}; while (overlays->PollNextOverlayEvent(mainHandle, &event, sizeof(event))) {
