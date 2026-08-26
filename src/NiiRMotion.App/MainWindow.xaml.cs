@@ -671,6 +671,28 @@ public partial class MainWindow : Window
         foreach (var sensor in selected) devicePanel.Children.Add(CreateCalibrationCard(sensor, progress.Devices.FirstOrDefault(x => x.Sensor == sensor)));
         root.Children.Add(devicePanel);
 
+        var hmdValidation = new Button
+        {
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Padding = new Thickness(16, 12, 16, 12),
+            Margin = new Thickness(0, 0, 0, 8),
+            ToolTip = "SteamVR başlık yönü ve dönüş örneklerini oyun hareketi üretmeden doğrular"
+        };
+        var hmdGrid = new Grid();
+        hmdGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(74) });
+        hmdGrid.ColumnDefinitions.Add(new ColumnDefinition());
+        hmdGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        hmdGrid.Children.Add(new Image { Source = new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/NiiRMotion.App;component/Assets/device-v3-quest3.png")), Width = 62, Height = 52, Stretch = Stretch.Uniform });
+        var hmdText = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        hmdText.Children.Add(Label("İSTEĞE BAĞLI · HMD", "#35B8F5", 9, FontWeights.Bold));
+        hmdText.Children.Add(Label("Başlık yön ve dönüş doğrulaması", "#F4F7FA", 15, FontWeights.SemiBold, new Thickness(0, 4, 0, 2)));
+        hmdText.Children.Add(Label("Tek seferlik 3 dakikalık kayıt; kişisel yürüyüş modelini değiştirmez.", "#94A1AD", 10, FontWeights.Normal));
+        Grid.SetColumn(hmdText, 1); hmdGrid.Children.Add(hmdText);
+        var hmdArrow = Label("BUGÜN DAHA SONRA  →", "#55DDB8", 9, FontWeights.Bold); hmdArrow.VerticalAlignment = VerticalAlignment.Center; hmdArrow.Margin = new Thickness(18, 0, 0, 0); Grid.SetColumn(hmdArrow, 2); hmdGrid.Children.Add(hmdArrow);
+        hmdValidation.Content = hmdGrid;
+        hmdValidation.Click += OpenHmdValidationClick;
+        root.Children.Add(hmdValidation);
+
         var advanced = new Border { Background = Brush("#09121A"), BorderBrush = Brush("#1F303C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(16, 14, 16, 14), Margin = new Thickness(0, 6, 0, 0) };
         var advancedGrid = new Grid(); advancedGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(245) }); advancedGrid.ColumnDefinitions.Add(new ColumnDefinition());
         var advancedText = new StackPanel(); advancedText.Children.Add(Label("İSTEĞE BAĞLI · EK KAYIT", "#8AA0AF", 9, FontWeights.Bold)); advancedText.Children.Add(Label("Modeli yeni kayıtlarla geliştir", "#F4F7FA", 17, FontWeights.SemiBold, new Thickness(0, 6, 0, 4)));
@@ -1010,6 +1032,7 @@ public partial class MainWindow : Window
     private async void PhoneProfileClick(object sender, RoutedEventArgs e) { SelectProfile(MotionProfile.PhoneOnly); await ScanAsync(); }
     private async void BoardOnlyProfileClick(object sender, RoutedEventArgs e) { SelectProfile(MotionProfile.BoardOnly); await ScanAsync(); }
     private void OpenBoardLabClick(object sender, RoutedEventArgs e) => new BoardLabWindow { Owner = this }.ShowDialog();
+    private async void OpenHmdValidationClick(object sender, RoutedEventArgs e) { await _locomotion.StopAsync(); SetStopControl(false); new HmdValidationWindow { Owner = this }.ShowDialog(); }
     private async void OpenRecoveryCenterClick(object sender, RoutedEventArgs e)
     {
         await _locomotion.StopAsync(); SetStopControl(false);
