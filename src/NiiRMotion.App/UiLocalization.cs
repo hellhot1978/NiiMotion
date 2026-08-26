@@ -82,6 +82,39 @@ public static class UiLocalization
     public static void Apply(DependencyObject root) => Visit(root);
     public static void ApplyLoaded(DependencyObject value) => VisitSelf(value);
 
+    private static readonly (string Turkish, string English)[] DynamicFragments =
+    [
+        ("Quest ve Virtual Desktop oturumu bekleniyor", "Waiting for the Quest and Virtual Desktop session"),
+        ("SteamVR ve NiiMotion hareket köprüsü doğrulanıyor", "Validating SteamVR and the NiiMotion motion bridge"),
+        ("Gerekli sensörler canlı olarak kontrol ediliyor", "Checking the required sensors live"),
+        ("Virtual Desktop bağlantısının kararlılığı doğrulanıyor", "Validating Virtual Desktop connection stability"),
+        ("Virtual Desktop bağlantısı kontrol ediliyor", "Checking the Virtual Desktop connection"),
+        ("Virtual Desktop bağlı. SteamVR doğru sırayla başlatılıyor", "Virtual Desktop is connected. Starting SteamVR in the correct order"),
+        ("SteamVR Virtual Desktop üzerinden başlatılıyor", "Starting SteamVR through Virtual Desktop"),
+        ("NiiMotion sürücüsü ve oyun eşlemesi uygulanıyor", "Applying the NiiMotion driver and game mapping"),
+        ("Kişisel hareket modeli başlatılıyor", "Starting the personal motion model"),
+        ("Kişisel kalibrasyon doğrulanıyor", "Validating personal calibration"),
+        ("Profil doğrulanıyor", "Validating profile"),
+        ("Canlı sensör akışı bekleniyor", "Waiting for the live sensor stream"),
+        ("Bağlantı kontrol ediliyor", "Checking the connection"),
+        ("Bağlantı hazır", "Connection ready"),
+        ("Faz iptal edildi; tamamlanmamış veri kullanılmadı", "Phase cancelled; incomplete data was not used"),
+        ("Faz tamamlanmadı", "Phase did not complete"),
+        ("Bölüm yenilenemedi", "The segment could not be recorded again"),
+        ("Kayıt tamamlanmadı", "Recording did not complete"),
+        ("Kayıt geri alınamadı", "The recording could not be reverted"),
+        ("Başlatma durduruldu", "Launch stopped"),
+        ("Oyun açılmadı", "The game was not launched"),
+        ("Locomotion başlatılamadı", "Locomotion could not be started"),
+        ("Önce bağlantıyı doğrula", "Verify the connection first"),
+        ("Fazları sırayla tamamla", "Complete the phases in order"),
+        ("örnek analiz edildi", "samples analyzed"),
+        ("eşzamanlı örnek", "synchronized samples"),
+        ("sensör örneği alındı", "sensor samples captured"),
+        ("örnek kaydedildi", "samples recorded"),
+        ("adım · demo", "steps · demo")
+    ];
+
     private static void Visit(DependencyObject value)
     {
         VisitSelf(value);
@@ -144,7 +177,17 @@ public static class UiLocalization
         if (string.IsNullOrWhiteSpace(value) || value.StartsWith("{Binding", StringComparison.Ordinal)) return value;
         if (English.TryGetValue(value, out var translated)) return translated;
         var phase = Regex.Match(value, @"^FAZ (\d+)(.*)$", RegexOptions.CultureInvariant);
-        return phase.Success ? "PHASE " + phase.Groups[1].Value + phase.Groups[2].Value.Replace(" TAMAMLANDI", " COMPLETE").Replace("'Ü BAŞLAT · 5 DK", " · START · 5 MIN").Replace(" · 5 DK", " · 5 MIN") : value;
+        if (phase.Success) return "PHASE " + phase.Groups[1].Value + phase.Groups[2].Value.Replace(" TAMAMLANDI", " COMPLETE").Replace("'Ü BAŞLAT · 5 DK", " · START · 5 MIN").Replace(" · 5 DK", " · 5 MIN");
+
+        var result = value;
+        foreach (var fragment in DynamicFragments)
+            result = result.Replace(fragment.Turkish, fragment.English, StringComparison.OrdinalIgnoreCase);
+
+        result = Regex.Replace(result, @"\bFaz (\d+)\b", "Phase $1", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        result = Regex.Replace(result, @"\b(\d+(?:[.,]\d+)?) saniye(?:lik)?\b", "$1 seconds", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        result = Regex.Replace(result, @"\b(\d+(?:[.,]\d+)?) sn\b", "$1 sec", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        result = Regex.Replace(result, @"\b(\d+) adım\b", "$1 steps", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        return result;
     }
 
     private static string TranslateDecorated(string value)

@@ -211,6 +211,7 @@ tests = [Sync("First-use preferences and guidance are deterministic", FirstUsePr
 tests = [("Update download is hash verified before staging", UpdateDownloadVerification), Sync("Release integrity detects tampering", ReleaseIntegrityVerification), .. tests];
 tests = [Sync("VR panel commands are delivered once", VrPanelCommands), Sync("OpenXR wizard prioritizes common engine executables", OpenXrEngineDiscovery), .. tests];
 tests = [Sync("Static UI text has English localization coverage", StaticUiLocalizationCoverage), .. tests];
+tests = [Sync("Dynamic UI status messages have English localization coverage", DynamicUiLocalizationCoverage), .. tests];
 tests = [Sync("Standalone package contains local models and has no AI runtime dependency", StandaloneRuntimeContract), .. tests];
 tests = [Sync("Every motion device declares its software requirement", DeviceSoftwareGuidanceContract), .. tests];
 tests = [Sync("PS Move pairing has a verified offline bundle", PsMoveOfflineBundleContract), .. tests];
@@ -245,6 +246,21 @@ static void StaticUiLocalizationCoverage()
         }
     }
     Assert(missing.Count == 0, "Missing English UI translations: " + string.Join(" | ", missing.Distinct()));
+}
+
+static void DynamicUiLocalizationCoverage()
+{
+    var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+    var localization = File.ReadAllText(Path.Combine(root, "src", "NiiRMotion.App", "UiLocalization.cs"));
+    var required = new[]
+    {
+        "Quest ve Virtual Desktop oturumu bekleniyor", "SteamVR ve NiiMotion hareket köprüsü doğrulanıyor",
+        "Kişisel hareket modeli başlatılıyor", "Faz tamamlanmadı", "Kayıt tamamlanmadı",
+        "Başlatma durduruldu", "Locomotion başlatılamadı", "sensör örneği alındı"
+    };
+    foreach (var phrase in required)
+        Assert(localization.Contains(phrase, StringComparison.Ordinal), $"Dynamic English translation rule is missing: {phrase}");
+    Assert(localization.Contains("Regex.Replace(result", StringComparison.Ordinal), "Parameterized runtime messages are not localized by templates.");
 }
 
 static void StandaloneRuntimeContract()
