@@ -31,7 +31,8 @@ public sealed class GettingStartedWindow : Window
         var language = new ComboBox { ItemsSource = new[] { "Türkçe", "English" }, SelectedIndex = prefs.Language == "en" ? 1 : 0, Height = 36, ToolTip = "Arayüz dili", VerticalContentAlignment = VerticalAlignment.Center }; Grid.SetColumn(language, 1); preferenceRow.Children.Add(language); body.Children.Add(preferenceRow);
         var gameValidated = new GameValidationReceiptStore().Load() is not null;
         var selectedSensors = FirstUseGuidance.Selected(inventory).ToArray();
-        var unavailableModels = new CalibrationModelReadinessService().FindUnavailableAsync(selectedSensors, progress, repairFromLocalCaptures: true).GetAwaiter().GetResult();
+        // Startup remains fast even with a large local capture archive; launch/calibration paths perform repair asynchronously.
+        var unavailableModels = new CalibrationModelReadinessService().FindUnavailableAsync(selectedSensors, progress, repairFromLocalCaptures: false).GetAwaiter().GetResult();
         foreach (var step in FirstUseGuidance.Build(inventory, progress, gameValidated, unavailableModels.Count == 0))
         {
             var card = new Border { Background = MainWindow.Brush("#0E171F"), BorderBrush = MainWindow.Brush(step.Complete ? "#286E5A" : "#263B49"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(7), Padding = new Thickness(15), Margin = new Thickness(0, 0, 0, 9) };

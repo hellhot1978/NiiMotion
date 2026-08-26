@@ -190,6 +190,7 @@ Ayrıntı: `phase-2-psmove-status.md`.
 - Oyun doğrulama adımı sabit biçimde eksik kalmıyor. Oyun süreci gerçekten görüldüğünde sürümlü yerel doğrulama makbuzu yazılıyor ve Başlangıç Rehberi sonraki açılışta bunu kullanıyor.
 - Bu zincir çevrim içi yapay zekâ, Codex/Gemini oturumu veya bulut çıkarımı gerektirmiyor. Otomatik paket 101/101 test geçiyor.
 - Kalibrasyon ilerleme kaydı artık tek başına yeterli kabul edilmiyor. Seçili profil için gereken kişisel model dosyası okunabilir ve temel sayısal eşikleri geçerli olmalı; eksik/bozuksa onaylanmış yerel faz kayıtlarından otomatik yeniden üretiliyor. Oyun ve otomatik locomotion ancak bu kapı geçilirse başlıyor. Otomatik paket 102/102 test geçiyor.
+- Tanılama Merkezi bağlantı durumunun yanında zorunlu standalone paket bileşenlerini, seçili profilin kişisel model bütünlüğünü ve son başarısız oyun başlatma aşamasını da yerel olarak açıklıyor. Büyük kayıt arşivinin analizi uygulama açılışında çalıştırılmıyor; böylece ilk ekran kilitlenmeden açılıyor.
 
 ## Bir sonraki somut çalışma
 

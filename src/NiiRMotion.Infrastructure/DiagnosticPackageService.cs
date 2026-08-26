@@ -24,13 +24,40 @@ public sealed partial class DiagnosticPackageService
                 device.Action,
                 device.State == DeviceState.Missing ? "error" : "warning"));
         }
-        if (findings.Count == 0) findings.Add(new("Seçili profil hazır", "Zorunlu cihazlarda belirgin bir bağlantı sorunu bulunmadı.", "VR'yi hazırlayıp başlatabilirsin.", "ok"));
+        var standalone = new StandaloneReadinessService().Inspect();
+        foreach (var component in standalone.Components.Where(x => x.Required && !x.Ready))
+            findings.Add(new($"{component.Name} eksik", component.Detail, "Başlangıç Rehberi'ndeki Yerel Çalışma Denetimi'ni aç; uygulama paketini onar veya yeniden kur.", "error"));
+
+        var calibrationSensors = RequiredSensors(profile).ToArray();
+        if (calibrationSensors.Length > 0)
+        {
+            var progress = await new UserSetupStore().LoadCalibrationAsync(cancellationToken);
+            var unavailable = await new CalibrationModelReadinessService().FindUnavailableAsync(calibrationSensors, progress, repairFromLocalCaptures: false, cancellationToken: cancellationToken);
+            foreach (var sensor in unavailable)
+                findings.Add(new($"{SensorName(sensor)} kişisel modeli hazır değil", "Temel faz kaydı eksik, model dosyası bozuk veya yerel analiz henüz tamamlanmamış.", "Test ve Kalibrasyon bölümünde ilgili cihazın temel kalibrasyonunu aç. Tam faz kayıtları varsa oyun başlatılırken model otomatik yeniden oluşturulur.", "error"));
+        }
+
+        var lastLaunch = new GameLaunchJournalStore().Load();
+        if (lastLaunch?.Stage == GameLaunchStage.Failed)
+            findings.Add(new("Son VR başlatma tamamlanamadı", lastLaunch.Message, "Oyunlar bölümünden yeniden doğrula; uygulama her ön koşulu sırayla gösterecek.", "warning"));
+
+        if (findings.Count == 0) findings.Add(new("Seçili profil hazır", "Zorunlu cihazlar, kişisel modeller ve yerel çalışma bileşenleri hazır.", "VR'yi hazırlayıp başlatabilirsin.", "ok"));
         var hmd = HmdValidationCaptureService.LoadLatest();
         findings.Add(hmd?.Passed == true
             ? new("HMD dönüş desteği hazır", $"Son doğrulama {hmd.SampleRateHz:0.0} Hz ve %{hmd.TrackedRatio * 100:0} takip kalitesiyle geçti. HMD yalnız zayıf sahte ileri hareketi ayırmaya yardımcı olur.", "Başlık bağlı değilse mevcut yürüyüş profili değişmeden çalışır.", "ok")
             : new("HMD dönüş desteği isteğe bağlı", "Başlık doğrulaması henüz tamamlanmadı veya son kayıt kalite kontrolünden geçmedi.", "İstersen Test ve Kalibrasyon bölümünden tek üç dakikalık doğrulama yapabilirsin.", "info"));
         return new(DateTimeOffset.UtcNow, Assembly.GetEntryAssembly()?.GetName().Version?.ToString() ?? "unknown", Environment.OSVersion.VersionString, profile.Name, findings);
     }
+
+    private static IEnumerable<SensorFamily> RequiredSensors(MotionProfile profile)
+    {
+        if (profile.Required.Contains(DeviceKind.JoyConLeft) || profile.Required.Contains(DeviceKind.JoyConRight)) yield return SensorFamily.JoyCon;
+        if (profile.Required.Contains(DeviceKind.PsMoveLeft) || profile.Required.Contains(DeviceKind.PsMoveRight)) yield return SensorFamily.PsMove;
+        if (profile.Required.Contains(DeviceKind.Phone)) yield return SensorFamily.Phone;
+        if (profile.Required.Contains(DeviceKind.BalanceBoard)) yield return SensorFamily.BalanceBoard;
+    }
+
+    private static string SensorName(SensorFamily sensor) => sensor switch { SensorFamily.JoyCon => "Joy-Con", SensorFamily.PsMove => "PS Move", SensorFamily.Phone => "Telefon", _ => "Balance Board" };
 
     public async Task<string> ExportAsync(MotionProfile profile, string? destinationFolder = null, CancellationToken cancellationToken = default)
     {
