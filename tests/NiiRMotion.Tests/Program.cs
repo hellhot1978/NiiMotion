@@ -256,11 +256,14 @@ static void DynamicUiLocalizationCoverage()
     {
         "Quest ve Virtual Desktop oturumu bekleniyor", "SteamVR ve NiiMotion hareket köprüsü doğrulanıyor",
         "Kişisel hareket modeli başlatılıyor", "Faz tamamlanmadı", "Kayıt tamamlanmadı",
-        "Başlatma durduruldu", "Locomotion başlatılamadı", "sensör örneği alındı"
+        "Başlatma durduruldu", "Locomotion başlatılamadı", "sensör örneği alındı",
+        "Sadece PS Move", "BAĞLANTI GEREKİYOR", "EKSİK CİHAZLARI BAĞLA", "Sağ PS Move",
+        "En güçlü bacak doğrulaması", "Doğal yerinde yürüyüş", "SANA UYGUN PROFİLLER"
     };
     foreach (var phrase in required)
         Assert(localization.Contains(phrase, StringComparison.Ordinal), $"Dynamic English translation rule is missing: {phrase}");
     Assert(localization.Contains("Regex.Replace(result", StringComparison.Ordinal), "Parameterized runtime messages are not localized by templates.");
+    Assert(localization.Contains("value.EndsWith(pair.Key", StringComparison.Ordinal), "Icon-decorated runtime status text is not localized.");
 }
 
 static void StandaloneRuntimeContract()
