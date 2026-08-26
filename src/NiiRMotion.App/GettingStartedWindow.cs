@@ -13,7 +13,11 @@ public sealed class GettingStartedWindow : Window
         Title = "NiiMotion · Başlangıç Rehberi"; Width = 650; Height = 610; ResizeMode = ResizeMode.NoResize; WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Background = MainWindow.Brush("#070D12"); Foreground = Brushes.White; FontFamily = new FontFamily("Segoe UI Variable Text");
         var store = new UserExperienceStore(); var prefs = store.Load(); var root = new Grid { Margin = new Thickness(28) }; root.RowDefinitions.Add(new RowDefinition()); root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        var body = new StackPanel(); root.Children.Add(body); body.Children.Add(Text("Başlangıç Rehberi", 25, FontWeights.SemiBold, "#F4F7FA")); body.Children.Add(Text("NiiMotion'ı güvenli biçimde hazırlamak için dört kısa adım.", 11, FontWeights.Normal, "#9CB0BC", new Thickness(0, 4, 0, 18)));
+        var body = new StackPanel(); root.Children.Add(body); body.Children.Add(Text("Başlangıç Rehberi", 25, FontWeights.SemiBold, "#F4F7FA")); body.Children.Add(Text("NiiMotion'ı güvenli biçimde hazırlamak için dört kısa adım.", 11, FontWeights.Normal, "#9CB0BC", new Thickness(0, 4, 0, 12)));
+        var updateCard = new Border { Background = MainWindow.Brush("#0A2231"), BorderBrush = MainWindow.Brush("#1D739E"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(7), Padding = new Thickness(12), Margin = new Thickness(0, 0, 0, 12) };
+        var updateRow = new Grid(); updateRow.ColumnDefinitions.Add(new ColumnDefinition()); updateRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var updateText = new StackPanel { VerticalAlignment = VerticalAlignment.Center }; updateText.Children.Add(Text("UYGULAMA GÜNCELLEMESİ", 10, FontWeights.Bold, "#40B9F5")); updateText.Children.Add(Text("Yeni NiiMotion sürümünü denetle", 12, FontWeights.SemiBold, "#F4F7FA", new Thickness(0, 3, 12, 0))); updateRow.Children.Add(updateText);
+        var updates = new Button { Content = "↻  KONTROL ET", Padding = new Thickness(16, 9, 16, 9), Background = MainWindow.Brush("#087DC4") }; updates.Click += (_, _) => new UpdateWindow { Owner = this }.ShowDialog(); Grid.SetColumn(updates, 1); updateRow.Children.Add(updates); updateCard.Child = updateRow; body.Children.Add(updateCard);
         foreach (var step in FirstUseGuidance.Build(inventory, progress))
         {
             var card = new Border { Background = MainWindow.Brush("#0E171F"), BorderBrush = MainWindow.Brush(step.Complete ? "#286E5A" : "#263B49"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(7), Padding = new Thickness(15), Margin = new Thickness(0, 0, 0, 9) };
@@ -21,7 +25,6 @@ public sealed class GettingStartedWindow : Window
         }
         body.Children.Add(Text("TERCİHLER", 10, FontWeights.Bold, "#40B9F5", new Thickness(0, 15, 0, 7)));
         var language = new ComboBox { ItemsSource = new[] { "Türkçe", "English" }, SelectedIndex = prefs.Language == "en" ? 1 : 0, Height = 34, Margin = new Thickness(0, 0, 0, 10), ToolTip = "Arayüz dili" }; body.Children.Add(language);
-        var updates = new Button { Content = "↻  GÜNCELLEMELERİ KONTROL ET", HorizontalContentAlignment = HorizontalAlignment.Left, Padding = new Thickness(14, 10, 14, 10), Margin = new Thickness(0, 0, 0, 4) }; updates.Click += (_, _) => new UpdateWindow { Owner = this }.ShowDialog(); body.Children.Add(updates);
         var footer = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 20, 0, 0) };
         var later = new Button { Content = "KAPAT", Padding = new Thickness(20, 10, 20, 10), Margin = new Thickness(0, 0, 10, 0) }; later.Click += (_, _) => Close();
         var save = new Button { Content = "KAYDET VE DEVAM ET", Padding = new Thickness(20, 10, 20, 10), Background = MainWindow.Brush("#087DC4") }; save.Click += (_, _) => { store.Save(prefs with { Language = language.SelectedIndex == 1 ? "en" : "tr", OnboardingComplete = true }); if (Owner is not null) UiLocalization.Apply(Owner); DialogResult = true; Close(); };
