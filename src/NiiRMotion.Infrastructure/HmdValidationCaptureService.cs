@@ -74,6 +74,7 @@ public sealed class HmdValidationCaptureService
                         previousYaw = sample.YawRadians;
                     }
                 }
+                if (samples == 0 && active >= TimeSpan.FromSeconds(8)) break;
                 await Task.Delay(20, token);
             }
             await writer.FlushAsync(token);

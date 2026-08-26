@@ -22,7 +22,7 @@ public sealed class HmdValidationWindow : Window
     }
     private async Task RunAsync()
     {
-        try { var progress=new Progress<TimeSpan>(x=>{_elapsed=x; UpdateGuide();}); var result=await new HmdValidationCaptureService().CaptureAsync(_duration,()=>_paused,progress,_cancel.Token); _pause.Visibility=Visibility.Collapsed; _instruction.Text=result.Passed?"Doğrulama tamamlandı":"Kayıt tekrarlanmalı"; _detail.Text=result.Message; _status.Text=$"{result.Samples:N0} örnek · {result.TrackedRatio*100:0}% takip · {result.SampleRateHz:0.0} Hz · {result.YawRangeDegrees:0}° yön aralığı"; }
+        try { var progress=new Progress<TimeSpan>(x=>{_elapsed=x; UpdateGuide();}); var result=await new HmdValidationCaptureService().CaptureAsync(_duration,()=>_paused,progress,_cancel.Token); _pause.Visibility=Visibility.Collapsed; _instruction.Text=result.Passed?"Doğrulama tamamlandı":result.Samples==0?"Başlık akışı bulunamadı":"Kayıt tekrarlanmalı"; _detail.Text=result.Samples==0?"SteamVR ve NiiMotion VR paneli çalışırken yeniden dene. Kayıt başlamadığı için üç dakika beklenmedi.":result.Message; _status.Text=$"{result.Samples:N0} örnek · {result.TrackedRatio*100:0}% takip · {result.SampleRateHz:0.0} Hz · {result.YawRangeDegrees:0}° yön aralığı"; }
         catch(OperationCanceledException) { }
         catch(Exception ex) { _instruction.Text="HMD verisi alınamadı"; _detail.Text=ex.GetBaseException().Message; _pause.Visibility=Visibility.Collapsed; }
     }
