@@ -189,6 +189,7 @@ Ayrıntı: `phase-2-psmove-status.md`.
 - Güvenli onarım yalnız eksik yerel kullanıcı klasörlerini oluşturuyor; SteamVR, sürücü veya kişisel kayıtlar üzerinde sessiz değişiklik yapmıyor.
 - Oyun doğrulama adımı sabit biçimde eksik kalmıyor. Oyun süreci gerçekten görüldüğünde sürümlü yerel doğrulama makbuzu yazılıyor ve Başlangıç Rehberi sonraki açılışta bunu kullanıyor.
 - Bu zincir çevrim içi yapay zekâ, Codex/Gemini oturumu veya bulut çıkarımı gerektirmiyor. Otomatik paket 101/101 test geçiyor.
+- Kalibrasyon ilerleme kaydı artık tek başına yeterli kabul edilmiyor. Seçili profil için gereken kişisel model dosyası okunabilir ve temel sayısal eşikleri geçerli olmalı; eksik/bozuksa onaylanmış yerel faz kayıtlarından otomatik yeniden üretiliyor. Oyun ve otomatik locomotion ancak bu kapı geçilirse başlıyor. Otomatik paket 102/102 test geçiyor.
 
 ## Bir sonraki somut çalışma
 

@@ -1271,7 +1271,7 @@ public partial class MainWindow : Window
         if (_profile.Required.Contains(DeviceKind.Phone)) required.Add(SensorFamily.Phone);
         if (_profile.Required.Contains(DeviceKind.BalanceBoard)) required.Add(SensorFamily.BalanceBoard);
         var progress = await new UserSetupStore().LoadCalibrationAsync();
-        return required.Where(sensor => progress.Devices.FirstOrDefault(x => x.Sensor == sensor)?.IsReady != true).ToArray();
+        return await new CalibrationModelReadinessService().FindUnavailableAsync(required, progress, repairFromLocalCaptures: true);
     }
 
     private static string SensorDisplayName(SensorFamily sensor) => sensor switch { SensorFamily.JoyCon => "Joy-Con", SensorFamily.PsMove => "PS Move", SensorFamily.Phone => "Telefon", _ => "Balance Board" };

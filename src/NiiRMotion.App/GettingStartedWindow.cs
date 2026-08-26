@@ -30,7 +30,9 @@ public sealed class GettingStartedWindow : Window
         var preferenceText = new StackPanel { VerticalAlignment = VerticalAlignment.Center }; preferenceText.Children.Add(Text("ARAYÜZ DİLİ", 10, FontWeights.Bold, "#40B9F5")); preferenceText.Children.Add(Text("Uygulamanın görüntüleneceği dili seç", 11, FontWeights.Normal, "#9CB0BC", new Thickness(0, 3, 12, 0))); preferenceRow.Children.Add(preferenceText);
         var language = new ComboBox { ItemsSource = new[] { "Türkçe", "English" }, SelectedIndex = prefs.Language == "en" ? 1 : 0, Height = 36, ToolTip = "Arayüz dili", VerticalContentAlignment = VerticalAlignment.Center }; Grid.SetColumn(language, 1); preferenceRow.Children.Add(language); body.Children.Add(preferenceRow);
         var gameValidated = new GameValidationReceiptStore().Load() is not null;
-        foreach (var step in FirstUseGuidance.Build(inventory, progress, gameValidated))
+        var selectedSensors = FirstUseGuidance.Selected(inventory).ToArray();
+        var unavailableModels = new CalibrationModelReadinessService().FindUnavailableAsync(selectedSensors, progress, repairFromLocalCaptures: true).GetAwaiter().GetResult();
+        foreach (var step in FirstUseGuidance.Build(inventory, progress, gameValidated, unavailableModels.Count == 0))
         {
             var card = new Border { Background = MainWindow.Brush("#0E171F"), BorderBrush = MainWindow.Brush(step.Complete ? "#286E5A" : "#263B49"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(7), Padding = new Thickness(15), Margin = new Thickness(0, 0, 0, 9) };
             var row = new StackPanel(); row.Children.Add(Text((step.Complete ? "✓  " : "○  ") + step.Title, 14, FontWeights.SemiBold, step.Complete ? "#58DBB5" : "#F4F7FA")); row.Children.Add(Text(step.Detail, 10, FontWeights.Normal, "#9CB0BC", new Thickness(25, 4, 0, 0))); card.Child = row; body.Children.Add(card);

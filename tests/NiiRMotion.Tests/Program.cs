@@ -218,6 +218,7 @@ tests = [Sync("PS Move pairing has a verified offline bundle", PsMoveOfflineBund
 tests = [Sync("Game launch compatibility blocks broken adapters locally", GameLaunchCompatibilityContract), .. tests];
 tests = [Sync("Sensor loss offers only an explicit safe fallback profile", SafeProfileFallback), .. tests];
 tests = [Sync("Standalone readiness detects and repairs only local prerequisites", StandaloneReadiness), .. tests];
+tests = [("Completed calibration requires a valid local runtime model", CalibrationModelReadiness), .. tests];
 var failures = new List<string>();
 foreach (var test in tests) { try { await test.Run(); Console.WriteLine($"PASS  {test.Name}"); } catch (Exception ex) { failures.Add($"FAIL  {test.Name}: {ex.Message}"); } }
 foreach (var failure in failures) Console.Error.WriteLine(failure); Console.WriteLine($"{tests.Length - failures.Count}/{tests.Length} tests passed."); return failures.Count == 0 ? 0 : 1;
@@ -297,6 +298,23 @@ static void StandaloneReadiness()
         Assert(Directory.Exists(Path.Combine(state, "config")) && Directory.Exists(Path.Combine(state, "data")) && Directory.Exists(Path.Combine(state, "logs")), "Local state repair did not create safe user directories.");
     }
     finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+}
+
+static async Task CalibrationModelReadiness()
+{
+    var root = Path.Combine(Path.GetTempPath(), "niirmotion-calibration-model-" + Guid.NewGuid().ToString("N"));
+    try
+    {
+        Directory.CreateDirectory(root); var service = new CalibrationModelReadinessService(root);
+        var progress = new CalibrationProgressDocument(1, [new(SensorFamily.JoyCon, CalibrationStage.Ready, 3, DateTimeOffset.UtcNow)]);
+        var missing = await service.FindUnavailableAsync([SensorFamily.JoyCon], progress, repairFromLocalCaptures: false);
+        Assert(missing.SequenceEqual([SensorFamily.JoyCon]), "A missing personal model was accepted from progress metadata alone.");
+        File.WriteAllText(Path.Combine(root, "personal-gait-pace.json"), "{\"slowP95Dps\":80,\"naturalP95Dps\":180,\"fastP95Dps\":320}");
+        Assert((await service.FindUnavailableAsync([SensorFamily.JoyCon], progress, repairFromLocalCaptures: false)).Count == 0, "A valid local personal model was rejected.");
+        File.WriteAllText(Path.Combine(root, "personal-gait-pace.json"), "{broken");
+        Assert((await service.FindUnavailableAsync([SensorFamily.JoyCon], progress, repairFromLocalCaptures: false)).Count == 1, "A corrupt personal model was accepted.");
+    }
+    finally { try { Directory.Delete(root, true); } catch { } }
 }
 
 static void StandaloneRuntimeContract()
