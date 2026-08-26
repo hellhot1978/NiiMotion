@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Net.Sockets;
 using System.Net;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using NiiRMotion.Core;
@@ -209,9 +210,38 @@ tests = [Sync("Generic OpenXR adapter is validated and persisted", GenericOpenXr
 tests = [Sync("First-use preferences and guidance are deterministic", FirstUsePreferences), .. tests];
 tests = [("Update download is hash verified before staging", UpdateDownloadVerification), Sync("Release integrity detects tampering", ReleaseIntegrityVerification), .. tests];
 tests = [Sync("VR panel commands are delivered once", VrPanelCommands), Sync("OpenXR wizard prioritizes common engine executables", OpenXrEngineDiscovery), .. tests];
+tests = [Sync("Static UI text has English localization coverage", StaticUiLocalizationCoverage), .. tests];
 var failures = new List<string>();
 foreach (var test in tests) { try { await test.Run(); Console.WriteLine($"PASS  {test.Name}"); } catch (Exception ex) { failures.Add($"FAIL  {test.Name}: {ex.Message}"); } }
 foreach (var failure in failures) Console.Error.WriteLine(failure); Console.WriteLine($"{tests.Length - failures.Count}/{tests.Length} tests passed."); return failures.Count == 0 ? 0 : 1;
+
+static void StaticUiLocalizationCoverage()
+{
+    var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+    var localization = File.ReadAllText(Path.Combine(root, "src", "NiiRMotion.App", "UiLocalization.cs"));
+    var keys = Regex.Matches(localization, "\\[\\\"((?:[^\\\"\\\\]|\\\\.)*)\\\"\\]\\s*=", RegexOptions.CultureInvariant)
+        .Select(match => Regex.Unescape(match.Groups[1].Value)).ToArray();
+    var neutral = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "—", "…", "↻", "+", "●", "✓", "0", "0.0 kg", "0.00", "00:00", "00:00 / 05:00", "05:00",
+        "2× Joy-Con", "2× PS Move", "Balance Board", "BOARD + JOY-CON", "HIZ 0.00", "JOY-CON + TELEFON",
+        "Joy-Con + telefon + Balance Board", "m/sn²", "Meta Quest 3", "NATURAL VR LOCOMOTION", "NiiMotion",
+        "Normal VR", "rad/sn", "TÜM CİHAZLAR", "Wii Balance Board", "Android telefon"
+    };
+    var attributePattern = new Regex("(?:Text|Content|ToolTip|Title)=\\\"([^\\\"]+)\\\"", RegexOptions.CultureInvariant);
+    var missing = new List<string>();
+    foreach (var path in Directory.EnumerateFiles(Path.Combine(root, "src", "NiiRMotion.App"), "*.xaml", SearchOption.AllDirectories))
+    {
+        foreach (Match match in attributePattern.Matches(File.ReadAllText(path)))
+        {
+            var value = System.Net.WebUtility.HtmlDecode(match.Groups[1].Value);
+            if (string.IsNullOrWhiteSpace(value) || value.StartsWith('{') || neutral.Contains(value)) continue;
+            if (keys.Any(key => value.Equals(key, StringComparison.Ordinal) || value.EndsWith(key, StringComparison.Ordinal))) continue;
+            missing.Add($"{Path.GetFileName(path)}: {value}");
+        }
+    }
+    Assert(missing.Count == 0, "Missing English UI translations: " + string.Join(" | ", missing.Distinct()));
+}
 
 static void ApplicationSafetyMarker()
 {
