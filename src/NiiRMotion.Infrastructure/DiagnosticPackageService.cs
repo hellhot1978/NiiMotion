@@ -25,6 +25,10 @@ public sealed partial class DiagnosticPackageService
                 device.State == DeviceState.Missing ? "error" : "warning"));
         }
         if (findings.Count == 0) findings.Add(new("Seçili profil hazır", "Zorunlu cihazlarda belirgin bir bağlantı sorunu bulunmadı.", "VR'yi hazırlayıp başlatabilirsin.", "ok"));
+        var hmd = HmdValidationCaptureService.LoadLatest();
+        findings.Add(hmd?.Passed == true
+            ? new("HMD dönüş desteği hazır", $"Son doğrulama {hmd.SampleRateHz:0.0} Hz ve %{hmd.TrackedRatio * 100:0} takip kalitesiyle geçti. HMD yalnız zayıf sahte ileri hareketi ayırmaya yardımcı olur.", "Başlık bağlı değilse mevcut yürüyüş profili değişmeden çalışır.", "ok")
+            : new("HMD dönüş desteği isteğe bağlı", "Başlık doğrulaması henüz tamamlanmadı veya son kayıt kalite kontrolünden geçmedi.", "İstersen Test ve Kalibrasyon bölümünden tek üç dakikalık doğrulama yapabilirsin.", "info"));
         return new(DateTimeOffset.UtcNow, Assembly.GetEntryAssembly()?.GetName().Version?.ToString() ?? "unknown", Environment.OSVersion.VersionString, profile.Name, findings);
     }
 
