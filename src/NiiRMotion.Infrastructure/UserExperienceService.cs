@@ -20,12 +20,12 @@ public sealed class UserExperienceStore
 public sealed record GuidanceStep(string Title, string Detail, bool Complete);
 public static class FirstUseGuidance
 {
-    public static IReadOnlyList<GuidanceStep> Build(UserHardwareInventory inventory, CalibrationProgressDocument progress) =>
+    public static IReadOnlyList<GuidanceStep> Build(UserHardwareInventory inventory, CalibrationProgressDocument progress, bool gameValidated = false) =>
     [
         new("1. Cihazlarını seç", "Sahip olduğun sensörleri Cihazlarım bölümünde işaretle.", inventory.Sensors.Count > 0),
         new("2. Temel kalibrasyon", "Seçtiğin her hareket cihazının üç temel fazını tamamla.", Selected(inventory).All(sensor => progress.Devices.FirstOrDefault(x => x.Sensor == sensor)?.IsReady == true)),
         new("3. Yürüyüş profilini seç", "Genel Bakış ekranında hazır cihazlarına uygun profili seç.", inventory.Sensors.Count > 0),
-        new("4. Oyunu doğrula", "Oyunlar bölümünden VR oyununu seç; NiiMotion bağlantıları sırayla kontrol etsin.", false)
+        new("4. Oyunu doğrula", gameValidated ? "Bir VR oyunu yerel başlatma zinciriyle başarıyla doğrulandı." : "Oyunlar bölümünden VR oyununu seç; NiiMotion bağlantıları sırayla kontrol etsin.", gameValidated)
     ];
     private static IEnumerable<SensorFamily> Selected(UserHardwareInventory x)
     {

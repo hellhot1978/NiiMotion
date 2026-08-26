@@ -207,7 +207,7 @@ tests = [Sync("Non-HMD profile regression matrix passes", NonHmdMatrix), .. test
 tests = [Sync("Workspace maintenance enforces recursive cache budget", WorkspaceMaintenanceBudget), .. tests];
 tests = [Sync("Game launch journal is atomic and recoverable", GameLaunchJournal), Sync("SteamVR dashboard overlay binary and contract are valid", VrDashboardOverlayContract), Sync("Application safety detects an unclean session", ApplicationSafetyMarker), Sync("Configuration migration backs up and preserves JSON", ConfigurationMigration), Sync("VR panel state packet round-trips", VrPanelPacket), .. tests];
 tests = [Sync("Generic OpenXR adapter is validated and persisted", GenericOpenXrAdapter), .. tests];
-tests = [Sync("First-use preferences and guidance are deterministic", FirstUsePreferences), .. tests];
+tests = [Sync("First-use preferences and guidance are deterministic", FirstUsePreferences), Sync("Successful game validation is remembered locally", GameValidationReceipt), .. tests];
 tests = [("Update download is hash verified before staging", UpdateDownloadVerification), Sync("Release integrity detects tampering", ReleaseIntegrityVerification), .. tests];
 tests = [Sync("VR panel commands are delivered once", VrPanelCommands), Sync("OpenXR wizard prioritizes common engine executables", OpenXrEngineDiscovery), .. tests];
 tests = [Sync("Static UI text has English localization coverage", StaticUiLocalizationCoverage), .. tests];
@@ -217,6 +217,7 @@ tests = [Sync("Every motion device declares its software requirement", DeviceSof
 tests = [Sync("PS Move pairing has a verified offline bundle", PsMoveOfflineBundleContract), .. tests];
 tests = [Sync("Game launch compatibility blocks broken adapters locally", GameLaunchCompatibilityContract), .. tests];
 tests = [Sync("Sensor loss offers only an explicit safe fallback profile", SafeProfileFallback), .. tests];
+tests = [Sync("Standalone readiness detects and repairs only local prerequisites", StandaloneReadiness), .. tests];
 var failures = new List<string>();
 foreach (var test in tests) { try { await test.Run(); Console.WriteLine($"PASS  {test.Name}"); } catch (Exception ex) { failures.Add($"FAIL  {test.Name}: {ex.Message}"); } }
 foreach (var failure in failures) Console.Error.WriteLine(failure); Console.WriteLine($"{tests.Length - failures.Count}/{tests.Length} tests passed."); return failures.Count == 0 ? 0 : 1;
@@ -278,6 +279,24 @@ static void SafeProfileFallback()
     Assert(selected.Name == "Joy-Con + PS Move + Telefon", "Fallback selection changed the active profile silently.");
     var allReady = selected.Required.Select(kind => new DeviceStatus(kind, kind.ToString(), DeviceState.Connected, "", "")).ToArray();
     Assert(ProfileFallbackAdvisor.Find(selected, profiles, allReady) is null, "A fallback was offered although the selected profile was ready.");
+}
+
+static void StandaloneReadiness()
+{
+    var root = Path.Combine(Path.GetTempPath(), "niirmotion-standalone-" + Guid.NewGuid().ToString("N"));
+    var app = Path.Combine(root, "app"); var state = Path.Combine(root, "state"); var models = Path.Combine(app, "Models"); var calibration = Path.Combine(app, "Calibration");
+    try
+    {
+        Directory.CreateDirectory(app); Directory.CreateDirectory(models); Directory.CreateDirectory(calibration);
+        var service = new StandaloneReadinessService(app, state, models, calibration);
+        var missing = service.Inspect(); Assert(!missing.IsReady, "An incomplete standalone package was reported ready.");
+        foreach (var file in new[] { "coreclr.dll", "hostfxr.dll", Path.Combine("OpenVRDriver", "driver.vrdrivermanifest"), Path.Combine("OpenVRDriver", "bin", "win64", "driver_niirmotion.dll"), Path.Combine("OpenXRLayer", "niirmotion_openxr.json"), Path.Combine("OpenXRLayer", "bin", "win64", "niirmotion_openxr.dll"), Path.Combine("VrOverlay", "NiiMotion.VrOverlay.exe"), Path.Combine("VrOverlay", "openvr_api.dll"), Path.Combine("VrOverlay", "niirmotion.vrmanifest") })
+        { var path = Path.Combine(app, file); Directory.CreateDirectory(Path.GetDirectoryName(path)!); File.WriteAllText(path, "test"); }
+        File.WriteAllText(Path.Combine(models, "model.json"), "{}"); File.WriteAllText(Path.Combine(calibration, "calibration.json"), "{}");
+        var ready = service.RepairLocalState(); Assert(ready.IsReady, "Complete local standalone prerequisites were not accepted.");
+        Assert(Directory.Exists(Path.Combine(state, "config")) && Directory.Exists(Path.Combine(state, "data")) && Directory.Exists(Path.Combine(state, "logs")), "Local state repair did not create safe user directories.");
+    }
+    finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
 }
 
 static void StandaloneRuntimeContract()
@@ -426,6 +445,22 @@ static void FirstUsePreferences()
         var inventory = new UserHardwareInventory(1, true, false, false, false, false, DateTimeOffset.UtcNow);
         var progress = new CalibrationProgressDocument(1, [new(SensorFamily.JoyCon, CalibrationStage.Ready, 3, DateTimeOffset.UtcNow)]);
         var steps = FirstUseGuidance.Build(inventory, progress); Assert(steps.Count == 4 && steps[0].Complete && steps[1].Complete, "First-use guidance does not reflect calibration state.");
+    }
+    finally { try { Directory.Delete(root, true); } catch { } }
+}
+
+static void GameValidationReceipt()
+{
+    var root = Path.Combine(Path.GetTempPath(), "niirmotion-game-receipt-" + Guid.NewGuid().ToString("N"));
+    try
+    {
+        var path = Path.Combine(root, "receipt.json"); var store = new GameValidationReceiptStore(path);
+        Assert(store.Load() is null, "A validation receipt existed before a game was verified.");
+        store.Save(new(1, "example-vr", "Example VR", "joycon", true, DateTimeOffset.UtcNow));
+        var receipt = store.Load(); Assert(receipt?.GameId == "example-vr" && receipt.NiiMotionEnabled, "The local validation receipt did not round-trip.");
+        var inventory = new UserHardwareInventory(1, true, false, false, false, false, DateTimeOffset.UtcNow);
+        var progress = new CalibrationProgressDocument(1, [new(SensorFamily.JoyCon, CalibrationStage.Ready, 3, DateTimeOffset.UtcNow)]);
+        Assert(FirstUseGuidance.Build(inventory, progress, receipt is not null)[3].Complete, "The game-validation guidance step was not completed from local state.");
     }
     finally { try { Directory.Delete(root, true); } catch { } }
 }

@@ -183,6 +183,13 @@ Ayrıntı: `phase-2-psmove-status.md`.
 - Seçili profil yeniden hazır olduğunda veya Normal VR kullanıldığında öneri otomatik kaldırılıyor. Eksik cihaz politikası güvenli sıfır olarak kalıyor.
 - Alt profil seçimi; hazır profil, tüm cihazlar hazır ve sessiz otomatik geçiş regresyonlarıyla doğrulandı. Otomatik paket 99/99 test geçiyor.
 
+**2026-08-26 bağımsız çalışma kapısı — IMPLEMENTED / AUTOMATED TESTED**
+
+- Başlangıç Rehberi artık .NET self-contained çalışma zamanı, yerel modeller, kalibrasyon tanımları, OpenVR sürücüsü, OpenXR katmanı, VR overlay ve yazılabilir kullanıcı veri alanını çevrimdışı denetliyor.
+- Güvenli onarım yalnız eksik yerel kullanıcı klasörlerini oluşturuyor; SteamVR, sürücü veya kişisel kayıtlar üzerinde sessiz değişiklik yapmıyor.
+- Oyun doğrulama adımı sabit biçimde eksik kalmıyor. Oyun süreci gerçekten görüldüğünde sürümlü yerel doğrulama makbuzu yazılıyor ve Başlangıç Rehberi sonraki açılışta bunu kullanıyor.
+- Bu zincir çevrim içi yapay zekâ, Codex/Gemini oturumu veya bulut çıkarımı gerektirmiyor. Otomatik paket 101/101 test geçiyor.
+
 ## Bir sonraki somut çalışma
 
 Move Only yazılım zinciri tamamlandı. Bir sonraki kapı, iki atanmış Move Bluetooth ile bağlıyken gerçek SteamVR oyun doğrulamasıdır. Bu doğrulama geçmeden Move + Joy-Con saat hizalama ve hibrit profile başlanmaz.

@@ -55,3 +55,31 @@ public sealed class GameLaunchJournalStore(string? path = null)
         Save(current with { Stage = GameLaunchStage.Idle, Message = message, UpdatedAtUtc = DateTimeOffset.UtcNow });
     }
 }
+
+public sealed record GameValidationReceipt(
+    int SchemaVersion,
+    string GameId,
+    string GameName,
+    string MotionProfileId,
+    bool NiiMotionEnabled,
+    DateTimeOffset VerifiedAtUtc);
+
+public sealed class GameValidationReceiptStore(string? path = null)
+{
+    private readonly string _path = path ?? Path.Combine(NiiMotionPaths.Config, "game-validation-receipt.json");
+    private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
+
+    public GameValidationReceipt? Load()
+    {
+        try { return File.Exists(_path) ? JsonSerializer.Deserialize<GameValidationReceipt>(File.ReadAllText(_path)) : null; }
+        catch { return null; }
+    }
+
+    public void Save(GameValidationReceipt value)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+        var temporary = _path + ".tmp";
+        File.WriteAllText(temporary, JsonSerializer.Serialize(value, Options));
+        File.Move(temporary, _path, true);
+    }
+}

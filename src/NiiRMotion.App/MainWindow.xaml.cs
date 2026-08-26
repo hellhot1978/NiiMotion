@@ -40,6 +40,7 @@ public partial class MainWindow : Window
     private string? _pendingGameAppId;
     private TextBlock? _gameLaunchStatus;
     private readonly GameLaunchJournalStore _gameLaunchJournal = new();
+    private readonly GameValidationReceiptStore _gameValidationReceipt = new();
     private IGameTelemetrySession? _gameTelemetry;
     private InstalledGame? _pendingGame;
     private double _demoPhase;
@@ -618,6 +619,7 @@ public partial class MainWindow : Window
             if (IsGameRunning(game.InstallPath))
             {
                 SetGameLaunchStage(game, GameLaunchStage.Running, $"✓ {game.Definition.Name} çalışıyor · NiiMotion oturumu hazır");
+                _gameValidationReceipt.Save(new(1, game.Definition.Id, game.Definition.Name, _profile.Id, _gameNiiMotionEnabled, DateTimeOffset.UtcNow));
                 if (_locomotion.IsRunning)
                 {
                     if (_gameTelemetry is not null) await _gameTelemetry.DisposeAsync();
