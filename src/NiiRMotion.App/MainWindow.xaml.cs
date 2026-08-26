@@ -535,6 +535,13 @@ public partial class MainWindow : Window
     private async Task ValidateAndLaunchGameAsync(InstalledGame game, Button launchButton)
     {
         SetGameLaunchStage(game, GameLaunchStage.ValidatingProfile, "Profil doğrulanıyor…");
+        var compatibility = new GameLaunchCompatibilityService().Validate(game, _gameNiiMotionEnabled);
+        if (!compatibility.IsReady)
+        {
+            SetGameLaunchStage(game, GameLaunchStage.Failed, "Oyun uyumluluk kontrolü tamamlanamadı.");
+            if (_gameLaunchStatus is not null) { _gameLaunchStatus.Text = compatibility.UserMessage; _gameLaunchStatus.Foreground = Brush("#FF8AA5"); }
+            MessageBox.Show(this, compatibility.UserMessage, "Oyun başlatılmadı", MessageBoxButton.OK, MessageBoxImage.Warning); return;
+        }
         if (game.Definition.SteamAppId is null) return;
         if (_gameNiiMotionEnabled && !_profile.LocomotionAllowed)
         {

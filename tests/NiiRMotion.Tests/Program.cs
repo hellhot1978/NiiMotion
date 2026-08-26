@@ -214,6 +214,7 @@ tests = [Sync("Static UI text has English localization coverage", StaticUiLocali
 tests = [Sync("Standalone package contains local models and has no AI runtime dependency", StandaloneRuntimeContract), .. tests];
 tests = [Sync("Every motion device declares its software requirement", DeviceSoftwareGuidanceContract), .. tests];
 tests = [Sync("PS Move pairing has a verified offline bundle", PsMoveOfflineBundleContract), .. tests];
+tests = [Sync("Game launch compatibility blocks broken adapters locally", GameLaunchCompatibilityContract), .. tests];
 var failures = new List<string>();
 foreach (var test in tests) { try { await test.Run(); Console.WriteLine($"PASS  {test.Name}"); } catch (Exception ex) { failures.Add($"FAIL  {test.Name}: {ex.Message}"); } }
 foreach (var failure in failures) Console.Error.WriteLine(failure); Console.WriteLine($"{tests.Length - failures.Count}/{tests.Length} tests passed."); return failures.Count == 0 ? 0 : 1;
@@ -282,6 +283,21 @@ static void PsMoveOfflineBundleContract()
         var path = Path.Combine(bundle, item.Key); Assert(File.Exists(path), $"Offline PS Move component is missing: {item.Key}");
         Assert(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))) == item.Value, $"Offline PS Move component hash mismatch: {item.Key}");
     }
+}
+
+static void GameLaunchCompatibilityContract()
+{
+    var root = Path.Combine(Path.GetTempPath(), "niirmotion-game-preflight-" + Guid.NewGuid().ToString("N"));
+    try
+    {
+        var install = Path.Combine(root, "game"); var app = Path.Combine(root, "app"); Directory.CreateDirectory(install); Directory.CreateDirectory(Path.Combine(app, "OpenXRLayer", "bin", "win64"));
+        var steam = Path.Combine(root, "steam.exe"); File.WriteAllText(steam, "test"); File.WriteAllText(Path.Combine(install, "Game-Win64-Shipping.exe"), "test"); File.WriteAllText(Path.Combine(app, "OpenXRLayer", "bin", "win64", "niirmotion_openxr.dll"), "test");
+        var definition = new GameDefinition("user-openxr-test", "Test VR", "123", "OpenXR API Layer", true, "test"); var game = new InstalledGame(definition, true, install);
+        var adapter = new OpenXrGameAdapter(definition.Id, definition.Name, "123", ["Game-Win64-Shipping.exe"], 1, DateTimeOffset.UtcNow);
+        var service = new GameLaunchCompatibilityService(steam, app, [], [adapter]); Assert(service.Validate(game, true).IsReady, "Valid local OpenXR game was blocked.");
+        File.Delete(Path.Combine(install, "Game-Win64-Shipping.exe")); var broken = service.Validate(game, true); Assert(!broken.IsReady && broken.Issues.Any(x => x.Code == "game-executable"), "Missing game executable was not blocked.");
+    }
+    finally { try { Directory.Delete(root, true); } catch { } }
 }
 
 static void ApplicationSafetyMarker()
