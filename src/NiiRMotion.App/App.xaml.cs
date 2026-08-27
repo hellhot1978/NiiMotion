@@ -75,7 +75,7 @@ public partial class App : Application
         ApplyPreviewWindowSize(window, e.Args);
         MainWindow = window; window.Show();
         if (_previousRun?.WasUnclean == true && boardLabScreenshotArg is null)
-            window.Dispatcher.BeginInvoke(() => MessageBox.Show(window, _previousRun.Message, "Güvenli kurtarma", MessageBoxButton.OK, MessageBoxImage.Information), DispatcherPriority.ApplicationIdle);
+            window.Dispatcher.BeginInvoke(() => UiLocalization.ShowMessage(window, _previousRun.Message, "Güvenli kurtarma", MessageBoxButton.OK, MessageBoxImage.Information), DispatcherPriority.ApplicationIdle);
         if (boardLabScreenshotArg is not null)
         {
             var boardPath = boardLabScreenshotArg[(boardLabScreenshotArg.IndexOf('=') + 1)..];
@@ -98,7 +98,7 @@ public partial class App : Application
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
         RecordCrash(e.Exception); ApplicationSafetyService.ForceSafeZero();
-        MessageBox.Show("NiiMotion beklenmedik bir sorunla karşılaştı. Hareket çıkışı güvenle durduruldu. Sistem Tanılama bölümünden destek paketi oluşturabilirsin.", "NiiMotion güvenli duruş", MessageBoxButton.OK, MessageBoxImage.Error);
+        UiLocalization.ShowMessage("NiiMotion beklenmedik bir sorunla karşılaştı. Hareket çıkışı güvenle durduruldu. Sistem Tanılama bölümünden destek paketi oluşturabilirsin.", "NiiMotion güvenli duruş", MessageBoxButton.OK, MessageBoxImage.Error);
         e.Handled = true; Shutdown(1);
     }
     private void OnDomainUnhandledException(object? sender, UnhandledExceptionEventArgs e) { ApplicationSafetyService.ForceSafeZero(); if (e.ExceptionObject is Exception ex) RecordCrash(ex); }

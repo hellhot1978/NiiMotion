@@ -42,7 +42,7 @@ public partial class GuidedCalibrationCaptureWindow : Window
         catch (Exception ex) { StatusText.Text = "Move ışığı yakılamadı: " + ex.GetBaseException().Message; }
         finally { button.IsEnabled = true; }
     }
-    private void CancelClick(object sender, RoutedEventArgs e) { if (Result is not null) { DialogResult = true; Close(); return; } if (MessageBox.Show(this, "Bu faz iptal edilsin mi? Tamamlanmamış kayıt kullanılmayacak.", "Kalibrasyonu iptal et", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes) { _cancel.Cancel(); Close(); } }
+    private void CancelClick(object sender, RoutedEventArgs e) { if (Result is not null) { DialogResult = true; Close(); return; } if (UiLocalization.ShowMessage(this, "Bu faz iptal edilsin mi? Tamamlanmamış kayıt kullanılmayacak.", "Kalibrasyonu iptal et", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes) { _cancel.Cancel(); Close(); } }
     private void UpdateGuidance()
     {
         var steps = Schedule(_sensor, _phase); var seconds = Math.Min(_duration.TotalSeconds, _elapsed.TotalSeconds); var step = steps.FirstOrDefault(x => seconds >= x.Start && seconds < x.End) ?? steps[^1]; var remaining = TimeSpan.FromSeconds(Math.Max(0, step.End - seconds));

@@ -52,7 +52,7 @@ public partial class DeviceCalibrationWindow : Window
 
     private void RePairClick(object sender, RoutedEventArgs e)
     {
-        if (MessageBox.Show("Move'ların sol/sağ eşleştirmesini yeniden yapmak istiyor musun? Mevcut kayıtlar ancak yeni iki kontrolcü başarıyla tanıtılırsa değiştirilir.", "PS Move eşleştirme", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        if (UiLocalization.ShowMessage("Move'ların sol/sağ eşleştirmesini yeniden yapmak istiyor musun? Mevcut kayıtlar ancak yeni iki kontrolcü başarıyla tanıtılırsa değiştirilir.", "PS Move eşleştirme", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
         new PsMoveLabWindow(forcePairing: true) { Owner = this }.ShowDialog();
     }
 
@@ -145,11 +145,11 @@ public partial class DeviceCalibrationWindow : Window
         if (_sensor is SensorFamily.JoyCon or SensorFamily.BalanceBoard)
         {
             try { Process.Start(new ProcessStartInfo("ms-settings:bluetooth") { UseShellExecute = true }); }
-            catch { MessageBox.Show(this, ConnectionHelp(), "Bağlantı yardımı", MessageBoxButton.OK, MessageBoxImage.Information); }
+            catch { UiLocalization.ShowMessage(this, ConnectionHelp(), "Bağlantı yardımı", MessageBoxButton.OK, MessageBoxImage.Information); }
             return;
         }
         if (_sensor == SensorFamily.Phone)
-            MessageBox.Show(this, "1. Android telefonda owoTrack'i aç.\n2. Telefon ve bilgisayarı aynı Wi-Fi ağına bağla.\n3. owoTrack içinde bağlantıyı başlat.\n4. Bu ekrana dönüp Bağlantıyı Kontrol Et'e bas.", "owoTrack bağlantısı", MessageBoxButton.OK, MessageBoxImage.Information);
+            UiLocalization.ShowMessage(this, "1. Android telefonda owoTrack'i aç.\n2. Telefon ve bilgisayarı aynı Wi-Fi ağına bağla.\n3. owoTrack içinde bağlantıyı başlat.\n4. Bu ekrana dönüp Bağlantıyı Kontrol Et'e bas.", "owoTrack bağlantısı", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     private async void PhaseClick(object sender, RoutedEventArgs e)
@@ -231,7 +231,7 @@ public partial class DeviceCalibrationWindow : Window
     {
         if (_recording || sender is not Button button || !int.TryParse(button.Tag?.ToString(), out var phase) || _progress.CompletedPhases < phase) return;
         var consequence = phase < 3 ? $"Faz {phase} ve sonraki tamamlanmış fazlar silinecek." : "Yalnız Faz 3 silinecek.";
-        if (MessageBox.Show($"Bu fazı yeniden kaydetmek istiyor musun?\n\n{consequence}\nEk model geliştirme kayıtların korunacak.", "Fazı yeniden çek", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        if (UiLocalization.ShowMessage($"Bu fazı yeniden kaydetmek istiyor musun?\n\n{consequence}\nEk model geliştirme kayıtların korunacak.", "Fazı yeniden çek", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
         _recording = true; RefreshPhaseButtons();
         try
         {

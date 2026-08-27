@@ -456,22 +456,22 @@ public partial class MainWindow : Window
         };
         save.Click += async (_, _) =>
         {
-            if (game.SelectedItem is not SteamAppCandidate selected) { MessageBox.Show(window, "Önce kurulu bir Steam oyunu seç.", "NiiMotion", MessageBoxButton.OK, MessageBoxImage.Information); return; }
-            if (vrConfirmed.IsChecked != true) { MessageBox.Show(window, "VR olmayan oyunlar otomatik eklenmez. Oyun VR destekliyorsa veya çalışan bir VR modu kuruluysa kutuyu işaretle.", "VR doğrulaması gerekli", MessageBoxButton.OK, MessageBoxImage.Information); return; }
+            if (game.SelectedItem is not SteamAppCandidate selected) { UiLocalization.ShowMessage(window, "Önce kurulu bir Steam oyunu seç.", "NiiMotion", MessageBoxButton.OK, MessageBoxImage.Information); return; }
+            if (vrConfirmed.IsChecked != true) { UiLocalization.ShowMessage(window, "VR olmayan oyunlar otomatik eklenmez. Oyun VR destekliyorsa veya çalışan bir VR modu kuruluysa kutuyu işaretle.", "VR doğrulaması gerekli", MessageBoxButton.OK, MessageBoxImage.Information); return; }
             var path = movement.Text.Trim();
             if (openXrMode)
             {
                 var openXrAdapter = new OpenXrGameAdapter($"user-openxr-{selected.AppId}", selected.Name, selected.AppId, [Path.GetFileName(path)], speed.Value, DateTimeOffset.Now);
-                var openXrErrors = OpenXrGameAdapterValidator.Validate(openXrAdapter); if (openXrErrors.Count > 0) { MessageBox.Show(window, string.Join(Environment.NewLine, openXrErrors), "OpenXR adaptörü doğrulanamadı", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+                var openXrErrors = OpenXrGameAdapterValidator.Validate(openXrAdapter); if (openXrErrors.Count > 0) { UiLocalization.ShowMessage(window, string.Join(Environment.NewLine, openXrErrors), "OpenXR adaptörü doğrulanamadı", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
                 try { new OpenXrGameAdapterStore().Save(openXrAdapter, selected.InstallPath); await new GameMetadataService().GetAsync(openXrAdapter.SteamAppId, openXrAdapter.Name); _selectedGameId = openXrAdapter.Id; new GameSelectionStore().Save(openXrAdapter.Id); window.DialogResult = true; window.Close(); BuildGamesPage(); }
-                catch (Exception ex) { MessageBox.Show(window, ex.Message, "OpenXR adaptörü oluşturulamadı", MessageBoxButton.OK, MessageBoxImage.Error); }
+                catch (Exception ex) { UiLocalization.ShowMessage(window, ex.Message, "OpenXR adaptörü oluşturulamadı", MessageBoxButton.OK, MessageBoxImage.Error); }
                 return;
             }
             var marker = path.IndexOf("/in/", StringComparison.OrdinalIgnoreCase); var actionSet = marker > 0 ? path[..marker] : "";
             var adapter = new UserGameAdapter($"user-steam-{selected.AppId}", selected.Name, selected.AppId, actionSet, path, string.IsNullOrWhiteSpace(activation.Text) ? null : activation.Text.Trim(), speed.Value, DateTimeOffset.Now);
-            var errors = GameAdapterValidator.Validate(adapter); if (errors.Count > 0) { MessageBox.Show(window, string.Join(Environment.NewLine, errors), "Eşleme doğrulanamadı", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+            var errors = GameAdapterValidator.Validate(adapter); if (errors.Count > 0) { UiLocalization.ShowMessage(window, string.Join(Environment.NewLine, errors), "Eşleme doğrulanamadı", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
             try { new GameAdapterStore().SaveAndInstall(adapter); await new GameMetadataService().GetAsync(adapter.SteamAppId, adapter.Name); _selectedGameId = adapter.Id; new GameSelectionStore().Save(adapter.Id); window.DialogResult = true; window.Close(); BuildGamesPage(); }
-            catch (Exception ex) { MessageBox.Show(window, ex.Message, "Eşleme oluşturulamadı", MessageBoxButton.OK, MessageBoxImage.Error); }
+            catch (Exception ex) { UiLocalization.ShowMessage(window, ex.Message, "Eşleme oluşturulamadı", MessageBoxButton.OK, MessageBoxImage.Error); }
         };
         window.Content = root; window.ShowDialog();
     }
@@ -538,7 +538,7 @@ public partial class MainWindow : Window
 
         var footer = new Grid { Margin = new Thickness(0, 18, 0, 0) }; footer.ColumnDefinitions.Add(new ColumnDefinition()); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) }); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) }); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); Grid.SetRow(footer, 1); root.Children.Add(footer);
         Button ActionButton(string text, string background) => new() { Content = text, Foreground = Brush("#F4F7FA"), Background = Brush(background), BorderBrush = Brush("#315066"), BorderThickness = new Thickness(1), Padding = new Thickness(18, 10, 18, 10), FontWeight = FontWeights.SemiBold };
-        var reset = ActionButton("TÜM AYARLARI SIFIRLA", "#173044"); reset.BorderBrush = Brush("#37627A"); reset.Click += (_, _) => { if (MessageBox.Show(window, "Bu oyunun kişisel hareket ayarları kaldırılıp güvenli varsayılanlara dönülsün mü?", "Ayarları sıfırla", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes) { store.Reset(game.Definition.Id); optimizationStore.Reset(game.Definition.Id, motionProfileId); window.DialogResult = true; window.Close(); BuildGamesPage(); } }; footer.Children.Add(reset);
+        var reset = ActionButton("TÜM AYARLARI SIFIRLA", "#173044"); reset.BorderBrush = Brush("#37627A"); reset.Click += (_, _) => { if (UiLocalization.ShowMessage(window, "Bu oyunun kişisel hareket ayarları kaldırılıp güvenli varsayılanlara dönülsün mü?", "Ayarları sıfırla", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes) { store.Reset(game.Definition.Id); optimizationStore.Reset(game.Definition.Id, motionProfileId); window.DialogResult = true; window.Close(); BuildGamesPage(); } }; footer.Children.Add(reset);
         var cancel = ActionButton("VAZGEÇ", "#101923"); cancel.Click += (_, _) => window.Close(); Grid.SetColumn(cancel, 3); footer.Children.Add(cancel);
         var save = ActionButton("AYARLARI KAYDET", "#087DC4"); save.Click += (_, _) => { store.Save(profile with { SpeedMultiplier = speed.Value, MaximumOutput = maximum.Value, Deadzone = deadzone.Value, AccelerationPerSecond = acceleration.Value, DecelerationPerSecond = deceleration.Value }); window.DialogResult = true; window.Close(); BuildGamesPage(); }; Grid.SetColumn(save, 5); footer.Children.Add(save);
         window.Content = root; window.ShowDialog();
@@ -562,23 +562,23 @@ public partial class MainWindow : Window
         {
             SetGameLaunchStage(game, GameLaunchStage.Failed, "Oyun uyumluluk kontrolü tamamlanamadı.");
             if (_gameLaunchStatus is not null) { _gameLaunchStatus.Text = compatibility.UserMessage; _gameLaunchStatus.Foreground = Brush("#FF8AA5"); }
-            MessageBox.Show(this, compatibility.UserMessage, "Oyun başlatılmadı", MessageBoxButton.OK, MessageBoxImage.Warning); return;
+            UiLocalization.ShowMessage(this, compatibility.UserMessage, "Oyun başlatılmadı", MessageBoxButton.OK, MessageBoxImage.Warning); return;
         }
         if (game.Definition.SteamAppId is null) return;
         if (_gameNiiMotionEnabled && !_profile.LocomotionAllowed)
         {
             if (_gameLaunchStatus is not null) { _gameLaunchStatus.Text = "Önce Genel Bakış sayfasından bir NiiMotion yürüyüş profili seç."; _gameLaunchStatus.Foreground = Brush("#F1C566"); }
-            MessageBox.Show(this, "NiiMotion yürüyüşü açık. Önce Genel Bakış sayfasından kullanacağın hareket profilini seç.", "Yürüyüş profili gerekli", MessageBoxButton.OK, MessageBoxImage.Information);
+            UiLocalization.ShowMessage(this, "NiiMotion yürüyüşü açık. Önce Genel Bakış sayfasından kullanacağın hareket profilini seç.", "Yürüyüş profili gerekli", MessageBoxButton.OK, MessageBoxImage.Information);
             ShowPage(OverviewPage, "Genel Bakış", "Önce hareket profilini seç", OverviewNav); return;
         }
         if (_gameNiiMotionEnabled)
         {
             SetGameLaunchStage(game, GameLaunchStage.ValidatingCalibration, "Kişisel kalibrasyon doğrulanıyor…");
             var uncalibrated = await UncalibratedProfileSensorsAsync();
-            if (uncalibrated.Count > 0) { MessageBox.Show(this, $"Önce temel kalibrasyonu tamamla: {string.Join(", ", uncalibrated.Select(SensorDisplayName))}", "Kalibrasyon gerekli", MessageBoxButton.OK, MessageBoxImage.Warning); ToolsNavClick(this, new RoutedEventArgs()); return; }
+            if (uncalibrated.Count > 0) { UiLocalization.ShowMessage(this, $"Önce temel kalibrasyonu tamamla: {string.Join(", ", uncalibrated.Select(SensorDisplayName))}", "Kalibrasyon gerekli", MessageBoxButton.OK, MessageBoxImage.Warning); ToolsNavClick(this, new RoutedEventArgs()); return; }
             SetGameLaunchStage(game, GameLaunchStage.ValidatingSensors, "Gerekli sensörler canlı olarak kontrol ediliyor…");
             await ScanAsync(); var devices = (DevicesList.ItemsSource as IEnumerable<DeviceStatus>)?.ToArray() ?? []; var missing = PreflightBlockingDevices(devices);
-            if (missing.Count > 0) { MessageBox.Show(this, $"Oyun açılmadı. Önce bağla: {string.Join(", ", missing.Select(x => x.Name))}", "Cihazlar eksik", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+            if (missing.Count > 0) { UiLocalization.ShowMessage(this, $"Oyun açılmadı. Önce bağla: {string.Join(", ", missing.Select(x => x.Name))}", "Cihazlar eksik", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
         }
         else await ScanAsync();
         var currentDevices = (DevicesList.ItemsSource as IEnumerable<DeviceStatus>)?.ToArray() ?? [];
@@ -586,7 +586,7 @@ public partial class MainWindow : Window
         if (!vdReady)
         {
             if (_gameLaunchStatus is not null) { _gameLaunchStatus.Text = "Oyun açılmadı: Quest'te Virtual Desktop'ı açıp bu bilgisayara bağlan."; _gameLaunchStatus.Foreground = Brush("#FF8AA5"); }
-            MessageBox.Show(this, "Önce Quest'te Virtual Desktop'ı açıp bu bilgisayara bağlan. Bağlantı doğrulanmadan SteamVR veya oyun başlatılmayacak.", "Virtual Desktop bağlı değil", MessageBoxButton.OK, MessageBoxImage.Warning); return;
+            UiLocalization.ShowMessage(this, "Önce Quest'te Virtual Desktop'ı açıp bu bilgisayara bağlan. Bağlantı doğrulanmadan SteamVR veya oyun başlatılmayacak.", "Virtual Desktop bağlı değil", MessageBoxButton.OK, MessageBoxImage.Warning); return;
         }
         _launchNormalVrOverride = !_gameNiiMotionEnabled; _pendingGame = game;
         _selectedGameId = game.Definition.Id; new GameSelectionStore().Save(_selectedGameId); _pendingGameAppId = game.Definition.SteamAppId;
@@ -659,19 +659,19 @@ public partial class MainWindow : Window
 
     private async Task RemoveGameAdapterAsync(UserGameAdapter adapter)
     {
-        if (MessageBox.Show(this, $"{adapter.Name} için oluşturduğun NiiMotion eşlemesi kaldırılacak. Oyun dosyaları değişmeyecek. Devam edilsin mi?", "Oyun eşlemesini kaldır", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        if (UiLocalization.ShowMessage(this, $"{adapter.Name} için oluşturduğun NiiMotion eşlemesi kaldırılacak. Oyun dosyaları değişmeyecek. Devam edilsin mi?", "Oyun eşlemesini kaldır", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
         await _systemMode.StopSteamVrAsync(); new GameAdapterStore().Remove(adapter.SteamAppId); _selectedGameId = "half-life-alyx"; BuildGamesPage();
     }
 
     private async Task RestoreOriginalGameProfileAsync()
     {
-        if (MessageBox.Show(this, "İlk oyun eklenmeden önceki özgün NiiMotion sürücü profili geri yüklenecek ve bütün kullanıcı oyun eşlemeleri kaldırılacak. Geri yükleme öncesi mevcut profil ayrıca saklanacak. SteamVR kapatılarak devam edilsin mi?", "Özgün profili geri yükle", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        if (UiLocalization.ShowMessage(this, "İlk oyun eklenmeden önceki özgün NiiMotion sürücü profili geri yüklenecek ve bütün kullanıcı oyun eşlemeleri kaldırılacak. Geri yükleme öncesi mevcut profil ayrıca saklanacak. SteamVR kapatılarak devam edilsin mi?", "Özgün profili geri yükle", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
         try
         {
             await _locomotion.StopAsync(); await _systemMode.StopSteamVrAsync(); var result = new GameAdapterStore().RestoreOriginalProfile(); _selectedGameId = "half-life-alyx"; BuildGamesPage();
-            MessageBox.Show(this, $"Özgün profil geri yüklendi. {result.RemovedAdapterCount} kullanıcı eşlemesi kaldırıldı. Geri yükleme öncesi durum ayrıca saklandı.", "Geri yükleme tamamlandı", MessageBoxButton.OK, MessageBoxImage.Information);
+            UiLocalization.ShowMessage(this, $"Özgün profil geri yüklendi. {result.RemovedAdapterCount} kullanıcı eşlemesi kaldırıldı. Geri yükleme öncesi durum ayrıca saklandı.", "Geri yükleme tamamlandı", MessageBoxButton.OK, MessageBoxImage.Information);
         }
-        catch (Exception ex) { MessageBox.Show(this, ex.Message, "Geri yükleme başarısız", MessageBoxButton.OK, MessageBoxImage.Error); }
+        catch (Exception ex) { UiLocalization.ShowMessage(this, ex.Message, "Geri yükleme başarısız", MessageBoxButton.OK, MessageBoxImage.Error); }
     }
 
     private async Task BuildCalibrationCenterAsync()

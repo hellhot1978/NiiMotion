@@ -217,6 +217,7 @@ tests = [Sync("Installer preserves personal data and unregisters VR components",
 tests = [Sync("VR panel commands are delivered once", VrPanelCommands), Sync("OpenXR wizard prioritizes common engine executables", OpenXrEngineDiscovery), .. tests];
 tests = [Sync("Static UI text has English localization coverage", StaticUiLocalizationCoverage), .. tests];
 tests = [Sync("Dynamic UI status messages have English localization coverage", DynamicUiLocalizationCoverage), .. tests];
+tests = [Sync("Every app message box uses the English localization gate", MessageBoxLocalizationContract), .. tests];
 tests = [Sync("Standalone package contains local models and has no AI runtime dependency", StandaloneRuntimeContract), .. tests];
 tests = [Sync("Every motion device declares its software requirement", DeviceSoftwareGuidanceContract), .. tests];
 tests = [Sync("PS Move pairing has a verified offline bundle", PsMoveOfflineBundleContract), .. tests];
@@ -272,6 +273,20 @@ static void DynamicUiLocalizationCoverage()
         Assert(localization.Contains(phrase, StringComparison.Ordinal), $"Dynamic English translation rule is missing: {phrase}");
     Assert(localization.Contains("Regex.Replace(result", StringComparison.Ordinal), "Parameterized runtime messages are not localized by templates.");
     Assert(localization.Contains("value.EndsWith(pair.Key", StringComparison.Ordinal), "Icon-decorated runtime status text is not localized.");
+    Assert(localization.Contains("EnsureEnglish(Translate(value))", StringComparison.Ordinal), "Runtime UI text does not pass through the English residue guard.");
+    Assert(localization.Contains("Information unavailable in English.", StringComparison.Ordinal), "Unknown localized runtime messages do not have an English-only safe fallback.");
+}
+
+static void MessageBoxLocalizationContract()
+{
+    var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+    var app = Path.Combine(root, "src", "NiiRMotion.App");
+    var violations = Directory.EnumerateFiles(app, "*.cs", SearchOption.TopDirectoryOnly)
+        .Where(path => !Path.GetFileName(path).Equals("UiLocalization.cs", StringComparison.OrdinalIgnoreCase))
+        .Where(path => File.ReadAllText(path).Contains("MessageBox.Show(", StringComparison.Ordinal))
+        .Select(Path.GetFileName)
+        .ToArray();
+    Assert(violations.Length == 0, "Message boxes bypass English localization: " + string.Join(", ", violations));
 }
 
 static void SafeProfileFallback()

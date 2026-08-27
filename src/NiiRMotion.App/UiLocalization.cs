@@ -106,9 +106,14 @@ public static class UiLocalization
         || (_languageOverride is null && new UserExperienceStore().Load().Language == "en");
     internal static void SetLanguageOverride(string? language) =>
         _languageOverride = language is "en" or "tr" ? language : null;
-    public static string Text(string value) => IsEnglish ? Translate(value) : value;
+    public static string Text(string value) => IsEnglish ? EnsureEnglish(Translate(value)) : value;
     public static void Apply(DependencyObject root) => Visit(root);
     public static void ApplyLoaded(DependencyObject value) => VisitSelf(value);
+
+    public static MessageBoxResult ShowMessage(string message, string title, MessageBoxButton buttons, MessageBoxImage image) =>
+        MessageBox.Show(Text(message), Text(title), buttons, image);
+    public static MessageBoxResult ShowMessage(Window owner, string message, string title, MessageBoxButton buttons, MessageBoxImage image) =>
+        MessageBox.Show(owner, Text(message), Text(title), buttons, image);
 
     private static readonly (string Turkish, string English)[] DynamicFragments =
     [
@@ -285,7 +290,7 @@ public static class UiLocalization
         if (value is TextBlock text) HookText(text, state);
         if (value is ContentControl content && content.Content is string) HookContent(content, state);
         if (value is Window window) HookTitle(window, state);
-        if (value is FrameworkElement element && element.ToolTip is string tip && IsEnglish) element.ToolTip = Translate(tip);
+        if (value is FrameworkElement element && element.ToolTip is string tip && IsEnglish) element.ToolTip = Text(tip);
     }
 
     private static void HookText(TextBlock text, State state)
@@ -297,7 +302,7 @@ public static class UiLocalization
 
     private static void ApplyText(TextBlock text, State state)
     {
-        var original = state.OriginalText ?? text.Text; var target = IsEnglish ? Translate(original) : original;
+        var original = state.OriginalText ?? text.Text; var target = Text(original);
         if (text.Text == target) { state.LastText = target; return; }
         state.Updating = true; text.Text = target; state.LastText = target; state.Updating = false;
     }
@@ -311,7 +316,7 @@ public static class UiLocalization
 
     private static void ApplyContent(ContentControl content, State state)
     {
-        var original = state.OriginalContent ?? content.Content as string ?? ""; var target = IsEnglish ? TranslateDecorated(original) : original;
+        var original = state.OriginalContent ?? content.Content as string ?? ""; var target = IsEnglish ? EnsureEnglish(TranslateDecorated(original)) : original;
         if (Equals(content.Content, target)) { state.LastContent = target; return; }
         state.Updating = true; content.Content = target; state.LastContent = target; state.Updating = false;
     }
@@ -325,7 +330,7 @@ public static class UiLocalization
 
     private static void ApplyTitle(Window window, State state)
     {
-        var original = state.OriginalTitle ?? window.Title; var target = IsEnglish ? TranslateDecorated(original) : original;
+        var original = state.OriginalTitle ?? window.Title; var target = IsEnglish ? EnsureEnglish(TranslateDecorated(original)) : original;
         if (window.Title == target) { state.LastTitle = target; return; }
         state.Updating = true; window.Title = target; state.LastTitle = target; state.Updating = false;
     }
@@ -360,5 +365,20 @@ public static class UiLocalization
         if (English.TryGetValue(value, out var direct)) return direct;
         foreach (var pair in English.OrderByDescending(x => x.Key.Length)) if (value.EndsWith(pair.Key, StringComparison.Ordinal)) return value[..^pair.Key.Length] + pair.Value;
         return Translate(value);
+    }
+
+    private static string EnsureEnglish(string value)
+    {
+        if (!HasTurkishResidue(value)) return value;
+        var prefix = Regex.Match(value, @"^[\s✓✔✕×!⚠↻▶■◇★·:;,.0-9/+%()\-–—]+", RegexOptions.CultureInvariant).Value;
+        return prefix + "Information unavailable in English.";
+    }
+
+    private static bool HasTurkishResidue(string value)
+    {
+        if (Regex.IsMatch(value, "[çğıöşüÇĞİÖŞÜ]", RegexOptions.CultureInvariant)) return true;
+        return Regex.IsMatch(value,
+            @"\b(?:sadece|bağla|bagla|bağlı|bagli|cihaz|cihazlar|cihazı|cihazi|devam|durdur|faz|gerekli|göster|hazır|icin|için|ile|iptal|kalibrasyon|kapat|kaydet|kayıt|kontrol|kullan|modeli|oyun|önce|profil|sağ|sag|seç|sec|sensör|sol|tamamlandı|telefon|veri|veriler|yeniden|yerinde|yürü|yürüyüş)\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
 }
