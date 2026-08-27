@@ -2,6 +2,8 @@
 
 ## 0.7.0-dev
 
+- Added an automated installer safety contract covering per-user installation, self-contained packaging, VR component unregister, personal-data preservation, and a single application/installer version source.
+- Expanded the automated regression suite to 103 passing checks.
 - Added bilingual compact/standard UI smoke rendering and made it part of optional development acceptance.
 - Added standalone/runtime readiness, local model integrity repair, privacy-safe diagnostics, and OpenCode handoff documentation.
 - Expanded the automated regression suite to 102 passing checks.

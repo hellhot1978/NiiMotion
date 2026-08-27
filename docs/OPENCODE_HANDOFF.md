@@ -38,7 +38,7 @@ Kurucu yalnız sürüm adayı hazırlanırken üretilmelidir; günlük geliştir
 - Quest/Virtual Desktop → sistem modu → SteamVR → NiiMotion köprüsü → locomotion → oyun sırası zorunludur.
 - Başlangıç Rehberi yerel runtime bileşenlerini denetler. Tanılama bağlantı, model, paket ve son başlatma hatasını açıklar.
 - Runtime kaynaklarında OpenAI/Gemini/Anthropic/Azure OpenAI bağımlılığı yoktur.
-- Son otomatik taban: 102/102 test, Release build 0 uyarı/0 hata.
+- Son otomatik taban: 103/103 test, Release build 0 uyarı/0 hata.
 
 Son ilgili commitler:
 
@@ -82,6 +82,7 @@ Sonuçlar `hardware-verified`, `replay-tested` ve `software-only` olarak ayrı e
 - Türkçe/İngilizce görsel duman testi; Genel Bakış 1100×700/1200×760, Başlangıç Rehberi, cihaz seçimi, Joy-Con/PS Move temel kalibrasyonu, yönlendirmeli kayıt ve Board laboratuvarı dahil 16 render senaryosunu doğruluyor (`scripts/verify-ui.ps1`, geliştirme doğrulamasında `-UiSmoke`).
 - Başlangıç Rehberi kaydırmasız 2×2 düzene geçirildi; dinamik profil, cihaz ve kalibrasyon metinlerinin İngilizce karşılıkları görsel olarak denetlendi. Windows %125/%150 gerçek DPI ile kalan ikincil diyalogların taşma matrisi yayın adayı öncesinde tamamlanmalı.
 - Temiz Windows kullanıcı hesabında kurulum, kaldırma, güncelleme ve sürücü geri dönüş testi.
+- Kurucu sözleşmesi otomatik doğrulanıyor: standart kullanıcı kurulumu, self-contained paket, masaüstü kısayolu, OpenVR/OpenXR kaydı kaldırma ve kişisel veriyi koruma. Gerçek temiz Windows kabulü yine gereklidir.
 - GitHub README, katkı rehberi, lisans ve sürüm notlarının son düzeni.
 - En sonda tek kez kurucu ve checksum üretimi.
 
