@@ -2,7 +2,7 @@
 
 ## Repository and legal
 
-- [ ] Choose and add the source-code license; do not infer this choice from third-party notices.
+- [x] Source code license selected: PolyForm Noncommercial License 1.0.0 (source-available, noncommercial).
 - [ ] Review `THIRD_PARTY_NOTICES.md` and include all required license files.
 - [ ] Update version and changelog.
 - [ ] Confirm no personal recordings, logs, device identities, runtime config, or binding backups are staged.

@@ -2,6 +2,10 @@
 
 NiiMotion is safety-sensitive software: a bad input path can move a VR character unexpectedly. Keep changes small, reversible, and fail-closed.
 
+## Contribution status
+
+The public repository is source-available under the PolyForm Noncommercial License 1.0.0. Code contributions are not accepted until a separate contributor agreement is published that preserves both noncommercial source access and the owner's ability to distribute commercial NiiMotion releases. Bug reports, reproducible diagnostics without private sensor data, and documentation feedback remain welcome.
+
 ## Before changing code
 
 1. Read `AGENTS.md` and `docs/OPENCODE_HANDOFF.md`.

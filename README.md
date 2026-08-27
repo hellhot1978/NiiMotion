@@ -2,6 +2,10 @@
 
 NiiMotion, yerinde yürüme hareketini Windows üzerinde SteamVR/OpenVR analog hareket girdisine dönüştüren, güvenli duruş öncelikli bir VR locomotion uygulamasıdır. Joy-Con, PS Move, owoTrack kullanan Android telefon ve Wii Balance Board sensörlerini ayrı veya birlikte kullanabilir. Normal VR profili seçildiğinde oyun girdisine müdahale etmez.
 
+## Lisans
+
+NiiMotion kaynak kodu **PolyForm Noncommercial License 1.0.0** ile kaynak erişilebilir olarak yayımlanır. Kişisel, eğitimsel, araştırma ve diğer ticari olmayan kullanımlar lisans koşullarıyla serbesttir; ticari kullanım için proje sahibinden ayrı bir ticari lisans gerekir. Bu lisans OSI onaylı bir açık kaynak lisansı değildir. Ayrıntılar için [LICENSE.md](LICENSE.md) dosyasına bakın.
+
 ## Son kullanıcı kurulumu
 
 `NiiMotion-Setup-0.6.0-x64.exe` kurucusunu çalıştırın. Paket .NET kurulumu gerektirmez; masaüstü kısayolu, kaldırma kaydı, NiiMotion OpenVR sürücüsü ve OpenXR API katmanını içerir. İlk açılışta sahip olduğunuz cihazları seçin, **Test ve Kalibrasyon** sayfasında her cihazın üç temel fazını tamamlayın, ardından Genel Bakış'tan profil ve oyunu seçin.
@@ -14,6 +18,7 @@ NiiMotion, yerinde yürüme hareketini Windows üzerinde SteamVR/OpenVR analog h
 - [Bağımsız kullanım kabulü](docs/standalone-acceptance.md)
 - [Sürüm adayı kontrol listesi](docs/release-checklist.md)
 - [Üçüncü taraf bileşenleri](THIRD_PARTY_NOTICES.md)
+- [Kaynak kod lisansı](LICENSE.md)
 
 ## Güvenlik ve gizlilik
 

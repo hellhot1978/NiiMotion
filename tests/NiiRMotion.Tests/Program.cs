@@ -529,6 +529,9 @@ static void InstallerSafetyContract()
         "The installer must package the verified self-contained application output.");
     Assert(source.Contains("#ifndef MyAppVersion", StringComparison.OrdinalIgnoreCase),
         "The release build must be able to inject the application version into the installer.");
+    Assert(source.Contains("LicenseFile=..\\LICENSE.md", StringComparison.OrdinalIgnoreCase) &&
+           source.Contains("Source: \"..\\LICENSE.md\"", StringComparison.OrdinalIgnoreCase),
+        "The authoritative source license must be shown by the installer and included in the installed documentation.");
     Assert(source.Contains("{autodesktop}\\NiiMotion", StringComparison.OrdinalIgnoreCase),
         "The optional desktop shortcut contract is missing.");
     Assert(source.Contains("RegDeleteValue(HKCU, 'Software\\Khronos\\OpenXR\\1\\ApiLayers\\Implicit'", StringComparison.OrdinalIgnoreCase),
@@ -547,6 +550,11 @@ static void InstallerSafetyContract()
     var buildScript = File.ReadAllText(Path.Combine(root, "scripts", "build-installer.ps1"));
     Assert(buildScript.Contains("/DMyAppVersion=$version", StringComparison.Ordinal),
         "The installer build must take its version from the application project.");
+
+    var license = File.ReadAllText(Path.Combine(root, "LICENSE.md"));
+    Assert(license.StartsWith("# PolyForm Noncommercial License 1.0.0", StringComparison.Ordinal) &&
+           license.Contains("Any noncommercial purpose is a permitted purpose.", StringComparison.Ordinal),
+        "The selected PolyForm Noncommercial license is missing or incomplete.");
 }
 
 static void VrPanelCommands()

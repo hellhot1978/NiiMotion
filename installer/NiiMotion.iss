@@ -27,7 +27,7 @@ RestartApplications=no
 VersionInfoVersion={#MyAppVersion}.0
 VersionInfoProductName={#MyAppName}
 VersionInfoCompany={#MyAppPublisher}
-LicenseFile=LICENSE.txt
+LicenseFile=..\LICENSE.md
 
 [Languages]
 Name: "turkish"; MessagesFile: "compiler:Languages\Turkish.isl"
@@ -42,6 +42,7 @@ Source: "..\docs\first-run-guide-tr.md"; DestDir: "{app}\Docs"; Flags: ignorever
 Source: "..\docs\device-setup-tr.md"; DestDir: "{app}\Docs"; Flags: ignoreversion
 Source: "..\docs\troubleshooting-tr.md"; DestDir: "{app}\Docs"; Flags: ignoreversion
 Source: "..\THIRD_PARTY_NOTICES.md"; DestDir: "{app}\Docs"; Flags: ignoreversion
+Source: "..\LICENSE.md"; DestDir: "{app}\Docs"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\NiiMotion"; Filename: "{app}\{#MyAppExeName}"
