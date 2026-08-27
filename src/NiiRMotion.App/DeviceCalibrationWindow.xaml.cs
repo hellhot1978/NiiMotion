@@ -28,7 +28,13 @@ public partial class DeviceCalibrationWindow : Window
         _progress = new(sensor, CalibrationStage.NotConnected, 0, null);
         InitializeComponent();
         ConfigureVisuals();
-        Loaded += async (_, _) => await LoadAsync();
+        Loaded += async (_, _) =>
+        {
+            await LoadAsync();
+            // Loading replaces several status and phase labels after the visual tree is ready.
+            // Apply localization after that update so the complete dialog uses one language.
+            UiLocalization.Apply(this);
+        };
         _connectionTimer.Tick += async (_, _) => await RefreshLiveConnectionAsync();
         Closed += (_, _) => _connectionTimer.Stop();
     }

@@ -34,6 +34,14 @@ public partial class App : Application
         // Localize every control as it enters the visual tree. This also covers
         // cards and dialogs created after the parent window's Loaded event.
         EventManager.RegisterClassHandler(typeof(FrameworkElement), FrameworkElement.LoadedEvent, new RoutedEventHandler((sender, _) => UiLocalization.ApplyLoaded((DependencyObject)sender)));
+        // Some WPF templates materialize their child controls only after the window's
+        // Loaded event. Revisit the complete tree at idle so no dialog can retain its
+        // Turkish design-time text while English is active.
+        EventManager.RegisterClassHandler(typeof(Window), FrameworkElement.LoadedEvent, new RoutedEventHandler((sender, _) =>
+        {
+            if (sender is Window window)
+                window.Dispatcher.BeginInvoke(() => UiLocalization.Apply(window), DispatcherPriority.ApplicationIdle);
+        }));
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
