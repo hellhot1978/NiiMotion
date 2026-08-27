@@ -1,5 +1,7 @@
 #define MyAppName "NiiMotion"
+#ifndef MyAppVersion
 #define MyAppVersion "0.6.0"
+#endif
 #define MyAppPublisher "NiiMotion Project"
 #define MyAppExeName "NiiRMotion.App.exe"
 

@@ -12,7 +12,11 @@ var releaseManifestArg = args.FirstOrDefault(x => x.StartsWith("--release-manife
 if (releaseManifestArg is not null)
 {
     var root = Path.GetFullPath(releaseManifestArg[(releaseManifestArg.IndexOf('=') + 1)..]);
-    var manifest = ReleaseIntegrityService.Create(root, "0.7.0-dev"); ReleaseIntegrityService.Save(manifest, Path.Combine(root, "release-integrity.json"));
+    var repository = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+    var project = File.ReadAllText(Path.Combine(repository, "src", "NiiRMotion.App", "NiiRMotion.App.csproj"));
+    var version = Regex.Match(project, "<Version>([^<]+)</Version>", RegexOptions.CultureInvariant).Groups[1].Value;
+    if (!Version.TryParse(version, out _)) throw new InvalidDataException("Application version is missing or invalid.");
+    var manifest = ReleaseIntegrityService.Create(root, version); ReleaseIntegrityService.Save(manifest, Path.Combine(root, "release-integrity.json"));
     Console.WriteLine($"Release integrity manifest: {manifest.Files.Count} files"); return manifest.Files.Count > 0 ? 0 : 2;
 }
 if (args.Contains("--hardware-smoke", StringComparer.OrdinalIgnoreCase)) return await HardwareSmokeAsync();
@@ -209,6 +213,7 @@ tests = [Sync("Game launch journal is atomic and recoverable", GameLaunchJournal
 tests = [Sync("Generic OpenXR adapter is validated and persisted", GenericOpenXrAdapter), .. tests];
 tests = [Sync("First-use preferences and guidance are deterministic", FirstUsePreferences), Sync("Successful game validation is remembered locally", GameValidationReceipt), .. tests];
 tests = [("Update download is hash verified before staging", UpdateDownloadVerification), Sync("Release integrity detects tampering", ReleaseIntegrityVerification), .. tests];
+tests = [Sync("Installer preserves personal data and unregisters VR components", InstallerSafetyContract), .. tests];
 tests = [Sync("VR panel commands are delivered once", VrPanelCommands), Sync("OpenXR wizard prioritizes common engine executables", OpenXrEngineDiscovery), .. tests];
 tests = [Sync("Static UI text has English localization coverage", StaticUiLocalizationCoverage), .. tests];
 tests = [Sync("Dynamic UI status messages have English localization coverage", DynamicUiLocalizationCoverage), .. tests];
@@ -507,6 +512,41 @@ static void ReleaseIntegrityVerification()
         Assert(!ReleaseIntegrityService.Verify(root, manifest), "Modified release passed integrity verification.");
     }
     finally { try { Directory.Delete(root, true); } catch { } }
+}
+
+static void InstallerSafetyContract()
+{
+    var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+    var installerPath = Path.Combine(root, "installer", "NiiMotion.iss");
+    Assert(File.Exists(installerPath), "The Windows installer definition is missing.");
+
+    var source = File.ReadAllText(installerPath);
+    Assert(source.Contains("DefaultDirName={localappdata}\\Programs\\NiiMotion", StringComparison.OrdinalIgnoreCase),
+        "The installer must remain a per-user installation and must not require administrator privileges.");
+    Assert(source.Contains("PrivilegesRequired=lowest", StringComparison.OrdinalIgnoreCase),
+        "The installer must remain usable from a standard Windows account.");
+    Assert(source.Contains("Source: \"..\\artifacts\\app\\*\"", StringComparison.OrdinalIgnoreCase),
+        "The installer must package the verified self-contained application output.");
+    Assert(source.Contains("#ifndef MyAppVersion", StringComparison.OrdinalIgnoreCase),
+        "The release build must be able to inject the application version into the installer.");
+    Assert(source.Contains("{autodesktop}\\NiiMotion", StringComparison.OrdinalIgnoreCase),
+        "The optional desktop shortcut contract is missing.");
+    Assert(source.Contains("RegDeleteValue(HKCU, 'Software\\Khronos\\OpenXR\\1\\ApiLayers\\Implicit'", StringComparison.OrdinalIgnoreCase),
+        "Uninstall must remove the NiiMotion OpenXR implicit-layer registration.");
+    Assert(source.Contains("removedriver \"' + DriverPath + '\"", StringComparison.OrdinalIgnoreCase),
+        "Uninstall must unregister the NiiMotion OpenVR driver.");
+
+    var destructiveUserDataTokens = new[]
+    {
+        "[UninstallDelete]", "{userappdata}", "{commonappdata}", "\\data\\*", "\\logs\\*", "\\config\\*"
+    };
+    foreach (var token in destructiveUserDataTokens)
+        Assert(!source.Contains(token, StringComparison.OrdinalIgnoreCase),
+            $"Installer removal must not target user-owned data: {token}");
+
+    var buildScript = File.ReadAllText(Path.Combine(root, "scripts", "build-installer.ps1"));
+    Assert(buildScript.Contains("/DMyAppVersion=$version", StringComparison.Ordinal),
+        "The installer build must take its version from the application project.");
 }
 
 static void VrPanelCommands()
