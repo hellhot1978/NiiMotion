@@ -82,6 +82,17 @@ public partial class App : Application
             SaveScreenshotAndExit(window, boardPath); return;
         }
         var screenshotArg = e.Args.FirstOrDefault(x => x.StartsWith("--screenshot=", StringComparison.OrdinalIgnoreCase));
+        var calibrationScreenshotArg = e.Args.FirstOrDefault(x => x.StartsWith("--calibration-center-screenshot=", StringComparison.OrdinalIgnoreCase));
+        if (calibrationScreenshotArg is not null)
+        {
+            var calibrationPath = calibrationScreenshotArg[(calibrationScreenshotArg.IndexOf('=') + 1)..];
+            window.Dispatcher.BeginInvoke(async () =>
+            {
+                await ((MainWindow)window).PrepareCalibrationPreviewAsync();
+                SaveScreenshotAndExit(window, calibrationPath);
+            }, DispatcherPriority.ApplicationIdle);
+            return;
+        }
         if (screenshotArg is null) return;
         var path = screenshotArg[(screenshotArg.IndexOf('=') + 1)..];
         SaveScreenshotAndExit(window, path);

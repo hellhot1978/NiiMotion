@@ -351,6 +351,14 @@ public partial class MainWindow : Window
         _ = BuildCalibrationCenterAsync();
         ShowPage(ToolsPage, "Test ve Kalibrasyon", "Kişisel ölçüm, doğrulama ve veri kaydı", ToolsNav);
     }
+
+    internal async Task PrepareCalibrationPreviewAsync()
+    {
+        RefreshCalibrationProgress();
+        await BuildCalibrationCenterAsync();
+        ShowPage(ToolsPage, "Test ve Kalibrasyon", "Kişisel ölçüm, doğrulama ve veri kaydı", ToolsNav);
+        UiLocalization.Apply(ToolsPage);
+    }
     private void GamesNavClick(object sender, RoutedEventArgs e)
     {
         _gameNiiMotionEnabled = _profile.LocomotionAllowed;
@@ -683,7 +691,7 @@ public partial class MainWindow : Window
 
         root.Children.Add(SectionHeader("KALİBRASYON MERKEZİ", "Önce cihazlarını hazırla", "Her cihaz bağlantıdan sonra üç adet 5 dakikalık temel fazı tamamlar. Bu kayıtlar cihazı kullanıma açar."));
         var devicePanel = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) };
-        if (selected.Length == 0) devicePanel.Children.Add(new TextBlock { Text = "Henüz hareket cihazı seçmedin. Sol menüden Cihazlarım'ı aç.", Foreground = Brush("#F1C566"), Margin = new Thickness(4, 18, 0, 22) });
+        if (selected.Length == 0) devicePanel.Children.Add(new TextBlock { Text = UiLocalization.Text("Henüz hareket cihazı seçmedin. Sol menüden Cihazlarım'ı aç."), Foreground = Brush("#F1C566"), Margin = new Thickness(4, 18, 0, 22) });
         foreach (var sensor in selected) devicePanel.Children.Add(CreateCalibrationCard(sensor, progress.Devices.FirstOrDefault(x => x.Sensor == sensor)));
         root.Children.Add(devicePanel);
 
@@ -692,7 +700,7 @@ public partial class MainWindow : Window
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
             Padding = new Thickness(16, 12, 16, 12),
             Margin = new Thickness(0, 0, 0, 8),
-            ToolTip = "SteamVR başlık yönü ve dönüş örneklerini oyun hareketi üretmeden doğrular"
+            ToolTip = UiLocalization.Text("SteamVR başlık yönü ve dönüş örneklerini oyun hareketi üretmeden doğrular")
         };
         var hmdGrid = new Grid();
         hmdGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(74) });
@@ -729,11 +737,14 @@ public partial class MainWindow : Window
         foreach (var combination in combinations)
         {
             var ready = combination.Sensors.All(x => progress.Devices.FirstOrDefault(p => p.Sensor == x)?.IsReady == true);
-            var choice = new Button { Content = string.Join(" + ", combination.Sensors.Select(SensorDisplayName)), IsEnabled = ready, ToolTip = ready ? "Bu kombinasyonla yeni 5 dakikalık kayıt ekle" : "Önce bu cihazların temel kalibrasyonlarını tamamla", Margin = new Thickness(6, 3, 0, 3), Padding = new Thickness(13, 9, 13, 9) };
+            var choice = new Button { Content = UiLocalization.Text(string.Join(" + ", combination.Sensors.Select(SensorDisplayName))), IsEnabled = ready, ToolTip = UiLocalization.Text(ready ? "Bu kombinasyonla yeni 5 dakikalık kayıt ekle" : "Önce bu cihazların temel kalibrasyonlarını tamamla"), Margin = new Thickness(6, 3, 0, 3), Padding = new Thickness(13, 9, 13, 9) };
             var profile = combination.Profile; var sensors = combination.Sensors;
             choice.Click += (_, _) => OpenAdvancedTraining(profile, sensors); advancedChoices.Children.Add(choice);
         }
         Grid.SetColumn(advancedChoices, 1); advancedGrid.Children.Add(advancedChoices); advanced.Child = advancedGrid; root.Children.Add(advanced);
+        // This page is rebuilt after it has already been loaded. Newly-created controls do not
+        // receive WPF's Loaded event again, so they must explicitly pass through localization.
+        UiLocalization.Apply(root);
     }
 
     private FrameworkElement CreateCalibrationCard(SensorFamily sensor, DeviceCalibrationProgress? progress)
@@ -773,7 +784,12 @@ public partial class MainWindow : Window
         return new Border { Child = panel, Background = Brush("#0B141D"), BorderBrush = Brush("#263946"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(18, 14, 18, 14), Margin = new Thickness(0, 0, 0, 14) };
     }
 
-    private static TextBlock Label(string text, string color, double size, FontWeight weight, Thickness? margin = null) => new() { Text = text, Foreground = Brush(color), FontSize = size, FontWeight = weight, Margin = margin ?? new Thickness(), TextWrapping = TextWrapping.Wrap };
+    private static TextBlock Label(string text, string color, double size, FontWeight weight, Thickness? margin = null)
+    {
+        var label = new TextBlock { Text = text, Foreground = Brush(color), FontSize = size, FontWeight = weight, Margin = margin ?? new Thickness(), TextWrapping = TextWrapping.Wrap };
+        UiLocalization.ApplyLoaded(label);
+        return label;
+    }
 
     private async void OpenWalkingCalibrationForInventory()
     {
@@ -812,7 +828,7 @@ public partial class MainWindow : Window
             nav.BorderBrush = Brush(nav == selectedNav ? "#1E6F9F" : "#080D13");
             nav.Foreground = Brush(nav == selectedNav ? "#FFFFFF" : "#A8B2BC");
         }
-        PageTitle.Text = title; PageSubtitle.Text = subtitle;
+        PageTitle.Text = UiLocalization.Text(title); PageSubtitle.Text = UiLocalization.Text(subtitle);
     }
     private static void SetModeButton(Button button, bool selected, string title)
     {
@@ -1312,7 +1328,7 @@ public partial class MainWindow : Window
         return await new CalibrationModelReadinessService().FindUnavailableAsync(required, progress, repairFromLocalCaptures: true);
     }
 
-    private static string SensorDisplayName(SensorFamily sensor) => sensor switch { SensorFamily.JoyCon => "Joy-Con", SensorFamily.PsMove => "PS Move", SensorFamily.Phone => "Telefon", _ => "Balance Board" };
+    private static string SensorDisplayName(SensorFamily sensor) => UiLocalization.Text(sensor switch { SensorFamily.JoyCon => "Joy-Con", SensorFamily.PsMove => "PS Move", SensorFamily.Phone => "Telefon", _ => "Balance Board" });
 
     private static async Task WaitForVirtualDesktopSessionAsync(TimeSpan timeout)
     {
