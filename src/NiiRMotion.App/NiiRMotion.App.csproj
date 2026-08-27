@@ -11,6 +11,7 @@
     <Resource Include="Assets\Fonts\InterVariable.ttf" />
     <Content Include="Assets\Fonts\Inter-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
     <Resource Include="Assets\device-*" />
+    <EmbeddedResource Include="Assets\Localization\en.generated.json" />
     <Content Include="..\..\native\openvr-driver\dist\driver.vrdrivermanifest" Link="OpenVRDriver\driver.vrdrivermanifest" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\native\openvr-driver\dist\bin\win64\driver_niirmotion.dll" Link="OpenVRDriver\bin\win64\driver_niirmotion.dll" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\native\openvr-driver\dist\resources\input\niirmotion_profile.json" Link="OpenVRDriver\resources\input\niirmotion_profile.json" CopyToOutputDirectory="PreserveNewest" />

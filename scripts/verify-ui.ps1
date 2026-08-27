@@ -66,7 +66,8 @@ foreach ($language in @('tr', 'en')) {
     $startInfo.Arguments = "--ui-language=$language --getting-started-screenshot=`"$path`""
     $process = [System.Diagnostics.Process]::Start($startInfo)
     $deadline = [DateTime]::UtcNow.AddSeconds(10)
-    while (-not (Test-Path -LiteralPath $path) -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 100 }
+    while ((-not (Test-Path -LiteralPath $path) -or (Get-Item -LiteralPath $path -ErrorAction SilentlyContinue).Length -lt 10000) -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 100 }
+    $process.WaitForExit()
     if (-not (Test-Path -LiteralPath $path) -or (Get-Item -LiteralPath $path).Length -lt 10000) { throw "Getting Started UI render failed: $language" }
 }
 $guideTurkish = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $OutputDirectory 'getting-started-tr.png')).Hash

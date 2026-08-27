@@ -273,8 +273,9 @@ static void DynamicUiLocalizationCoverage()
         Assert(localization.Contains(phrase, StringComparison.Ordinal), $"Dynamic English translation rule is missing: {phrase}");
     Assert(localization.Contains("Regex.Replace(result", StringComparison.Ordinal), "Parameterized runtime messages are not localized by templates.");
     Assert(localization.Contains("value.EndsWith(pair.Key", StringComparison.Ordinal), "Icon-decorated runtime status text is not localized.");
-    Assert(localization.Contains("EnsureEnglish(Translate(value))", StringComparison.Ordinal), "Runtime UI text does not pass through the English residue guard.");
-    Assert(localization.Contains("Information unavailable in English.", StringComparison.Ordinal), "Unknown localized runtime messages do not have an English-only safe fallback.");
+    Assert(localization.Contains("EnsureEnglish(Translate(value))", StringComparison.Ordinal), "Runtime UI text does not pass through the English localization gate.");
+    Assert(localization.Contains("GeneratedTemplates", StringComparison.Ordinal), "Parameterized runtime messages are not covered by the generated English catalog.");
+    Assert(!localization.Contains("Information unavailable in English.", StringComparison.Ordinal), "The UI still contains the temporary unavailable-English placeholder.");
 }
 
 static void MessageBoxLocalizationContract()

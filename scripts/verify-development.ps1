@@ -19,6 +19,9 @@ try {
     & $dotnet run --project tests\NiiRMotion.Tests\NiiRMotion.Tests.csproj -c Release --no-build
     if ($LASTEXITCODE -ne 0) { throw 'Regression tests failed.' }
 
+    & $dotnet run --project tools\NiiMotion.LocalizationAudit\NiiMotion.LocalizationAudit.csproj -c Release --no-restore -- $projectRoot
+    if ($LASTEXITCODE -ne 0) { throw 'English localization audit failed.' }
+
     if ($UiSmoke) {
         & powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'verify-ui.ps1')
         if ($LASTEXITCODE -ne 0) { throw 'UI smoke verification failed.' }

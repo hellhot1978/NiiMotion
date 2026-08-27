@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
@@ -13,6 +14,10 @@ public static class UiLocalization
     private static string? _languageOverride;
     private sealed class State { public string? OriginalText, OriginalContent, OriginalTitle, LastText, LastContent, LastTitle; public bool TextHooked, ContentHooked, TitleHooked, Updating; }
     private static readonly ConditionalWeakTable<DependencyObject, State> States = new();
+    private static readonly IReadOnlyDictionary<string, string> GeneratedEnglish = LoadGeneratedEnglish();
+    private static readonly IReadOnlyList<TemplateTranslation> GeneratedTemplates = GeneratedEnglish
+        .Where(x => x.Key.Contains("{VALUE", StringComparison.Ordinal))
+        .Select(x => TemplateTranslation.Create(x.Key, x.Value)).ToArray();
     private static readonly IReadOnlyDictionary<string, string> English = new Dictionary<string, string>(StringComparer.Ordinal)
     {
         ["Genel Bakış"]="Overview", ["Oyunlar"]="Games", ["Test ve Kalibrasyon"]="Test & Calibration", ["Cihazlarım"]="My Devices",
@@ -90,6 +95,7 @@ public static class UiLocalization
         ["GÜVENLİ DURUŞ"]="SAFE STOP", ["HAREKET BAĞLANTISI KESİLDİ"]="MOTION CONNECTION LOST", ["TARANIYOR"]="SCANNING", ["SİSTEM MODU DEĞİŞTİRİLİYOR"]="CHANGING SYSTEM MODE", ["ORİJİNAL SİSTEM AKTİF"]="NATIVE SYSTEM ACTIVE", ["GEÇİŞ TAMAMLANAMADI"]="SWITCH COULD NOT BE COMPLETED", ["DAHA BASİT PROFİLİ KULLAN"]="USE A SIMPLER PROFILE", ["KULLAN"]="USE",
         ["YEREL ÇALIŞMA DENETİMİ"]="LOCAL RUNTIME CHECK", ["NiiMotion yapay zekâ veya ağ bağlantısı olmadan kullanıma hazır."]="NiiMotion is ready to use without AI or a network connection.", ["DENETLE VE ONAR"]="CHECK & REPAIR", ["EKSİK BİLEŞEN"]="MISSING COMPONENT", ["Bağımsız .NET çalışma zamanı"]="Self-contained .NET runtime", ["Yerel hareket modelleri"]="Local motion models", ["Yerel kalibrasyon tanımları"]="Local calibration definitions", ["SteamVR analog hareket sürücüsü"]="SteamVR analog motion driver", ["OpenXR hareket katmanı"]="OpenXR motion layer", ["SteamVR içi NiiMotion paneli"]="NiiMotion SteamVR panel", ["Çevrimdışı PS Move eşleştirme aracı"]="Offline PS Move pairing tool", ["Kişisel veri alanı"]="Personal data storage",
         ["KART SIFIRLANIYOR"]="ZEROING BOARD", ["KART BOŞ KALSIN"]="KEEP THE BOARD EMPTY", ["ŞİMDİ KARTA ÇIK"]="STEP ONTO THE BOARD NOW", ["KART BEKLENİYOR"]="WAITING FOR BOARD", ["TAM KALİBRASYONA HAZIRLAN"]="PREPARE FOR FULL CALIBRATION", ["DOĞAL YÜRÜYÜŞE HAZIRLAN"]="PREPARE FOR NATURAL WALKING", ["TAM KALİBRASYON"]="FULL CALIBRATION", ["ÖLÇÜLÜYOR"]="MEASURING", ["DOĞAL YERİNDE YÜRÜ"]="WALK NATURALLY IN PLACE", ["ŞİMDİ SABİT DUR"]="STAND STILL NOW", ["ŞİMDİ KARTTAN İN"]="STEP OFF THE BOARD NOW", ["TAMAMLANDI"]="COMPLETE", ["KAYDEDİLDİ"]="SAVED", ["ÖLÇÜM ALINAMADI"]="MEASUREMENT FAILED",
+        ["Kart boş"]="Board empty", ["Karta çık"]="Step onto the board", ["Yavaş yerinde yürü"]="Walk slowly in place", ["Hızlı yerinde yürü"]="Walk quickly in place", ["NİIMOTION OTOMATİK BAĞLANDI"]="NIIMOTION CONNECTED AUTOMATICALLY", ["Sol Move USB kalibrasyon verisi bulunamadı."]="Left Move USB calibration data was not found.", ["sol"]="left",
         ["YENİDEN DENE"]="TRY AGAIN", ["YENİ KAYIT EKLENDİ"]="NEW RECORDING ADDED", ["YENİ 5 DK KAYIT EKLE"]="ADD NEW 5-MIN RECORDING", ["Son ek kayıt reddedildi; kişisel model kalan doğrulanmış kayıtlardan yeniden oluşturuldu."]="The latest recording was rejected; the personal model was rebuilt from the remaining verified recordings.",
         ["Cihaz aranıyor…"]="Searching for device…", ["Bağlantı yardımı"]="Connection help", ["PS Move eşleştirme"]="PS Move pairing", ["Fazı yeniden çek"]="Retake phase", ["Faz yeniden kayda açıldı · canlı bağlantı kontrol ediliyor"]="Phase reopened for recording · checking live connection", ["Güvenli kurtarma"]="Safe recovery", ["NiiMotion güvenli duruş"]="NiiMotion safe stop",
         ["Hızlı yürü ve aniden dur"]="Walk quickly and stop suddenly", ["Sol ve sağ Joy-Con bağlı olmalı."]="Both left and right Joy-Con must be connected.", ["TESTİ DURDUR"]="STOP TEST", ["CANLI · VR ÇIKIŞI YOK"]="LIVE · NO VR OUTPUT", ["Hareketlerini animasyonda görebilirsin."]="You can see your movements in the animation.", ["KAYIT GEÇERSİZ"]="RECORDING INVALID", ["KAYDI BİTİR"]="FINISH RECORDING", ["Kaydediliyor"]="Recording", ["HAREKETSİZ DUR"]="REMAIN STILL", ["HIZLI YÜRÜ · DUR SESİNDE DON"]="WALK QUICKLY · FREEZE AT THE STOP SOUND",
@@ -345,6 +351,9 @@ public static class UiLocalization
     {
         if (string.IsNullOrWhiteSpace(value) || value.StartsWith("{Binding", StringComparison.Ordinal)) return value;
         if (English.TryGetValue(value, out var translated)) return translated;
+        if (GeneratedEnglish.TryGetValue(value, out translated)) return translated;
+        foreach (var template in GeneratedTemplates)
+            if (template.TryTranslate(value, out translated)) return translated;
         foreach (var pair in English.OrderByDescending(x => x.Key.Length))
             if (value.EndsWith(pair.Key, StringComparison.Ordinal))
                 return value[..^pair.Key.Length] + pair.Value;
@@ -378,9 +387,38 @@ public static class UiLocalization
 
     private static string EnsureEnglish(string value)
     {
-        if (!HasTurkishResidue(value)) return value;
-        var prefix = Regex.Match(value, @"^[\s✓✔✕×!⚠↻▶■◇★·:;,.0-9/+%()\-–—]+", RegexOptions.CultureInvariant).Value;
-        return prefix + "Information unavailable in English.";
+        return value;
+    }
+
+    private static IReadOnlyDictionary<string, string> LoadGeneratedEnglish()
+    {
+        const string resourceName = "NiiRMotion.App.Assets.Localization.en.generated.json";
+        using var stream = typeof(UiLocalization).Assembly.GetManifestResourceStream(resourceName)
+            ?? throw new InvalidOperationException($"Missing localization resource: {resourceName}");
+        return JsonSerializer.Deserialize<Dictionary<string, string>>(stream)
+            ?? new Dictionary<string, string>(StringComparer.Ordinal);
+    }
+
+    private sealed record TemplateTranslation(Regex Pattern, string English)
+    {
+        public static TemplateTranslation Create(string source, string english)
+        {
+            var parts = Regex.Split(source, @"(\{VALUE\d+\})", RegexOptions.CultureInvariant);
+            var pattern = string.Concat(parts.Select(part =>
+            {
+                var token = Regex.Match(part, @"^\{VALUE(\d+)\}$", RegexOptions.CultureInvariant);
+                return token.Success ? $"(?<v{token.Groups[1].Value}>.*?)" : Regex.Escape(part);
+            }));
+            return new(new Regex("^" + pattern + "$", RegexOptions.CultureInvariant | RegexOptions.Singleline), english);
+        }
+
+        public bool TryTranslate(string value, out string translated)
+        {
+            var match = Pattern.Match(value);
+            if (!match.Success) { translated = ""; return false; }
+            translated = Regex.Replace(English, @"\{VALUE(\d+)\}", token => match.Groups["v" + token.Groups[1].Value].Value, RegexOptions.CultureInvariant);
+            return true;
+        }
     }
 
     private static bool HasTurkishResidue(string value)
