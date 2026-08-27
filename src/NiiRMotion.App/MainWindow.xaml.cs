@@ -154,7 +154,7 @@ public partial class MainWindow : Window
         }
         var visibleKinds = _profile.Required.Concat(_profile.Optional)
             .Where(x => x != DeviceKind.SteamVr).ToHashSet();
-        DevicesList.ItemsSource = devices.Where(x => visibleKinds.Contains(x.Kind)).ToList();
+        DevicesList.ItemsSource = devices.Where(x => visibleKinds.Contains(x.Kind)).Select(LocalizeDeviceStatus).ToList();
         PublishVrPanel("Hazırlanıyor", devices);
         _readiness = SessionReadinessEvaluator.Evaluate(_profile, devices.ToArray());
         var preflightDevices = PreflightBlockingDevices(devices);
@@ -329,7 +329,7 @@ public partial class MainWindow : Window
         _profileRecommendations = MotionProfileCatalog.For(_inventory);
         var panel = (StackPanel)((ScrollViewer)((Border)ProfilePopup.Child).Child).Content;
         panel.Children.Clear();
-        panel.Children.Add(new TextBlock { Text = "SANA UYGUN PROFİLLER", Foreground = Brush("#6F8493"), FontSize = 9, FontWeight = FontWeights.SemiBold, Margin = new Thickness(8, 5, 8, 7) });
+        panel.Children.Add(new TextBlock { Text = UiLocalization.Text("SANA UYGUN PROFİLLER"), Foreground = Brush("#6F8493"), FontSize = 9, FontWeight = FontWeights.SemiBold, Margin = new Thickness(8, 5, 8, 7) });
         foreach (var recommendation in _profileRecommendations)
         {
             var button = new Button { Style = (Style)FindResource("ProfileOption"), HorizontalContentAlignment = HorizontalAlignment.Stretch };
@@ -338,7 +338,7 @@ public partial class MainWindow : Window
             text.Children.Add(new TextBlock { Text = DisplayProfileName(recommendation.Profile), FontWeight = FontWeights.SemiBold });
             text.Children.Add(new TextBlock { Text = UiLocalization.Text(recommendation.Summary), Foreground = Brush("#8EA0AD"), FontSize = 9, Margin = new Thickness(0, 2, 0, 0) });
             grid.Children.Add(text);
-            var score = new TextBlock { Text = recommendation.Experimental ? "DENEYSEL" : $"{recommendation.PerformanceScore}/100", Foreground = Brush(recommendation.Experimental ? "#E6B85A" : "#55DDB8"), FontSize = 9, FontWeight = FontWeights.Bold, VerticalAlignment = VerticalAlignment.Center };
+            var score = new TextBlock { Text = recommendation.Experimental ? UiLocalization.Text("DENEYSEL") : $"{recommendation.PerformanceScore}/100", Foreground = Brush(recommendation.Experimental ? "#E6B85A" : "#55DDB8"), FontSize = 9, FontWeight = FontWeights.Bold, VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(score, 1); grid.Children.Add(score); button.Content = grid;
             var profile = recommendation.Profile; button.Click += async (_, _) => { SelectProfile(profile); await ScanAsync(); };
             panel.Children.Add(button);
@@ -1157,6 +1157,24 @@ public partial class MainWindow : Window
         return string.Join(" + ", names);
     }
 
+    private static DeviceStatus LocalizeDeviceStatus(DeviceStatus status) => status with
+    {
+        Name = UiLocalization.Text(status.Name),
+        Detail = UiLocalization.Text(status.Detail),
+        Action = UiLocalization.Text(status.Action)
+    };
+
+    internal async void RefreshLanguage()
+    {
+        ApplyUserExperience(new UserExperienceStore().Load());
+        RebuildProfileMenu();
+        SidebarProfileName.Text = ActiveProfileName.Text = DisplayProfileName(_profile);
+        ActiveProfileDetail.Text = UiLocalization.Text(_profile.LocomotionAllowed ? "Yerinde yürüyüş çıkışı" : "Özgün kontrolcü hareketi");
+        UpdateProfileInformation(_profile);
+        UiLocalization.Apply(this);
+        await ScanAsync();
+    }
+
     private void SelectProfile(MotionProfile profile)
     {
         _profile = profile;
@@ -1194,7 +1212,7 @@ public partial class MainWindow : Window
             "board-only" => ("◇  BALANCE BOARD", "  ·  Basınçla yürüyüş ve dönüş", "Ağırlık aktarımı hareket ve dönüşe çevrilir. Karttan inildiğinde ya da bağlantı kesildiğinde çıkış sıfırlanır."),
             "board-joycon" => ("✓  BOARD + JOY-CON", "  ·  Bacak ve basınç füzyonu", "Joy-Con'lar adımı, Balance Board ağırlık aktarımını izler. Telefon kullanmadan daha kararlı hareket sağlar."),
             "board-phone" => ("◇  BOARD + TELEFON", "  ·  Basınç ve gövde füzyonu", "Balance Board ağırlığı, telefon gövde hareketini izler. Joy-Con gerekmez; bu profil deneyseldir."),
-            _ => ("✓  " + profile.Name.ToUpperInvariant(), "  ·  Cihazların birlikte doğrulanır", $"{string.Join(", ", profile.Required.Where(x => x != DeviceKind.Quest3).Select(x => new DeviceStatus(x, "", DeviceState.Unknown, "", "").IconGlyph + " " + x))} verileri seçili profil içinde birleştirilir. Zorunlu bir cihaz kesilirse hareket güvenle sıfırlanır.")
+            _ => ("✓  " + DisplayProfileName(profile).ToUpperInvariant(), "  ·  Cihazların birlikte doğrulanır", $"{string.Join(", ", profile.Required.Where(x => x != DeviceKind.Quest3).Select(x => new DeviceStatus(x, "", DeviceState.Unknown, "", "").IconGlyph + " " + x))} verileri seçili profil içinde birleştirilir. Zorunlu bir cihaz kesilirse hareket güvenle sıfırlanır.")
         };
 
         ProfileInfoTitle.Text = information.Item1;

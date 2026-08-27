@@ -44,7 +44,14 @@ public sealed class GettingStartedWindow : Window
         body.Children.Add(steps);
         var footer = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 22, 0, 0) };
         var later = new Button { Content = "KAPAT", Padding = new Thickness(20, 10, 20, 10), Margin = new Thickness(0, 0, 10, 0) }; later.Click += (_, _) => Close();
-        var save = new Button { Content = "KAYDET VE DEVAM ET", Padding = new Thickness(20, 10, 20, 10), Background = MainWindow.Brush("#087DC4") }; save.Click += (_, _) => { store.Save(prefs with { Language = language.SelectedIndex == 1 ? "en" : "tr", OnboardingComplete = true }); if (Owner is not null) UiLocalization.Apply(Owner); DialogResult = true; Close(); };
+        var save = new Button { Content = "KAYDET VE DEVAM ET", Padding = new Thickness(20, 10, 20, 10), Background = MainWindow.Brush("#087DC4") }; save.Click += (_, _) =>
+        {
+            var selectedLanguage = language.SelectedIndex == 1 ? "en" : "tr";
+            store.Save(prefs with { Language = selectedLanguage, OnboardingComplete = true });
+            UiLocalization.SetLanguageOverride(selectedLanguage);
+            if (Owner is MainWindow main) main.RefreshLanguage(); else if (Owner is not null) UiLocalization.Apply(Owner);
+            DialogResult = true; Close();
+        };
         footer.Children.Add(later); footer.Children.Add(save); Grid.SetRow(footer, 1); root.Children.Add(footer); Content = root;
         Loaded += (_, _) => UiLocalization.Apply(this);
     }

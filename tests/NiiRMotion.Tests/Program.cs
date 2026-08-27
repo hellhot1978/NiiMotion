@@ -465,6 +465,9 @@ static void FirstUsePreferences()
     {
         var store = new UserExperienceStore(root); store.Save(UserExperiencePreferences.Default with { TextScale = 9, Language = "xx", OnboardingComplete = true });
         var loaded = store.Load(); Assert(loaded.TextScale == 1.3 && loaded.Language == "tr" && loaded.OnboardingComplete, "User experience preferences were not normalized.");
+        store.Save(loaded with { Language = "en" });
+        var restartedStore = new UserExperienceStore(root);
+        Assert(restartedStore.Load().Language == "en", "The selected UI language did not persist across application restarts.");
         var inventory = new UserHardwareInventory(1, true, false, false, false, false, DateTimeOffset.UtcNow);
         var progress = new CalibrationProgressDocument(1, [new(SensorFamily.JoyCon, CalibrationStage.Ready, 3, DateTimeOffset.UtcNow)]);
         var steps = FirstUseGuidance.Build(inventory, progress); Assert(steps.Count == 4 && steps[0].Complete && steps[1].Complete, "First-use guidance does not reflect calibration state.");
