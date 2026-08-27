@@ -13,7 +13,11 @@ var generatedPath = Path.Combine(root, "src", "NiiRMotion.App", "Assets", "Local
 var generated = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(generatedPath))
     ?? new Dictionary<string, string>(StringComparer.Ordinal);
 var findings = new List<Finding>();
-foreach (var path in Directory.EnumerateFiles(Path.Combine(root, "src", "NiiRMotion.App"), "*.cs", SearchOption.TopDirectoryOnly)
+var sourceRoots = new[] { "NiiRMotion.App", "NiiRMotion.Infrastructure", "NiiRMotion.Core" }
+    .Select(project => Path.Combine(root, "src", project));
+foreach (var path in sourceRoots.SelectMany(directory => Directory.EnumerateFiles(directory, "*.cs", SearchOption.AllDirectories))
+             .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
+             .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
              .Where(path => !Path.GetFileName(path).Equals("UiLocalization.cs", StringComparison.OrdinalIgnoreCase)))
 {
     var tree = CSharpSyntaxTree.ParseText(File.ReadAllText(path), path: path);
