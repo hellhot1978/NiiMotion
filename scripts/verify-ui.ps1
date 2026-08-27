@@ -73,4 +73,32 @@ $guideTurkish = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $OutputD
 $guideEnglish = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $OutputDirectory 'getting-started-en.png')).Hash
 if ($guideTurkish -eq $guideEnglish) { throw 'Getting Started language renders are unexpectedly identical.' }
 
-Write-Host "UI smoke verification passed: $($cases.Count) viewport cases and 2 Getting Started renders." -ForegroundColor Green
+$dialogCases = @(
+    @{ Name = 'hardware-setup'; Argument = '--hardware-setup-screenshot' },
+    @{ Name = 'device-joycon'; Argument = '--device-calibration-screenshot'; Prefix = 'JoyCon|' },
+    @{ Name = 'device-psmove'; Argument = '--device-calibration-screenshot'; Prefix = 'PsMove|' },
+    @{ Name = 'guided-joycon'; Argument = '--guided-calibration-screenshot'; Prefix = 'JoyCon|' },
+    @{ Name = 'board-lab'; Argument = '--board-lab-screenshot' }
+)
+foreach ($dialog in $dialogCases) {
+    foreach ($language in @('tr', 'en')) {
+        $path = Join-Path $OutputDirectory "$($dialog.Name)-$language.png"
+        [System.IO.File]::Delete($path)
+        $captureValue = ([string]$dialog.Prefix) + $path
+        $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $startInfo.FileName = $app
+        $startInfo.UseShellExecute = $false
+        $startInfo.CreateNoWindow = $true
+        $startInfo.Arguments = "--ui-language=$language $($dialog.Argument)=`"$captureValue`""
+        $process = [System.Diagnostics.Process]::Start($startInfo)
+        $deadline = [DateTime]::UtcNow.AddSeconds(12)
+        while (-not (Test-Path -LiteralPath $path) -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 100 }
+        if (-not $process.HasExited) { [void]$process.WaitForExit(12000) }
+        if (-not (Test-Path -LiteralPath $path) -or (Get-Item -LiteralPath $path).Length -lt 10000) { throw "Dialog UI render failed: $($dialog.Name)-$language" }
+    }
+    $turkishHash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $OutputDirectory "$($dialog.Name)-tr.png")).Hash
+    $englishHash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $OutputDirectory "$($dialog.Name)-en.png")).Hash
+    if ($turkishHash -eq $englishHash) { throw "Dialog language renders are unexpectedly identical: $($dialog.Name)" }
+}
+
+Write-Host "UI smoke verification passed: $($cases.Count) viewports, 2 Getting Started, and $($dialogCases.Count * 2) dialog renders." -ForegroundColor Green

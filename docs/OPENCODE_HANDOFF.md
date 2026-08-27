@@ -79,8 +79,8 @@ Sonuçlar `hardware-verified`, `replay-tested` ve `software-only` olarak ayrı e
 
 ### P2 — Yayın adayı
 
-- Ana Genel Bakış ekranı için Türkçe/İngilizce ve 1100×700/1200×760 otomatik görsel duman testi eklendi (`scripts/verify-ui.ps1`, geliştirme doğrulamasında `-UiSmoke`). Diğer diyalogların son görsel/metin turu sürüyor.
-- Ana ekranın kompakt ve standart görünüm matrisi otomatik doğrulanıyor; Windows %125/%150 gerçek DPI ve kalan diyalogların taşma matrisi yayın adayı öncesinde tamamlanmalı.
+- Türkçe/İngilizce görsel duman testi; Genel Bakış 1100×700/1200×760, Başlangıç Rehberi, cihaz seçimi, Joy-Con/PS Move temel kalibrasyonu, yönlendirmeli kayıt ve Board laboratuvarı dahil 16 render senaryosunu doğruluyor (`scripts/verify-ui.ps1`, geliştirme doğrulamasında `-UiSmoke`).
+- Başlangıç Rehberi kaydırmasız 2×2 düzene geçirildi; dinamik profil, cihaz ve kalibrasyon metinlerinin İngilizce karşılıkları görsel olarak denetlendi. Windows %125/%150 gerçek DPI ile kalan ikincil diyalogların taşma matrisi yayın adayı öncesinde tamamlanmalı.
 - Temiz Windows kullanıcı hesabında kurulum, kaldırma, güncelleme ve sürücü geri dönüş testi.
 - GitHub README, katkı rehberi, lisans ve sürüm notlarının son düzeni.
 - En sonda tek kez kurucu ve checksum üretimi.

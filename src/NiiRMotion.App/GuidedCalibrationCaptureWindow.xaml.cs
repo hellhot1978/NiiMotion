@@ -46,7 +46,7 @@ public partial class GuidedCalibrationCaptureWindow : Window
     private void UpdateGuidance()
     {
         var steps = Schedule(_sensor, _phase); var seconds = Math.Min(_duration.TotalSeconds, _elapsed.TotalSeconds); var step = steps.FirstOrDefault(x => seconds >= x.Start && seconds < x.End) ?? steps[^1]; var remaining = TimeSpan.FromSeconds(Math.Max(0, step.End - seconds));
-        InstructionText.Text = step.Title; InstructionDetail.Text = step.Detail; PoseLabel.Text = step.Pose; StepRemainingText.Text = remaining.ToString(@"mm\:ss"); NextStepText.Text = steps.SkipWhile(x => x != step).Skip(1).FirstOrDefault()?.Title ?? "Faz tamamlanacak"; OverallProgress.Value = seconds; ElapsedText.Text = _elapsed.ToString(@"mm\:ss"); AnimatePose(step.Pose, seconds);
+        InstructionText.Text = UiLocalization.Text(step.Title); InstructionDetail.Text = UiLocalization.Text(step.Detail); PoseLabel.Text = UiLocalization.Text(step.Pose); StepRemainingText.Text = remaining.ToString(@"mm\:ss"); NextStepText.Text = UiLocalization.Text(steps.SkipWhile(x => x != step).Skip(1).FirstOrDefault()?.Title ?? "Faz tamamlanacak"); OverallProgress.Value = seconds; ElapsedText.Text = _elapsed.ToString(@"mm\:ss"); AnimatePose(step.Pose, seconds);
     }
     private void AnimatePose(string pose, double seconds)
     {
