@@ -25,6 +25,8 @@ jobs:
       - uses: github/codeql-action/init@v3
         with:
           languages: csharp
+      - name: Restore
+        run: dotnet restore NiiRMotion.slnx
       - name: Build and test through the canonical gate
         shell: powershell
         run: powershell -ExecutionPolicy Bypass -File scripts/verify-development.ps1
