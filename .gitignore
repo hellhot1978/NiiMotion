@@ -5,6 +5,10 @@
 .localappdata/
 **/bin/
 **/obj/
+!/native/openvr-driver/dist/bin/
+!/native/openvr-driver/dist/bin/win64/
+/native/openvr-driver/dist/bin/win64/*
+!/native/openvr-driver/dist/bin/win64/driver_niirmotion.dll
 .vs/
 *.user
 *.log
