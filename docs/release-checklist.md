@@ -28,6 +28,7 @@ Run `scripts/verify-installer-smoke.ps1 -Installer <path>` on a clean Windows ac
 - [ ] Verify Turkish/English UI at 100%, 125%, and 150% Windows scaling.
 
 The automated UI matrix renders both languages at 1000x650, 1100x700 and 1200x760 and includes the calibration center and setup dialogs. Real Windows 100%/125%/150% scaling remains a clean-machine visual acceptance item because viewport simulation is not a substitute for operating-system DPI.
+Run this matrix locally with `scripts/verify-development.ps1 -UiSmoke`; hosted GitHub Windows workers do not provide a reliable interactive WPF desktop and therefore run the non-visual canonical gate.
 
 ## Physical acceptance
 
