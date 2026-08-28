@@ -24,7 +24,7 @@ jobs:
         # this clean runner validates build, install, launch, uninstall and artifacts.
         run: powershell -ExecutionPolicy Bypass -File scripts/build-release-candidate.ps1 -SkipUiSmoke
       - name: Upload verified release candidate
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: niimotion-installer-candidate
           path: |
