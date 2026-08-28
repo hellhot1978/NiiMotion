@@ -13,13 +13,13 @@ if ($drive.Free -lt 10GB) { throw "At least 10 GB free space is required on C:. 
 
 Push-Location $projectRoot
 try {
-    & $dotnet build NiiRMotion.slnx -c Release --no-restore
+    & $dotnet build NiiRMotion.slnx -c Release
     if ($LASTEXITCODE -ne 0) { throw 'Release build failed.' }
 
     & $dotnet run --project tests\NiiRMotion.Tests\NiiRMotion.Tests.csproj -c Release --no-build
     if ($LASTEXITCODE -ne 0) { throw 'Regression tests failed.' }
 
-    & $dotnet run --project tools\NiiMotion.LocalizationAudit\NiiMotion.LocalizationAudit.csproj -c Release --no-restore -- $projectRoot
+    & $dotnet run --project tools\NiiMotion.LocalizationAudit\NiiMotion.LocalizationAudit.csproj -c Release -- $projectRoot
     if ($LASTEXITCODE -ne 0) { throw 'English localization audit failed.' }
 
     & powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'verify-release-readiness.ps1')
