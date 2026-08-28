@@ -32,7 +32,7 @@ foreach ($case in $cases) {
         $startInfo.CreateNoWindow = $true
         $startInfo.Arguments = "--ui-language=$($case.Language) --window-size=$($case.Size) --ui-language-audit=`"$auditPath`" --screenshot=`"$path`""
         $process = [System.Diagnostics.Process]::Start($startInfo)
-        $process.WaitForExit()
+        if (-not $process.WaitForExit(15000)) { $process.Kill($true); throw "UI smoke process did not exit: $($case.Name)" }
         $deadline = [DateTime]::UtcNow.AddSeconds(10)
         while ((-not (Test-Path -LiteralPath $path) -or -not (Test-Path -LiteralPath $auditPath)) -and [DateTime]::UtcNow -lt $deadline) {
             Start-Sleep -Milliseconds 100
@@ -69,7 +69,7 @@ foreach ($language in @('tr', 'en')) {
     $process = [System.Diagnostics.Process]::Start($startInfo)
     $deadline = [DateTime]::UtcNow.AddSeconds(10)
     while ((-not (Test-Path -LiteralPath $path) -or (Get-Item -LiteralPath $path -ErrorAction SilentlyContinue).Length -lt 10000) -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 100 }
-    $process.WaitForExit()
+    if (-not $process.WaitForExit(15000)) { $process.Kill($true); throw "Getting Started UI process did not exit: $language" }
     if (-not (Test-Path -LiteralPath $path) -or (Get-Item -LiteralPath $path).Length -lt 10000) { throw "Getting Started UI render failed: $language" }
 }
 $guideTurkish = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $OutputDirectory 'getting-started-tr.png')).Hash
@@ -87,7 +87,7 @@ foreach ($language in @('tr', 'en')) {
     $process = [System.Diagnostics.Process]::Start($startInfo)
     $deadline = [DateTime]::UtcNow.AddSeconds(15)
     while ((-not (Test-Path -LiteralPath $path) -or (Get-Item -LiteralPath $path -ErrorAction SilentlyContinue).Length -lt 10000) -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 100 }
-    if (-not $process.HasExited) { [void]$process.WaitForExit(15000) }
+    if (-not $process.HasExited -and -not $process.WaitForExit(15000)) { $process.Kill($true); throw "Calibration center process did not exit: $language" }
     if (-not (Test-Path -LiteralPath $path) -or (Get-Item -LiteralPath $path).Length -lt 10000) { throw "Calibration center render failed: $language" }
 }
 $calibrationTurkish = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $OutputDirectory 'calibration-center-tr.png')).Hash
@@ -114,7 +114,7 @@ foreach ($dialog in $dialogCases) {
         $process = [System.Diagnostics.Process]::Start($startInfo)
         $deadline = [DateTime]::UtcNow.AddSeconds(12)
         while (-not (Test-Path -LiteralPath $path) -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 100 }
-        if (-not $process.HasExited) { [void]$process.WaitForExit(12000) }
+        if (-not $process.HasExited -and -not $process.WaitForExit(12000)) { $process.Kill($true); throw "Dialog UI process did not exit: $($dialog.Name)-$language" }
         if (-not (Test-Path -LiteralPath $path) -or (Get-Item -LiteralPath $path).Length -lt 10000) { throw "Dialog UI render failed: $($dialog.Name)-$language" }
     }
     $turkishHash = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $OutputDirectory "$($dialog.Name)-tr.png")).Hash
