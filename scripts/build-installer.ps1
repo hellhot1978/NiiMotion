@@ -1,3 +1,5 @@
+param([switch]$SkipUiSmoke)
+
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $dotnet = Join-Path $root '.dotnet\dotnet.exe'
@@ -13,7 +15,9 @@ $isccCandidates = @(
 )
 $iscc = $isccCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
 
-& powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'verify-development.ps1') -Publish -UiSmoke
+$verificationArguments = @('-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'verify-development.ps1'), '-Publish')
+if (-not $SkipUiSmoke) { $verificationArguments += '-UiSmoke' }
+& powershell @verificationArguments
 if ($LASTEXITCODE -ne 0) { throw 'Verified NiiMotion publish failed.' }
 if (-not $iscc) { throw 'Inno Setup 6 bulunamadı. Önce scripts/install-build-tools.ps1 çalıştır.' }
 & $iscc "/DMyAppVersion=$version" (Join-Path $root 'installer\NiiMotion.iss')

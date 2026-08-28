@@ -626,7 +626,7 @@ static void ReleaseCandidatePipelineContract()
     {
         "verify-release-readiness.ps1", "-Strict", "build-installer.ps1",
         "verify-installer-smoke.ps1", "export-component-inventory.ps1",
-        "release-candidate.json", "hardwareAcceptance", "codeSigning"
+        "release-candidate.json", "hardwareAcceptance", "codeSigning", "not-run-headless-environment"
     })
         Assert(script.Contains(required, StringComparison.Ordinal), $"Release-candidate pipeline is missing: {required}");
 
@@ -634,6 +634,7 @@ static void ReleaseCandidatePipelineContract()
     Assert(workflow.Contains("workflow_dispatch", StringComparison.Ordinal) &&
            !workflow.Contains("push:", StringComparison.Ordinal) &&
            workflow.Contains("build-release-candidate.ps1", StringComparison.Ordinal) &&
+           workflow.Contains("-SkipUiSmoke", StringComparison.Ordinal) &&
            workflow.Contains("release-candidate.sha256", StringComparison.Ordinal),
         "Installer candidates must be deliberate, verified, and accompanied by inventory and integrity metadata.");
 }

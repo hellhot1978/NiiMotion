@@ -1,5 +1,6 @@
 param(
-    [switch]$SkipInstallerBuild
+    [switch]$SkipInstallerBuild,
+    [switch]$SkipUiSmoke
 )
 
 $ErrorActionPreference = 'Stop'
@@ -17,7 +18,9 @@ if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid application version: 
 if ($LASTEXITCODE -ne 0) { throw 'Strict release-readiness verification failed.' }
 
 if (-not $SkipInstallerBuild) {
-    & powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'build-installer.ps1')
+    $installerArguments = @('-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'build-installer.ps1'))
+    if ($SkipUiSmoke) { $installerArguments += '-SkipUiSmoke' }
+    & powershell @installerArguments
     if ($LASTEXITCODE -ne 0) { throw 'Installer build failed.' }
 }
 
@@ -59,6 +62,7 @@ $manifestPath = Join-Path $releaseDirectory 'release-candidate.json'
     generatedAtUtc = [DateTimeOffset]::UtcNow.ToString('O')
     automatedVerification = [ordered]@{
         canonicalGate = 'passed'
+        uiSmoke = if ($SkipUiSmoke) { 'not-run-headless-environment' } else { 'passed' }
         installerLifecycle = 'passed'
         hardwareAcceptance = 'pending-owner-validation'
         codeSigning = 'not-configured'
