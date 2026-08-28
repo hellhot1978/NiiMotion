@@ -1,0 +1,4 @@
+# Hash-pinned offline runtime files must be byte-for-byte identical on every checkout.
+third_party/psmoveapi/4.0.12/COPYING -text
+*.dll binary
+*.exe binary
