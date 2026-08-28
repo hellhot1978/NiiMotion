@@ -67,6 +67,8 @@ public sealed partial class DiagnosticPackageService
         var path = Path.Combine(destinationFolder, $"NiiMotion-Tani-{DateTime.Now:yyyyMMdd-HHmmss}.zip");
         using var zip = ZipFile.Open(path, ZipArchiveMode.Create);
         Write(zip, "report.json", Redact(JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true })));
+        var health = new SessionHealthReportService().Analyze();
+        Write(zip, "session-health.json", JsonSerializer.Serialize(health, new JsonSerializerOptions { WriteIndented = true }));
         AddRedactedTail(zip, Path.Combine(NiiMotionPaths.Logs, "events.jsonl"), "events-redacted.jsonl", 2 * 1024 * 1024);
         var steamLog = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Steam", "logs", "vrserver.txt");
         AddRedactedTail(zip, steamLog, "steamvr-tail-redacted.txt", 256 * 1024);

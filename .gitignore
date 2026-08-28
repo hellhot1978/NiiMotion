@@ -39,5 +39,7 @@ recordings/
 /config/game-validation-receipt.json
 /native/openvr-driver/dist/resources/input/*.niirmotion.backup
 /native/vr-overlay/dist/*.pdb
+# This tracked runtime profile can be locally reformatted or rewritten by SteamVR.
+# Keep the canonical source copy tracked, but agents must never stage its runtime diff.
 # Local portable build toolchains/SDKs
 .tools/

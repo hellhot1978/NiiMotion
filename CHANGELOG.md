@@ -2,8 +2,12 @@
 
 ## 0.7.0-dev
 
+- Added a privacy-safe local session-health summary to diagnostic packages without copying raw sensor payloads.
+- Added Windows CI, release-readiness contracts, a machine-readable hardware acceptance matrix, a security threat model, and a closed-beta acceptance plan.
+- Updated architecture, roadmap, standalone acceptance, and release documentation to match the implemented V5 system.
+- Added model-independent handoff entry points for Codex/OpenCode, Claude Code, Gemini CLI and other coding agents, plus a reusable continuation prompt.
+- Expanded the automated regression suite to 108 passing checks and kept localization/UI smoke as separate release gates.
 - Added an automated installer safety contract covering per-user installation, self-contained packaging, VR component unregister, personal-data preservation, and a single application/installer version source.
-- Expanded the automated regression suite to 103 passing checks.
 - Added bilingual compact/standard UI smoke rendering and made it part of optional development acceptance.
 - Added standalone/runtime readiness, local model integrity repair, privacy-safe diagnostics, and OpenCode handoff documentation.
 - Expanded the automated regression suite to 102 passing checks.

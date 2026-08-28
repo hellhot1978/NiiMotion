@@ -3,7 +3,7 @@
 ## Katmanlar
 
 - `NiiRMotion.Core`: cihaz modelleri, profiller, readiness/session kuralları; platformdan bağımsız.
-- `NiiRMotion.Infrastructure`: Windows süreç ve donanım keşfi; ileride HID, UDP, kayıt ve SteamVR adaptörleri.
+- `NiiRMotion.Infrastructure`: Windows süreç ve donanım keşfi; HID/UDP kaynakları, yerel kayıt/analiz, SteamVR/OpenXR adaptörleri, tanılama ve güvenli başlatma zinciri.
 - `NiiRMotion.App`: WPF presentation; polling/fusion UI thread'inde çalışmayacak.
 - `NiiRMotion.Tests`: dış paket gerektirmeyen deterministik çekirdek test çalıştırıcısı.
 
@@ -17,17 +17,18 @@
 
 ## Sensör füzyonu ve analog çıkış
 
-- `SensorFusionEngine`, Joy-Con leg evidence'ı tek locomotion başlatıcısı olarak tutar.
+- `SensorFusionEngine`, seçili profile ait Joy-Con ve/veya PS Move bacak kanıtını locomotion başlatıcısı olarak tutar.
 - Telefon ritmi ve Balance Board ağırlık aktarımı yalnızca güncel olduklarında confidence'ı değiştirir; tek başlarına target speed üretemezler.
 - Opsiyonel veri stale olduğunda Joy-Con-only degraded mode devam eder.
 - `BalanceBoardSample` dört load-cell değerinden total load ve normalize CoP X/Y üretir.
 - `BalanceBoardCalibration`, board belleğindeki sensör başına 0/17/34 kg fabrika noktalarını piecewise-linear dönüştürür.
 - `VrLocomotionSession`, fusion target speed'i `LocomotionSmoother` üzerinden analog sink'e taşır; attach, stop, hata ve dispose yolları güvenli sıfırı korur.
-- WPF START/STOP, `LiveLocomotionService` yaşam döngüsünü kullanır. İki Joy-Con yoksa başlamaz; telefon portu kullanılamıyorsa Joy-Con-only degraded mode'a geçer.
-- Gerçek Balance Board HID bağlantısı ve rapor offset doğrulaması cihaz bağlanana kadar `UNTESTED — HARDWARE REQUIRED` durumundadır.
+- WPF başlatma/durdurma akışı `LiveLocomotionService` yaşam döngüsünü kullanır. Seçili profil için zorunlu sensörlerden biri eksikse başlamaz; daha basit profile geçiş yalnız açık kullanıcı onayıyla yapılır.
+- Balance Board HID, fabrika kalibrasyonu, yük/CoP türetimi, kayıt/replay ve güvenli dönüş ayrımı uygulanmıştır. Board yürüyüş başlangıcı ve ağırlıkla dönüşün son ürün kabulü gerçek kullanıcı matrisi içinde tamamlanacaktır.
+- HMD yalnız doğrulanmış ve taze olduğunda zayıf dönüş kaynaklı yanlış ileri hareketi bastırabilir; yürüyüşü başlatamaz.
 
 ## Depolama bütçesi
 
 - Proje toplamı en fazla 15 GB; en az 10 GB C: boş alan korunur.
 - SDK proje içinde tek kopya. `bin/obj`, eski publish ve geçici indirmeler temizlenebilir.
-- Recordings için varsayılan 5 GB toplam kota, dosya başına rotasyon ve kullanıcıya görünen kullanım planlanmıştır.
+- Yeniden üretilebilir günlük ve önbellekler sınırlıdır. Ham kişisel kayıtlar otomatik silinmez; yedekleme, geri dönüş ve açık onaylı sıfırlama akışları kullanılır.

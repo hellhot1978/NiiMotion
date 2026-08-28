@@ -15,8 +15,11 @@ NiiMotion kaynak kodu **PolyForm Noncommercial License 1.0.0** ile kaynak erişi
 - [Sorun giderme](docs/troubleshooting-tr.md)
 - [Mimari](docs/architecture.md)
 - [OpenCode / AI agent devralma rehberi](docs/OPENCODE_HANDOFF.md)
+- [Modelden bağımsız AI agent devri](docs/AI_AGENT_HANDOFF.md)
 - [Bağımsız kullanım kabulü](docs/standalone-acceptance.md)
 - [Sürüm adayı kontrol listesi](docs/release-checklist.md)
+- [Desteklenen donanım durumu](docs/supported-hardware.md)
+- [Güvenlik tehdit modeli](docs/security-threat-model.md)
 - [Üçüncü taraf bileşenleri](THIRD_PARTY_NOTICES.md)
 - [Kaynak kod lisansı](LICENSE.md)
 

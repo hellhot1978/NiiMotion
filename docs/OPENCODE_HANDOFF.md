@@ -1,6 +1,6 @@
 # NiiMotion OpenCode devralma rehberi
 
-Güncelleme: 26 Ağustos 2026
+Güncelleme: 27 Ağustos 2026
 
 Depo: `C:\NiirMotion`
 
@@ -10,7 +10,7 @@ Ana dal: `main`
 
 OpenCode'u depo kökünde aç ve agente şunu söyle:
 
-> Read AGENTS.md and docs/OPENCODE_HANDOFF.md completely. Run the repository verification script before editing. Preserve all user recordings, runtime config, device identities, and unrelated dirty files. Continue only from the current remaining-work list and never introduce an online AI runtime dependency.
+> Read AGENTS.md and docs/AI_AGENT_HANDOFF.md completely, then use docs/OPENCODE_HANDOFF.md only for OpenCode-specific context. Run the repository verification script before editing. Preserve all user recordings, runtime config, device identities, and unrelated dirty files. Continue only from the current remaining-work list and never introduce an online AI runtime dependency.
 
 Ardından:
 
@@ -38,7 +38,7 @@ Kurucu yalnız sürüm adayı hazırlanırken üretilmelidir; günlük geliştir
 - Quest/Virtual Desktop → sistem modu → SteamVR → NiiMotion köprüsü → locomotion → oyun sırası zorunludur.
 - Başlangıç Rehberi yerel runtime bileşenlerini denetler. Tanılama bağlantı, model, paket ve son başlatma hatasını açıklar.
 - Runtime kaynaklarında OpenAI/Gemini/Anthropic/Azure OpenAI bağımlılığı yoktur.
-- Son otomatik taban: 103/103 test, Release build 0 uyarı/0 hata.
+- Son otomatik taban: 108/108 test, Release build 0 uyarı/0 hata. İngilizce kaynak denetimi, yayın sözleşmesi ve UI smoke ayrı kapılardır.
 
 Son ilgili commitler:
 
@@ -61,6 +61,8 @@ Bunlar kodla taklit edilmemeli; sahibin cihazlarıyla doğrulanmalıdır:
 6. VR overlay düğmeleri ve masaüstü dönüşü.
 
 Sonuçlar `hardware-verified`, `replay-tested` ve `software-only` olarak ayrı etiketlenmelidir.
+
+Makinece okunabilir profil, senaryo ve oyun listesi `docs/hardware-acceptance-matrix.json` dosyasındadır. Yeni agent bu matrisi tahminle tamamlanmış saymamalıdır.
 
 ### P1 — Donanım sonucuna göre son ayar
 

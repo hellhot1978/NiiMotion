@@ -34,22 +34,37 @@ Name: "turkish"; MessagesFile: "compiler:Languages\Turkish.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "Masaüstü kısayolu oluştur"; GroupDescription: "Kısayollar:"; Flags: checkedonce
+Name: "desktopicon"; Description: "{cm:DesktopIconTask}"; GroupDescription: "{cm:ShortcutGroup}"; Flags: checkedonce
+
+[CustomMessages]
+turkish.DesktopIconTask=Masaüstü kısayolu oluştur
+turkish.ShortcutGroup=Kısayollar:
+turkish.LaunchTask=NiiMotion'ı başlat
+english.DesktopIconTask=Create a desktop shortcut
+english.ShortcutGroup=Shortcuts:
+english.LaunchTask=Launch NiiMotion
 
 [Files]
 Source: "..\artifacts\app\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\docs\first-run-guide-tr.md"; DestDir: "{app}\Docs"; Flags: ignoreversion
 Source: "..\docs\device-setup-tr.md"; DestDir: "{app}\Docs"; Flags: ignoreversion
 Source: "..\docs\troubleshooting-tr.md"; DestDir: "{app}\Docs"; Flags: ignoreversion
+Source: "..\docs\first-run-guide-en.md"; DestDir: "{app}\Docs"; Flags: ignoreversion
+Source: "..\docs\device-setup-en.md"; DestDir: "{app}\Docs"; Flags: ignoreversion
+Source: "..\docs\troubleshooting-en.md"; DestDir: "{app}\Docs"; Flags: ignoreversion
 Source: "..\THIRD_PARTY_NOTICES.md"; DestDir: "{app}\Docs"; Flags: ignoreversion
 Source: "..\LICENSE.md"; DestDir: "{app}\Docs"; Flags: ignoreversion
+Source: "..\PRIVACY.md"; DestDir: "{app}\Docs"; Flags: ignoreversion
+Source: "..\SECURITY.md"; DestDir: "{app}\Docs"; Flags: ignoreversion
+Source: "..\docs\supported-hardware.md"; DestDir: "{app}\Docs"; Flags: ignoreversion
+Source: "..\third_party\licenses\WiimoteLib.NetCore-MIT.txt"; DestDir: "{app}\Docs\Licenses"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\NiiMotion"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\NiiMotion"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "NiiMotion'ı başlat"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchTask}"; Flags: nowait postinstall skipifsilent
 
 [Code]
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);

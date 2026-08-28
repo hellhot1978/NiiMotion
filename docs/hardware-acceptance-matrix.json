@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "resultStates": ["pending", "owner-hardware-verified", "replay-tested", "failed"],
+  "profiles": [
+    "normal-vr",
+    "joycon-only",
+    "psmove-only",
+    "phone-only-experimental",
+    "board-only-experimental",
+    "joycon-ps-move",
+    "joycon-phone",
+    "psmove-phone",
+    "joycon-board",
+    "psmove-board",
+    "all-devices"
+  ],
+  "scenarios": [
+    "cold-start-and-first-step",
+    "slow-natural-fast-pace",
+    "single-step-distance",
+    "abrupt-stop",
+    "turn-in-place",
+    "bend-and-crouch-rejection",
+    "single-leg-rejection",
+    "sensor-sleep-and-disconnect",
+    "automatic-reconnect",
+    "safe-zero-on-failure"
+  ],
+  "games": [
+    { "id": "half-life-alyx", "runtime": "SteamVR/OpenVR", "status": "pending-final-acceptance" },
+    { "id": "arizona-sunshine-2", "runtime": "SteamVR/OpenVR", "status": "pending-hardware-validation" },
+    { "id": "metro-awakening", "runtime": "OpenXR", "status": "pending-action-validation" },
+    { "id": "generic-steamvr", "runtime": "SteamVR/OpenVR", "status": "pending-user-added-game-validation" },
+    { "id": "generic-openxr", "runtime": "OpenXR", "status": "pending-user-added-game-validation" }
+  ]
+}

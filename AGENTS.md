@@ -4,7 +4,7 @@ These instructions apply to the whole repository and are written for Codex, Open
 
 ## Start here
 
-1. Read `docs/OPENCODE_HANDOFF.md`.
+1. Read `docs/AI_AGENT_HANDOFF.md` (canonical) and `docs/OPENCODE_HANDOFF.md` (OpenCode-specific pointer).
 2. Read `docs/standalone-acceptance.md` and `docs/upgrade-plan-v5.md`.
 3. Run `powershell -ExecutionPolicy Bypass -File scripts/verify-development.ps1` before changing code.
 4. Inspect `git status --short`. Runtime files and user data are not source changes.

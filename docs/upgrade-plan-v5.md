@@ -169,12 +169,12 @@ Ayrıntı: `phase-2-psmove-status.md`.
 
 ### Faz 19–21 — Son regresyon, güvenli kişisel reset ve temiz eğitim
 
-**NOT IMPLEMENTED**
+**SOFTWARE IMPLEMENTED / PHYSICAL ACCEPTANCE PENDING**
 
-- Bütün legacy ve yeni profiller için otomatik + gerçek donanım matrisi.
-- Kişisel schema backup/migration tamamlandıktan sonra açık kullanıcı onayıyla reset.
+- Bütün legacy ve yeni profiller için otomatik matris uygulanmıştır; gerçek donanım sonuçları `hardware-acceptance-matrix.json` üzerinden tamamlanacaktır.
+- Kişisel schema backup/migration ve açık kullanıcı onaylı reset uygulanmıştır.
 - Uygulama, sürücüler, VD/SteamVR, oyunlar ve statik tanımlar korunur.
-- Sahibi temiz gerçek eğitim kayıtlarına başlar.
+- Temiz gerçek eğitim kaydı ve fiziksel oyun kabulü kullanıcı oturumunu bekler.
 
 **2026-08-26 Faz 19 güvenli fallback hazırlığı — IMPLEMENTED / AUTOMATED TESTED**
 
@@ -194,7 +194,7 @@ Ayrıntı: `phase-2-psmove-status.md`.
 
 ## Bir sonraki somut çalışma
 
-Move Only yazılım zinciri tamamlandı. Bir sonraki kapı, iki atanmış Move Bluetooth ile bağlıyken gerçek SteamVR oyun doğrulamasıdır. Bu doğrulama geçmeden Move + Joy-Con saat hizalama ve hibrit profile başlanmaz.
+Tekil ve karma profillerin yazılım zinciri tamamlandı. Bir sonraki kapı `hardware-acceptance-matrix.json` içindeki tek fiziksel kabul oturumudur; Move, Joy-Con, telefon, Board ve seçilmiş karma profiller aynı oturumda ayrı sonuçlarla doğrulanmalıdır.
 
 ## 2026-08-22 üretim hazırlığı
 

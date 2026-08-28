@@ -204,7 +204,7 @@ if (args.Contains("--vr-straight-drift-test", StringComparer.OrdinalIgnoreCase))
 var tests = new (string Name, Func<Task> Run)[] { Sync("Hardware inventory creates every available profile combination", HardwareInventoryProfiles), Sync("Required device missing blocks session", RequiredMissingBlocks), Sync("Optional device missing degrades session", OptionalMissingDegrades), Sync("All devices ready", AllReady), Sync("Classic VR disables locomotion", ClassicVrIsNonInvasive), Sync("Joy-Con identity rejects clones", JoyConIdentity), Sync("PS Move identity accepts only ZCM1", PsMoveIdentity), Sync("PS Move ZCM1 input report parses", PsMoveInputReport), Sync("PS Move factory calibration maps sensor units", PsMoveFactoryCalibration), Sync("PS Move training creates distinct pace anchors", PsMoveTrainingProfileTest), ("PS Move assignments persist by stable identity", PsMoveAssignmentsRoundTrip), Sync("Joy-Con report parses three IMU samples", ParseImu), Sync("Invalid report is rejected", InvalidReport), Sync("Factory calibration parses", ParseCalibration), Sync("Factory calibration scales IMU", ScaleCalibration), Sync("Phone sequence loss is measured", PhoneLoss), Sync("owoTrack big-endian rotation parses", OwoRotation), Sync("Balance Board derives load and CoP", BalanceBoardDerivesCop), Sync("Balance Board protocol parses and calibrates", BalanceBoardProtocol), Sync("Board hold gesture turns without walking", BoardHoldGestureTurns), Sync("Board walking does not become a turn", BoardWalkingDoesNotTurn), Sync("Torso motion alone never starts locomotion", TorsoCannotStart), Sync("Experimental phone-only requires sustained motion", ExperimentalPhoneOnlyIsExplicitlyGated), Sync("Bilateral crouch motion resets gait confidence", BilateralMotionRejected), Sync("Single leg movement does not become walking", SingleLegRejected), Sync("Alternating leg evidence starts gait", AlternatingLegsStart), Sync("Natural cadence stays continuous and stops promptly", NaturalCadenceContinuity), Sync("Threshold hysteresis rejects sensor chatter", ThresholdHysteresisRejectsChatter), Sync("Stronger thigh swings produce a faster natural pace", SwingAmplitudeControlsPace), ("Learned DeepGait pace prior loads and scales", LearnedPacePrior), Sync("Gait stops after stale leg data", GaitStops), Sync("Optional fusion evidence cannot create gait", OptionalFusionCannotStart), Sync("Stale optional sensors degrade without blocking gait", StaleOptionalSensorsDoNotBlock), Sync("Analog output is smoothed", SpeedIsSmoothed), ("VR session starts promptly, stays straight and stops promptly", VrSessionResponseContract), Sync("Calibration rejects incomplete capture", CalibrationRejectsIncomplete), ("Calibration is versioned and round-trips", CalibrationRoundTrip), ("Personal gait records analyze and apply", PersonalGaitAnalysisRoundTrip), ("Recording round-trips through replay", RecordingRoundTrip), ("Balance Board recording round-trips", BalanceBoardRecordingRoundTrip), ("Phone UDP listener validates token", PhoneUdpRoundTrip), ("Live log retention enforces its disk budget", LogRetentionEnforcesBudget), Sync("Alyx physical forward override preserves controller buttons", AlyxPhysicalForwardOverride), Sync("Arizona 2 movement override preserves controller buttons", Arizona2PhysicalMovementOverride), ("VR output starts at zero and clamps analog values", VrOutputLifecycle), ("VR output refuses movement while off", VrOutputOffRejects), ("VR output failure detaches safely", VrOutputFailureDetaches), ("Fused gait drives analog output and stops safely", FusedGaitDrivesOutput), ("Board turn drives horizontal output only", BoardTurnDrivesHorizontalOutput), ("Named-pipe output packet matches native protocol", NamedPipeOutputProtocol), Sync("Native OpenVR DLL exports driver factory", NativeDriverExportsFactory), Sync("Native treadmill publishes an active stationary pose", NativeDriverPoseContract), Sync("Alyx binding includes treadmill vector and walk activation", AlyxBindingContract), Sync("Arizona Sunshine 2 binding includes movement vector", Arizona2BindingContract), ("HMD pose recording round-trips", HmdPoseRoundTrip), Sync("Four-hour accelerated endurance stays safe", EnduranceSimulationTest) };
 tests = [Sync("Validated HMD suppresses only weak false forward turns", HmdFusionPolicyTest), Sync("HMD validation quality rejects weak captures", HmdValidationQualityTest), ("Live HMD shared pose source reads tracked pose", LiveHmdSharedPoseSource), Sync("Fresh HMD tracking state is authoritative", FreshHmdTrackingState), Sync("Game telemetry provider selects direct and universal modes", GameTelemetryProviderSelection), Sync("Universal game feedback is bounded and reversible", GuidedGameOptimization), Sync("Alyx console position telemetry parses exactly", AlyxPositionTelemetryParser), Sync("Game sensor optimization is isolated and reversible", GameSensorOptimizationTest), ("Calibration repair replaces only broken segment", CalibrationSegmentRepair), Sync("Calibration quality isolates broken time segments", CalibrationQualitySegments), Sync("Game motion profile is versioned and bounded", GameMotionProfileTest), Sync("Game adapter validates safe SteamVR actions", GameAdapterValidation), Sync("Game adapter restore returns original profile", GameAdapterRestoreTest), Sync("Steam action discovery finds movement inputs", SteamActionDiscoveryTest), Sync("Steam game catalog detects only real manifests", SteamGameCatalogDetection), ("Unified sensor replay preserves timestamp order", UnifiedSensorReplayOrder), Sync("Calibration progress schema separates devices and profiles", CalibrationProgressSchema), Sync("Hybrid leg sensors reward agreement and degrade disagreement", HybridLegAgreement), .. tests];
 tests = [Sync("Learned data reset backs up motion data and preserves device identity", LearnedDataResetTest), .. tests];
-tests = [Sync("Diagnostic package redacts private network and device identities", DiagnosticRedactionTest), .. tests];
+tests = [Sync("Session health report is bounded and privacy-safe", SessionHealthReportTest), Sync("Diagnostic package redacts private network and device identities", DiagnosticRedactionTest), .. tests];
 tests = [("OpenXR shared output packet is bounded and process-scoped", OpenXrSharedOutputTest), Sync("OpenXR layer manifest and native export are valid", OpenXrLayerContract), .. tests];
 tests = [Sync("Configured hand control is not reported missing", ConfiguredHandControl), .. tests];
 tests = [Sync("Non-HMD profile regression matrix passes", NonHmdMatrix), .. tests];
@@ -218,7 +218,7 @@ tests = [Sync("VR panel commands are delivered once", VrPanelCommands), Sync("Op
 tests = [Sync("Static UI text has English localization coverage", StaticUiLocalizationCoverage), .. tests];
 tests = [Sync("Dynamic UI status messages have English localization coverage", DynamicUiLocalizationCoverage), .. tests];
 tests = [Sync("Every app message box uses the English localization gate", MessageBoxLocalizationContract), .. tests];
-tests = [Sync("Standalone package contains local models and has no AI runtime dependency", StandaloneRuntimeContract), .. tests];
+tests = [Sync("AI agent handoff is model-independent and safety-complete", AiAgentHandoffContract), Sync("Hardware acceptance matrix covers every release scenario", HardwareAcceptanceMatrixContract), Sync("Repository CI runs the canonical verification gate", ContinuousIntegrationContract), Sync("Standalone package contains local models and has no AI runtime dependency", StandaloneRuntimeContract), .. tests];
 tests = [Sync("Every motion device declares its software requirement", DeviceSoftwareGuidanceContract), .. tests];
 tests = [Sync("PS Move pairing has a verified offline bundle", PsMoveOfflineBundleContract), .. tests];
 tests = [Sync("Game launch compatibility blocks broken adapters locally", GameLaunchCompatibilityContract), .. tests];
@@ -349,6 +349,41 @@ static void StandaloneRuntimeContract()
     var runtimeSources = Directory.EnumerateFiles(Path.Combine(root, "src"), "*.cs", SearchOption.AllDirectories).Select(File.ReadAllText);
     var forbidden = new[] { "api.openai.com", "generativelanguage.googleapis.com", "api.anthropic.com", "Azure.AI.OpenAI" };
     Assert(!runtimeSources.Any(source => forbidden.Any(term => source.Contains(term, StringComparison.OrdinalIgnoreCase))), "An external AI service dependency exists in runtime source.");
+}
+
+static void ContinuousIntegrationContract()
+{
+    var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+    var workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "verify.yml"));
+    Assert(workflow.Contains("windows-latest", StringComparison.Ordinal) && workflow.Contains("verify-development.ps1", StringComparison.Ordinal), "Windows CI does not run the canonical verification script.");
+    var verification = File.ReadAllText(Path.Combine(root, "scripts", "verify-development.ps1"));
+    Assert(verification.Contains("verify-release-readiness.ps1", StringComparison.Ordinal), "Release readiness contracts are not part of development verification.");
+}
+
+static void AiAgentHandoffContract()
+{
+    var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+    foreach (var relative in new[] { "AGENTS.md", "CLAUDE.md", "GEMINI.md", "NiiMotion_AI_Continuation_Prompt.txt", "docs/AI_AGENT_HANDOFF.md" })
+        Assert(File.Exists(Path.Combine(root, relative)), $"AI handoff entry point is missing: {relative}");
+    var handoff = File.ReadAllText(Path.Combine(root, "docs", "AI_AGENT_HANDOFF.md"));
+    foreach (var required in new[] { "verify-development.ps1", "hardware-acceptance-matrix.json", "niirmotion_profile.json", "Normal VR", "fail", "cloud", "owner-hardware-verified" })
+        Assert(handoff.Contains(required, StringComparison.OrdinalIgnoreCase), $"AI handoff omits a safety or completion rule: {required}");
+    var prompt = File.ReadAllText(Path.Combine(root, "NiiMotion_AI_Continuation_Prompt.txt"));
+    Assert(prompt.Contains("Do not mark", StringComparison.OrdinalIgnoreCase) && prompt.Contains("Architecture boundaries", StringComparison.OrdinalIgnoreCase), "Portable continuation prompt can overclaim validation or ignore architecture boundaries.");
+}
+
+static void HardwareAcceptanceMatrixContract()
+{
+    var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+    using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "docs", "hardware-acceptance-matrix.json")));
+    var matrix = document.RootElement;
+    var profiles = matrix.GetProperty("profiles").EnumerateArray().Select(x => x.GetString()).ToHashSet(StringComparer.Ordinal);
+    foreach (var profile in new[] { "normal-vr", "joycon-only", "psmove-only", "phone-only-experimental", "board-only-experimental", "joycon-ps-move", "all-devices" })
+        Assert(profiles.Contains(profile), $"Hardware acceptance profile is missing: {profile}");
+    var scenarios = matrix.GetProperty("scenarios").EnumerateArray().Select(x => x.GetString()).ToHashSet(StringComparer.Ordinal);
+    foreach (var scenario in new[] { "cold-start-and-first-step", "abrupt-stop", "turn-in-place", "sensor-sleep-and-disconnect", "safe-zero-on-failure" })
+        Assert(scenarios.Contains(scenario), $"Hardware acceptance scenario is missing: {scenario}");
+    Assert(matrix.GetProperty("games").GetArrayLength() >= 5, "Hardware acceptance game coverage is incomplete.");
 }
 
 static void DeviceSoftwareGuidanceContract()
@@ -569,6 +604,10 @@ static void InstallerSafetyContract()
     var buildScript = File.ReadAllText(Path.Combine(root, "scripts", "build-installer.ps1"));
     Assert(buildScript.Contains("/DMyAppVersion=$version", StringComparison.Ordinal),
         "The installer build must take its version from the application project.");
+    Assert(buildScript.Contains("verify-development.ps1", StringComparison.Ordinal) && buildScript.Contains("-Publish", StringComparison.Ordinal) && buildScript.Contains("Get-FileHash", StringComparison.Ordinal),
+        "The installer build must consume a verified publish and create a SHA-256 checksum.");
+    Assert(source.Contains("PRIVACY.md", StringComparison.OrdinalIgnoreCase) && source.Contains("SECURITY.md", StringComparison.OrdinalIgnoreCase) && source.Contains("WiimoteLib.NetCore-MIT.txt", StringComparison.OrdinalIgnoreCase),
+        "Installed documentation is missing privacy, security, or third-party license material.");
 
     var license = File.ReadAllText(Path.Combine(root, "LICENSE.md"));
     Assert(license.StartsWith("# PolyForm Noncommercial License 1.0.0", StringComparison.Ordinal) &&
@@ -745,6 +784,28 @@ static void DiagnosticRedactionTest()
 {
     var text = DiagnosticPackageService.Redact("phone 192.168.1.24:9185 move 0007041EFC1E");
     Assert(!text.Contains("192.168.1.24") && !text.Contains("0007041EFC1E") && text.Contains("[IP]") && text.Contains("[DEVICE-ID]"), "Diagnostic redaction leaked a private endpoint or stable device identity.");
+}
+
+static void SessionHealthReportTest()
+{
+    var path = Path.Combine(Path.GetTempPath(), "niirmotion-health-" + Guid.NewGuid().ToString("N") + ".jsonl");
+    var now = new DateTimeOffset(2026, 8, 27, 12, 0, 0, TimeSpan.Zero);
+    try
+    {
+        File.WriteAllLines(path,
+        [
+            JsonSerializer.Serialize(new { timestampUtc = now.AddMinutes(-5), category = "psmove", eventName = "disconnected", message = "private detail" }),
+            "not-json",
+            JsonSerializer.Serialize(new { timestampUtc = now.AddMinutes(-4), category = "psmove", eventName = "connected", message = "private detail" }),
+            JsonSerializer.Serialize(new { timestampUtc = now.AddMinutes(-3), category = "game-launch", eventName = "Failed", message = "private detail" }),
+            JsonSerializer.Serialize(new { timestampUtc = now.AddDays(-2), category = "application", eventName = "crash", message = "outside window" })
+        ]);
+        var report = new SessionHealthReportService().Analyze(path, now);
+        Assert(report.EventsRead == 3 && report.SensorDisconnects == 1 && report.SensorReconnects == 1 && report.LaunchFailures == 1, "Session health counters are incorrect.");
+        Assert(report.ApplicationCrashes == 0 && report.OverallState == "attention", "Session health time window or severity is incorrect.");
+        Assert(!JsonSerializer.Serialize(report).Contains("private detail", StringComparison.Ordinal), "Session health report copied event payloads.");
+    }
+    finally { if (File.Exists(path)) File.Delete(path); }
 }
 
 static void GameAdapterValidation()

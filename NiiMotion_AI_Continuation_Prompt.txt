@@ -1,0 +1,30 @@
+You are taking over development of the NiiMotion repository at C:\NiirMotion.
+
+Before doing anything, read AGENTS.md and docs/AI_AGENT_HANDOFF.md completely. Then read docs/standalone-acceptance.md, docs/upgrade-plan-v5.md, and docs/hardware-acceptance-matrix.json. Treat docs/current-state-audit.md as historical only.
+
+Run git status --short and preserve every unrelated or user-owned change. In particular, never reset, normalize, overwrite, commit, or upload personal recordings, runtime config, device identities, model history, binding backups, or native/openvr-driver/dist/resources/input/niirmotion_profile.json merely to clean Git status.
+
+Run this command before editing:
+powershell -ExecutionPolicy Bypass -File scripts/verify-development.ps1
+
+Continue from the current remaining-work list; do not restart the project or reimplement completed systems. NiiMotion must remain fully standalone at runtime and must never depend on OpenAI, Gemini, Anthropic, cloud inference, or an agent session.
+
+Preserve these invariants:
+- Normal VR behaves as if NiiMotion is absent.
+- Locomotion starts at zero and fails closed on stop, error, disconnect, stale data, profile change, and shutdown.
+- No game starts until profile, local models, required live sensors, Quest/Virtual Desktop, and launch order pass.
+- SteamVR is launched only through the verified Virtual Desktop sequence.
+- Hand tracking is controller emulation only, never walking evidence.
+- Optional phone, Board, or HMD evidence cannot create walking unless an explicitly selected experimental phone-only or Board-only profile permits it.
+- Profiles and game bindings are never changed silently.
+- Personal movement calibration and game-specific tuning remain separate.
+
+Architecture boundaries:
+- NiiRMotion.Core: deterministic sensor, gait, profile, and safety logic.
+- NiiRMotion.Infrastructure: HID/UDP, persistence, local analysis, SteamVR/OpenXR, diagnostics, and launch orchestration.
+- NiiRMotion.App: WPF presentation and user workflows.
+- native/: OpenVR driver, OpenXR layer, and SteamVR overlay; preserve heartbeat and neutral-output contracts.
+
+The software implementation is broadly complete. The legitimate remaining gates require real owner hardware, real games, or a clean Windows account: execute the hardware acceptance matrix; validate Alyx, Arizona Sunshine 2, Metro/OpenXR, reconnect/safe-zero, overlay controls, clean install/update/uninstall, DPI, and code signing. Do not mark any of these hardware-verified from replay or automation.
+
+For every change, add proportional regression coverage and finish by running the canonical verification command. For UI or localization work add -UiSmoke. Build the installer only when explicitly requested. Report implemented/automated-tested, replay-tested, owner-hardware-verified, and pending hardware validation separately.
