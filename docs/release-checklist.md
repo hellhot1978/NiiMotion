@@ -6,6 +6,7 @@
 - [x] Required third-party notice names and bundled license files are enforced by `scripts/verify-release-readiness.ps1`.
 - [x] GitHub CodeQL, dependency review and weekly dependency update configuration are present.
 - [x] Release component inventory can be generated locally with `scripts/export-component-inventory.ps1`.
+- [x] A single manual candidate pipeline builds the installer, verifies its lifecycle, exports the component inventory, and writes a source-bound integrity manifest.
 - [ ] Perform a human review of the final distribution against `THIRD_PARTY_NOTICES.md`.
 - [ ] Update version and changelog.
 - [ ] Confirm no personal recordings, logs, device identities, runtime config, or binding backups are staged.
@@ -39,4 +40,10 @@ Run this matrix locally with `scripts/verify-development.ps1 -UiSmoke`; hosted G
 
 The required profile/scenario/game inventory is stored in `docs/hardware-acceptance-matrix.json`; do not mark an item hardware-verified from replay or automation.
 
-Build the installer and checksums once, only after all required checks above pass.
+Build the installer and checksums once, only after all required checks above pass. The canonical command is:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/build-release-candidate.ps1
+```
+
+It produces the installer checksum, `component-inventory.json`, and a commit-bound `release-candidate.json` plus its checksum. It deliberately records hardware acceptance and code signing as external gates; automation must not silently mark either one complete.

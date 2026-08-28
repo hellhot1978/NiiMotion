@@ -18,18 +18,16 @@ jobs:
       - name: Install Inno Setup
         shell: powershell
         run: choco install innosetup --no-progress -y
-      - name: Build installer
+      - name: Build and verify release candidate
         shell: powershell
-        run: powershell -ExecutionPolicy Bypass -File scripts/build-installer.ps1
-      - name: Verify clean installation lifecycle
-        shell: powershell
-        run: |
-          $installer = Get-ChildItem artifacts/installer/NiiMotion-Setup-*-x64.exe | Select-Object -First 1
-          powershell -ExecutionPolicy Bypass -File scripts/verify-installer-smoke.ps1 -Installer $installer.FullName
-      - name: Upload verified installer
+        run: powershell -ExecutionPolicy Bypass -File scripts/build-release-candidate.ps1
+      - name: Upload verified release candidate
         uses: actions/upload-artifact@v4
         with:
           name: niimotion-installer-candidate
           path: |
             artifacts/installer/*.exe
             artifacts/installer/*.sha256
+            artifacts/release/component-inventory.json
+            artifacts/release/release-candidate.json
+            artifacts/release/release-candidate.sha256

@@ -214,6 +214,7 @@ tests = [Sync("Generic OpenXR adapter is validated and persisted", GenericOpenXr
 tests = [Sync("First-use preferences and guidance are deterministic", FirstUsePreferences), Sync("Successful game validation is remembered locally", GameValidationReceipt), .. tests];
 tests = [("Update download is hash verified before staging", UpdateDownloadVerification), Sync("Release integrity detects tampering", ReleaseIntegrityVerification), .. tests];
 tests = [Sync("Installer preserves personal data and unregisters VR components", InstallerSafetyContract), .. tests];
+tests = [Sync("Release candidate pipeline is complete and remains manual", ReleaseCandidatePipelineContract), .. tests];
 tests = [Sync("VR panel commands are delivered once", VrPanelCommands), Sync("OpenXR wizard prioritizes common engine executables", OpenXrEngineDiscovery), .. tests];
 tests = [Sync("Static UI text has English localization coverage", StaticUiLocalizationCoverage), .. tests];
 tests = [Sync("Dynamic UI status messages have English localization coverage", DynamicUiLocalizationCoverage), .. tests];
@@ -613,6 +614,28 @@ static void InstallerSafetyContract()
     Assert(license.StartsWith("# PolyForm Noncommercial License 1.0.0", StringComparison.Ordinal) &&
            license.Contains("Any noncommercial purpose is a permitted purpose.", StringComparison.Ordinal),
         "The selected PolyForm Noncommercial license is missing or incomplete.");
+}
+
+static void ReleaseCandidatePipelineContract()
+{
+    var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+    var scriptPath = Path.Combine(root, "scripts", "build-release-candidate.ps1");
+    Assert(File.Exists(scriptPath), "The release-candidate entry point is missing.");
+    var script = File.ReadAllText(scriptPath);
+    foreach (var required in new[]
+    {
+        "verify-release-readiness.ps1", "-Strict", "build-installer.ps1",
+        "verify-installer-smoke.ps1", "export-component-inventory.ps1",
+        "release-candidate.json", "hardwareAcceptance", "codeSigning"
+    })
+        Assert(script.Contains(required, StringComparison.Ordinal), $"Release-candidate pipeline is missing: {required}");
+
+    var workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "installer-acceptance.yml"));
+    Assert(workflow.Contains("workflow_dispatch", StringComparison.Ordinal) &&
+           !workflow.Contains("push:", StringComparison.Ordinal) &&
+           workflow.Contains("build-release-candidate.ps1", StringComparison.Ordinal) &&
+           workflow.Contains("release-candidate.sha256", StringComparison.Ordinal),
+        "Installer candidates must be deliberate, verified, and accompanied by inventory and integrity metadata.");
 }
 
 static void VrPanelCommands()

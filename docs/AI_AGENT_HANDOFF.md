@@ -63,6 +63,7 @@ These require the owner, real hardware, a real game or a clean Windows environme
 - Preserve zero-on-start/stop/error/disconnect/stale/profile-change/shutdown.
 - Never silently switch profiles, fabricate an action mapping or treat process/log presence as proof of a live device.
 - Do not rebuild the installer during normal iterations. Use `scripts/build-installer.ps1` only when the user explicitly requests an installable candidate.
+- For a deliberate release candidate, use `scripts/build-release-candidate.ps1`; it verifies install/uninstall, exports the component inventory and creates commit-bound integrity metadata without claiming hardware acceptance or code signing.
 - Report separately: automated-tested, replay-tested, owner-hardware-verified and pending hardware validation.
 
 ## Completion commands
