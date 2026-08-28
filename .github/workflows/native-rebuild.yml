@@ -1,0 +1,28 @@
+name: native rebuild
+
+on:
+  push:
+    branches: [ main ]
+    paths: [ 'native/**', 'scripts/build-*.ps1', 'scripts/verify-native-rebuild.ps1', '.github/workflows/native-rebuild.yml' ]
+  pull_request:
+    paths: [ 'native/**', 'scripts/build-*.ps1', 'scripts/verify-native-rebuild.ps1', '.github/workflows/native-rebuild.yml' ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rebuild:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+      - name: Fetch pinned OpenVR SDK
+        shell: powershell
+        run: git clone --depth 1 --branch v2.15.6 https://github.com/ValveSoftware/openvr.git "$env:RUNNER_TEMP\openvr"
+      - name: Rebuild native runtime
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File scripts/verify-native-rebuild.ps1 -ZigPath (Get-Command zig).Source -OpenVrSdkPath "$env:RUNNER_TEMP\openvr"

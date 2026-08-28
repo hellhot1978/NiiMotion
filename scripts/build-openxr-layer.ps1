@@ -1,17 +1,17 @@
+param(
+    [string]$OutputDirectory = '',
+    [string]$ZigPath = ''
+)
+
 $ErrorActionPreference = 'Stop'
-$clang = 'C:\Program Files\LLVM\bin\clang-cl.exe'
-$link = 'C:\Program Files\LLVM\bin\lld-link.exe'
-$sdk = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\Lib' -Directory | Sort-Object Name -Descending | Select-Object -First 1
-if (-not (Test-Path $clang) -or -not $sdk) { throw 'LLVM veya Windows SDK bulunamadı.' }
 $root = Split-Path $PSScriptRoot -Parent
+if ([string]::IsNullOrWhiteSpace($ZigPath)) { $ZigPath = Join-Path $root '.tools\zig-extract\zig-x86_64-windows-0.16.0\zig.exe' }
+if ([string]::IsNullOrWhiteSpace($OutputDirectory)) { $OutputDirectory = Join-Path $root 'native\openxr-layer\dist\bin\win64' }
 $source = Join-Path $root 'native\openxr-layer\layer.cpp'
 $include = Join-Path $root 'native\openxr-layer\include'
-$object = Join-Path $root 'native\openxr-layer\layer.obj'
-$output = Join-Path $root 'native\openxr-layer\dist\bin\win64\niirmotion_openxr.dll'
-& $clang /nologo /c /O2 /GS- /GR- /EHs-c- /Zl /DWIN32 /D_WINDOWS /D_UNICODE /DUNICODE /I $include $source /Fo$object
-if ($LASTEXITCODE -ne 0) { throw 'OpenXR katmanı derlenemedi.' }
-$um = Join-Path $sdk.FullName 'um\x64'
-& $link /nologo /dll /noentry /nodefaultlib /machine:x64 /out:$output $object (Join-Path $um 'kernel32.lib')
-if ($LASTEXITCODE -ne 0) { throw 'OpenXR katmanı bağlanamadı.' }
-Remove-Item -LiteralPath $object -Force
+if (-not (Test-Path -LiteralPath $ZigPath)) { throw "Zig compiler is missing: $ZigPath" }
+New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
+$output = Join-Path $OutputDirectory 'niirmotion_openxr.dll'
+& $ZigPath c++ $source -target x86_64-windows-gnu -std=c++20 -O2 -shared "-I$include" -o $output
+if ($LASTEXITCODE -ne 0) { throw 'OpenXR layer build failed.' }
 Write-Output $output

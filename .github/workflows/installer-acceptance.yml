@@ -1,0 +1,35 @@
+name: installer acceptance
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  clean-windows-installer:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Install Inno Setup
+        shell: powershell
+        run: choco install innosetup --no-progress -y
+      - name: Build installer
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File scripts/build-installer.ps1
+      - name: Verify clean installation lifecycle
+        shell: powershell
+        run: |
+          $installer = Get-ChildItem artifacts/installer/NiiMotion-Setup-*-x64.exe | Select-Object -First 1
+          powershell -ExecutionPolicy Bypass -File scripts/verify-installer-smoke.ps1 -Installer $installer.FullName
+      - name: Upload verified installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: niimotion-installer-candidate
+          path: |
+            artifacts/installer/*.exe
+            artifacts/installer/*.sha256

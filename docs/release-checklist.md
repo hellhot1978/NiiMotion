@@ -4,6 +4,8 @@
 
 - [x] Source code license selected: PolyForm Noncommercial License 1.0.0 (source-available, noncommercial).
 - [x] Required third-party notice names and bundled license files are enforced by `scripts/verify-release-readiness.ps1`.
+- [x] GitHub CodeQL, dependency review and weekly dependency update configuration are present.
+- [x] Release component inventory can be generated locally with `scripts/export-component-inventory.ps1`.
 - [ ] Perform a human review of the final distribution against `THIRD_PARTY_NOTICES.md`.
 - [ ] Update version and changelog.
 - [ ] Confirm no personal recordings, logs, device identities, runtime config, or binding backups are staged.
@@ -17,11 +19,15 @@
 
 ## Clean Windows acceptance
 
+Run `scripts/verify-installer-smoke.ps1 -Installer <path>` on a clean Windows account, or dispatch the manual `installer acceptance` GitHub workflow. This automation proves the packaging lifecycle but does not replace the owner hardware checks below.
+
 - [ ] Install from a standard non-developer account without a separate .NET install.
 - [ ] Verify first-run device selection, calibration, Normal VR, and safe stop.
 - [ ] Verify SteamVR launch only through the Virtual Desktop readiness sequence.
 - [ ] Verify update staging, uninstall, driver removal, and rollback.
 - [ ] Verify Turkish/English UI at 100%, 125%, and 150% Windows scaling.
+
+The automated UI matrix renders both languages at 1000x650, 1100x700 and 1200x760 and includes the calibration center and setup dialogs. Real Windows 100%/125%/150% scaling remains a clean-machine visual acceptance item because viewport simulation is not a substitute for operating-system DPI.
 
 ## Physical acceptance
 

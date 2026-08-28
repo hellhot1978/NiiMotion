@@ -7,3 +7,5 @@ Safety behavior: values start at zero, are clamped to `[-1,1]`, return to zero 2
 The treadmill publishes a valid stationary pose every SteamVR frame. This keeps its action source active without claiming a hand role or introducing spatial movement; hand controllers remain independent.
 
 The `dist` directory is the driver root expected by Valve's `vrpathreg`. Registration is deliberately not part of the build.
+
+Rebuild the driver with `scripts/build-openvr-driver.ps1`. Run `scripts/verify-native-rebuild.ps1` to rebuild and validate the driver, OpenXR layer and SteamVR overlay together without modifying the committed distribution binaries.

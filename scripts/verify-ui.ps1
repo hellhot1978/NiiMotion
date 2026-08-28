@@ -10,10 +10,12 @@ if ([string]::IsNullOrWhiteSpace($OutputDirectory)) { $OutputDirectory = Join-Pa
 New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
 
 $cases = @(
-    @{ Name = 'overview-tr-compact'; Language = 'tr'; Size = '1100x700' },
-    @{ Name = 'overview-en-compact'; Language = 'en'; Size = '1100x700' },
-    @{ Name = 'overview-tr-standard'; Language = 'tr'; Size = '1200x760' },
-    @{ Name = 'overview-en-standard'; Language = 'en'; Size = '1200x760' }
+    @{ Name = 'overview-tr-1000x650'; Language = 'tr'; Size = '1000x650' },
+    @{ Name = 'overview-en-1000x650'; Language = 'en'; Size = '1000x650' },
+    @{ Name = 'overview-tr-1100x700'; Language = 'tr'; Size = '1100x700' },
+    @{ Name = 'overview-en-1100x700'; Language = 'en'; Size = '1100x700' },
+    @{ Name = 'overview-tr-1200x760'; Language = 'tr'; Size = '1200x760' },
+    @{ Name = 'overview-en-1200x760'; Language = 'en'; Size = '1200x760' }
 )
 
 foreach ($case in $cases) {
@@ -52,8 +54,8 @@ foreach ($case in $cases) {
     }
 }
 
-$compactTurkish = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $OutputDirectory 'overview-tr-compact.png')).Hash
-$compactEnglish = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $OutputDirectory 'overview-en-compact.png')).Hash
+$compactTurkish = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $OutputDirectory 'overview-tr-1000x650.png')).Hash
+$compactEnglish = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $OutputDirectory 'overview-en-1000x650.png')).Hash
 if ($compactTurkish -eq $compactEnglish) { throw 'Turkish and English UI renders are unexpectedly identical.' }
 
 foreach ($language in @('tr', 'en')) {
@@ -73,6 +75,24 @@ foreach ($language in @('tr', 'en')) {
 $guideTurkish = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $OutputDirectory 'getting-started-tr.png')).Hash
 $guideEnglish = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $OutputDirectory 'getting-started-en.png')).Hash
 if ($guideTurkish -eq $guideEnglish) { throw 'Getting Started language renders are unexpectedly identical.' }
+
+foreach ($language in @('tr', 'en')) {
+    $path = Join-Path $OutputDirectory "calibration-center-$language.png"
+    [System.IO.File]::Delete($path)
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $app
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.Arguments = "--ui-language=$language --window-size=1000x650 --calibration-center-screenshot=`"$path`""
+    $process = [System.Diagnostics.Process]::Start($startInfo)
+    $deadline = [DateTime]::UtcNow.AddSeconds(15)
+    while ((-not (Test-Path -LiteralPath $path) -or (Get-Item -LiteralPath $path -ErrorAction SilentlyContinue).Length -lt 10000) -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 100 }
+    if (-not $process.HasExited) { [void]$process.WaitForExit(15000) }
+    if (-not (Test-Path -LiteralPath $path) -or (Get-Item -LiteralPath $path).Length -lt 10000) { throw "Calibration center render failed: $language" }
+}
+$calibrationTurkish = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $OutputDirectory 'calibration-center-tr.png')).Hash
+$calibrationEnglish = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $OutputDirectory 'calibration-center-en.png')).Hash
+if ($calibrationTurkish -eq $calibrationEnglish) { throw 'Calibration center language renders are unexpectedly identical.' }
 
 $dialogCases = @(
     @{ Name = 'hardware-setup'; Argument = '--hardware-setup-screenshot' },
@@ -102,4 +122,4 @@ foreach ($dialog in $dialogCases) {
     if ($turkishHash -eq $englishHash) { throw "Dialog language renders are unexpectedly identical: $($dialog.Name)" }
 }
 
-Write-Host "UI smoke verification passed: $($cases.Count) viewports, 2 Getting Started, and $($dialogCases.Count * 2) dialog renders." -ForegroundColor Green
+Write-Host "UI smoke verification passed: $($cases.Count) overview viewports, 2 Getting Started, 2 calibration center, and $($dialogCases.Count * 2) dialog renders." -ForegroundColor Green
