@@ -22,7 +22,7 @@ Each phase writes raw JSONL streams and a versioned manifest. A phase is accepte
 
 ### Active-profile walking calibration
 
-After each required device is ready, every multi-device profile gets its own three-phase synchronized recording. The Calibration Center exposes the available combinations in one compact selector. Every active stream receives the same session/phase identity and a profile manifest links the results. The offline pipeline turns three accepted phases into `config/profile-fusion/<profile-id>.json`, containing capture quality, timing tolerance, disagreement grace and phone/board agreement weights without overwriting device calibration. Multi-device locomotion and game launch fail closed until both the three-phase progress and this local model are present.
+After each required device is ready, every multi-device profile gets its own three-phase synchronized recording. Each combined phase lasts two minutes (six minutes total); individual device base phases remain five minutes. The Calibration Center exposes the available combinations in one compact selector. Every active stream receives the same session/phase identity and a profile manifest links the results. The offline pipeline turns three accepted phases into `config/profile-fusion/<profile-id>.json`, containing capture quality, timing tolerance, disagreement grace and phone/board agreement weights without overwriting device calibration. Multi-device locomotion and game launch fail closed until both the three-phase progress and this local model are present.
 
 ### Optional model improvement
 

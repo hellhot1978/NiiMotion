@@ -673,9 +673,11 @@ static async Task ProfileFusionModelContract()
         var pipeline = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "NiiRMotion.Infrastructure", "OfflineCalibrationPipeline.cs"));
         var runtime = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "NiiRMotion.Infrastructure", "LiveLocomotionService.cs"));
         var app = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "NiiRMotion.App", "MainWindow.xaml.cs"));
+        var combinedWindow = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "NiiRMotion.App", "ProfileCalibrationWindow.xaml.cs"));
         Assert(pipeline.Contains("profile-manifest.json", StringComparison.Ordinal) && pipeline.Contains("BuildProfileFusionModels", StringComparison.Ordinal), "Profile captures must be analyzed into fusion models.");
         Assert(runtime.Contains("ProfileFusionModelStore", StringComparison.Ordinal) && runtime.Contains("CadenceToleranceHz", StringComparison.Ordinal), "Runtime must load the selected profile fusion model.");
         Assert(app.Contains("CombinedProfileCalibrationReadyAsync", StringComparison.Ordinal), "Game launch must gate missing multi-device calibration.");
+        Assert(combinedWindow.Contains("PhaseDuration = TimeSpan.FromMinutes(2)", StringComparison.Ordinal), "Combined phases must remain two minutes without shortening device base phases.");
     }
     finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
 }

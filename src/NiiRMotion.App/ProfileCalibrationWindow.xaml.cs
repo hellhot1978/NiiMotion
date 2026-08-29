@@ -8,6 +8,7 @@ namespace NiiRMotion.App;
 
 public partial class ProfileCalibrationWindow : Window
 {
+    private static readonly TimeSpan PhaseDuration = TimeSpan.FromMinutes(2);
     private readonly MotionProfile _profile;
     private readonly SensorFamily[] _sensors;
     private readonly UserSetupStore _store = new();
@@ -26,11 +27,11 @@ public partial class ProfileCalibrationWindow : Window
         if (_recording || sender is not Button button || !int.TryParse(button.Tag?.ToString(), out var phase) || phase != _completed + 1) return;
         _recording = true; Refresh(); InstructionText.Text = Instruction(phase);
         var sessionRoot = Path.Combine(NiiMotionPaths.Data, "profile-calibration", _profile.Id, $"phase-{phase}-{DateTime.Now:yyyyMMdd-HHmmss}"); Directory.CreateDirectory(sessionRoot);
-        var progress = new Progress<TimeSpan>(elapsed => { Progress.Value = Math.Min(300, elapsed.TotalSeconds); Timer.Text = $"{elapsed:mm\\:ss} / 05:00"; });
+        var progress = new Progress<TimeSpan>(elapsed => { Progress.Value = Math.Min(PhaseDuration.TotalSeconds, elapsed.TotalSeconds); Timer.Text = $"{elapsed:mm\\:ss} / 02:00"; });
         try
         {
             using var linked = new CancellationTokenSource();
-            var tasks = _sensors.Select(sensor => new GuidedCalibrationRecorder().RecordAsync(sensor, phase, TimeSpan.FromMinutes(5), progress, "profile-walking-calibration", sessionRoot, linked.Token)).ToArray();
+            var tasks = _sensors.Select(sensor => new GuidedCalibrationRecorder().RecordAsync(sensor, phase, PhaseDuration, progress, "profile-walking-calibration", sessionRoot, linked.Token)).ToArray();
             GuidedCalibrationResult[] results;
             try { results = await Task.WhenAll(tasks); }
             catch { linked.Cancel(); try { await Task.WhenAll(tasks); } catch { } throw; }
@@ -51,7 +52,7 @@ public partial class ProfileCalibrationWindow : Window
             catch (UnauthorizedAccessException) { }
             InstructionText.Text = "Faz tamamlanmadı: " + ex.GetBaseException().Message;
         }
-        finally { _recording = false; Progress.Value = 0; Timer.Text = "00:00 / 05:00"; Refresh(); }
+        finally { _recording = false; Progress.Value = 0; Timer.Text = "00:00 / 02:00"; Refresh(); }
     }
 
     private async Task SaveAsync()
@@ -64,7 +65,7 @@ public partial class ProfileCalibrationWindow : Window
     private void Refresh()
     {
         var buttons = new[] { Phase1, Phase2, Phase3 };
-        for (var i = 0; i < 3; i++) { var n = i + 1; buttons[i].Content = _completed >= n ? $"✓ FAZ {n} TAMAMLANDI" : _completed + 1 == n ? $"▶ FAZ {n}'Ü BAŞLAT · 5 DK" : $"○ FAZ {n} · 5 DK"; buttons[i].IsEnabled = !_recording && _completed + 1 == n; }
+        for (var i = 0; i < 3; i++) { var n = i + 1; buttons[i].Content = _completed >= n ? $"✓ FAZ {n} TAMAMLANDI" : _completed + 1 == n ? $"▶ FAZ {n}'Ü BAŞLAT · 2 DK" : $"○ FAZ {n} · 2 DK"; buttons[i].IsEnabled = !_recording && _completed + 1 == n; }
         if (_completed >= 3) InstructionText.Text = "✓ Bu profil için birlikte çalışma kalibrasyonu hazır.";
     }
 
