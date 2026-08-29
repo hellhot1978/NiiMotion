@@ -10,7 +10,7 @@ Ana dal: `main`
 
 OpenCode'u depo kökünde aç ve agente şunu söyle:
 
-> Read AGENTS.md and docs/AI_AGENT_HANDOFF.md completely, then use docs/OPENCODE_HANDOFF.md only for OpenCode-specific context. Run the repository verification script before editing. Preserve all user recordings, runtime config, device identities, and unrelated dirty files. Continue only from the current remaining-work list and never introduce an online AI runtime dependency.
+> Read `AGENTS.md`, `docs/AI_AGENT_HANDOFF.md`, `docs/OPENCODE_HANDOFF.md`, `docs/standalone-acceptance.md`, and `docs/upgrade-plan-v5.md` completely. Then follow `docs/OPENCODE_START_PROMPT.md` as the exact continuation contract. Run the canonical verification before editing. Preserve every user-owned recording, runtime configuration, device identity, model history, backup, and unrelated dirty file. Never introduce an online AI runtime dependency.
 
 Ardından:
 
@@ -42,10 +42,13 @@ Kurucu yalnız sürüm adayı hazırlanırken üretilmelidir; günlük geliştir
 
 Son ilgili commitler:
 
-- `69c4802` standalone hazırlık ve kendi kendine ilerleyen rehber
-- `b078a81` kişisel model bütünlük kapısı ve yerel yeniden üretim
-- `bc24440` AI gerektirmeyen yerel tanılama
-- `f8a499a` standalone kabul sözleşmesi
+- `4eb9d51` 0.6.1 beta hazırlığı, ortak faz kontrolleri, model geçmişi ve sağlık ekranı
+- `ab17b75` ortak fazların iki dakikaya indirilmesi
+- `02cf75f` her çoklu kombinasyon için ayrı yerel birleşim modeli
+- `be46540` Alyx için açık manuel hız ayarı
+- `bf4b041` karma sensörlerde uzlaşma kapısı
+
+Yayımlanmış beta: `v0.6.1-beta.1` — <https://github.com/hellhot1978/NiiMotion/releases/tag/v0.6.1-beta.1>
 
 ## Kalan geliştirmeler
 
@@ -79,14 +82,15 @@ Makinece okunabilir profil, senaryo ve oyun listesi `docs/hardware-acceptance-ma
 - Skyrim VR ancak gerçekten kurulu olduğunda salt okunur action/runtime incelemesiyle adaptörlenmeli.
 - Yeni oyunlar sihirbazla eklenebilir; otomatik tarama sonuç uydurmamalı. Action bulunamazsa kullanıcıya SteamVR binding yolu gösterilmeli.
 
-### P2 — Yayın adayı
+### P2 — Yayın ve temiz makine kabulü
 
 - Türkçe/İngilizce görsel duman testi; Genel Bakış 1100×700/1200×760, Başlangıç Rehberi, cihaz seçimi, Joy-Con/PS Move temel kalibrasyonu, yönlendirmeli kayıt ve Board laboratuvarı dahil 16 render senaryosunu doğruluyor (`scripts/verify-ui.ps1`, geliştirme doğrulamasında `-UiSmoke`).
 - Başlangıç Rehberi kaydırmasız 2×2 düzene geçirildi; dinamik profil, cihaz ve kalibrasyon metinlerinin İngilizce karşılıkları görsel olarak denetlendi. Windows %125/%150 gerçek DPI ile kalan ikincil diyalogların taşma matrisi yayın adayı öncesinde tamamlanmalı.
 - Temiz Windows kullanıcı hesabında kurulum, kaldırma, güncelleme ve sürücü geri dönüş testi.
 - Kurucu sözleşmesi otomatik doğrulanıyor: standart kullanıcı kurulumu, self-contained paket, masaüstü kısayolu, OpenVR/OpenXR kaydı kaldırma ve kişisel veriyi koruma. Gerçek temiz Windows kabulü yine gereklidir.
-- GitHub README, katkı rehberi, lisans ve sürüm notlarının son düzeni.
-- En sonda tek kez kurucu ve checksum üretimi.
+- GitHub README, kullanıcı rehberleri, lisans ve sürüm notları beta için yayımlandı.
+- 0.6.1 kurucu, checksum, bileşen envanteri ve commit-bağlı sürüm manifesti `v0.6.1-beta.1` altında yayımlandı.
+- Kalan yayın kapıları: gerçek kod imzası ve temiz standart Windows hesabında %100/%125/%150 DPI ile fiziksel yükseltme/geri dönüş kabulü.
 
 ## Kullanıcıya ait ve commitlenmemesi gerekenler
 

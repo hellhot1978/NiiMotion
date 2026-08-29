@@ -24,9 +24,10 @@ This is the canonical handoff entry point for Codex, OpenCode, Claude Code, Gemi
 - Automated regression: 111/111 passing; the current command is always authoritative.
 - Release build: zero warnings and zero errors.
 - English localization audit: zero uncovered unique UI strings.
-- UI smoke: four viewports, two Getting Started variants and ten dialog renders.
+- UI smoke: six overview viewports, two Getting Started variants, two calibration-center variants and ten dialog renders.
 - Release contracts: privacy, legal files, installer safety, update hashing, package integrity and disk budget are automated.
-- Current release-candidate target: `artifacts/installer/NiiMotion-Setup-0.6.1-x64.exe`; artifacts are generated and not source.
+- Published public beta: `v0.6.1-beta.1`, source commit `4eb9d511a29bc2474f847828b27cc540e87440de`.
+- Current local installer: `artifacts/installer/NiiMotion-Setup-0.6.1-x64.exe`; artifacts are generated and not source.
 - Runtime has no OpenAI, Gemini, Anthropic or cloud-inference dependency.
 
 ## Implemented product surface
