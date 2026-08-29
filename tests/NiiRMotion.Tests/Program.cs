@@ -641,8 +641,9 @@ static void ReleaseCandidatePipelineContract()
 
     var smoke = File.ReadAllText(Path.Combine(root, "scripts", "verify-installer-smoke.ps1"));
     Assert(smoke.Contains("WaitForExit($TimeoutSeconds * 1000)", StringComparison.Ordinal) &&
-           smoke.Contains("[switch]$SkipUiRender", StringComparison.Ordinal),
-        "Installer processes must be bounded and headless UI omission must be explicit.");
+           smoke.Contains("[switch]$SkipUiRender", StringComparison.Ordinal) &&
+           smoke.Contains("/MERGETASKS=`\"!desktopicon`\"", StringComparison.Ordinal),
+        "Installer processes must be bounded, headless UI omission explicit, and the owner's desktop shortcut isolated.");
 }
 
 static void VrPanelCommands()

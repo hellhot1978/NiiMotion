@@ -4,6 +4,7 @@
 
 - Added a deliberate release-candidate pipeline with installer lifecycle verification, component inventory, source-commit provenance and checksums; hardware acceptance and signing remain explicit external gates.
 - Removed the legacy developer-specific gait calibration from public packaging; clean installations now rely only on locally validated phase recordings and generated personal runtime models.
+- Isolated installer smoke tests from the owner's desktop shortcut so test uninstall can no longer remove an existing NiiMotion shortcut.
 - Added a privacy-safe local session-health summary to diagnostic packages without copying raw sensor payloads.
 - Added Windows CI, release-readiness contracts, a machine-readable hardware acceptance matrix, a security threat model, and a closed-beta acceptance plan.
 - Updated architecture, roadmap, standalone acceptance, and release documentation to match the implemented V5 system.

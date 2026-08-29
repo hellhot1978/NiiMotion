@@ -36,7 +36,9 @@ function Invoke-CheckedProcess {
 }
 
 try {
-    Invoke-CheckedProcess $installerPath "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /LANG=english /DIR=`"$installDirectory`""
+    # Never let an isolated smoke installation overwrite the owner's real desktop
+    # shortcut. Otherwise its test uninstall would remove that shortcut as well.
+    Invoke-CheckedProcess $installerPath "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /LANG=english /MERGETASKS=`"!desktopicon`" /DIR=`"$installDirectory`""
 
     $app = Join-Path $installDirectory 'NiiRMotion.App.exe'
     $runtimeConfig = Join-Path $installDirectory 'NiiRMotion.App.runtimeconfig.json'
