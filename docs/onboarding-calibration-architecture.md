@@ -22,7 +22,7 @@ Each phase writes raw JSONL streams and a versioned manifest. A phase is accepte
 
 ### Active-profile walking calibration
 
-After each required device is ready, the selected profile gets a separate three-phase synchronized recording. Every active stream receives the same session/phase identity and a profile manifest links the results. This layer learns cross-device timing and agreement without overwriting device calibration.
+After each required device is ready, every multi-device profile gets its own three-phase synchronized recording. The Calibration Center exposes the available combinations in one compact selector. Every active stream receives the same session/phase identity and a profile manifest links the results. The offline pipeline turns three accepted phases into `config/profile-fusion/<profile-id>.json`, containing capture quality, timing tolerance, disagreement grace and phone/board agreement weights without overwriting device calibration. Multi-device locomotion and game launch fail closed until both the three-phase progress and this local model are present.
 
 ### Optional model improvement
 
@@ -32,7 +32,7 @@ Legacy long-form labs remain available under **Modeli geliştir**. These recordi
 
 - Joy-Con, phone and board combinations continue through the established fusion engine.
 - PS Move can run alone, with phone, with board or with both.
-- Joy-Con + PS Move combinations run both personalized leg engines. Agreement raises confidence; one-sided evidence is degraded rather than producing an abrupt dropout.
+- Joy-Con + PS Move combinations run both personalized leg engines. Matching cadence is required to start; a learned short grace window prevents momentary sensor disagreement from producing abrupt dropouts.
 - Optional phone and board sources cannot create leg gait in leg-sensor profiles. Board loss/contact and turn guards remain fail-closed.
 - Every required connection loss zeros output and ends the session safely.
 

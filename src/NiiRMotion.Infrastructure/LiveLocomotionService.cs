@@ -16,6 +16,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
     private SensorFusionEngine? _auxFusion;
     private PsMoveGaitEngine? _psMoveGait;
     private HybridGaitAgreementGate? _hybridGate;
+    private ProfileFusionModel? _profileFusionModel;
     private StreamWriter? _diagnosticWriter;
     private HmdPoseSample _latestHmdPose;
     private bool _hmdFusionEnabled;
@@ -35,9 +36,15 @@ public sealed class LiveLocomotionService : IAsyncDisposable
             ?? throw new InvalidDataException("PS Move kişisel profili okunamadı.");
         var phoneProfile = File.Exists(Path.Combine(NiiMotionPaths.Config, "personal-phone-motion.json")) ? await PersonalPhoneMotion.LoadAsync(Path.Combine(NiiMotionPaths.Config, "personal-phone-motion.json"), cancellationToken) : null;
         var boardProfile = File.Exists(Path.Combine(NiiMotionPaths.Config, "personal-board-motion.json")) ? await PersonalBoardMotion.LoadAsync(Path.Combine(NiiMotionPaths.Config, "personal-board-motion.json"), cancellationToken) : null;
+        var selectedMotionProfile = new ActiveMotionProfileStore().Load() ?? "psmove-only";
+        var fusionModel = new ProfileFusionModelStore().Load(selectedMotionProfile);
+        _profileFusionModel = fusionModel;
+        if ((includePhone ? 1 : 0) + (includeBoard ? 1 : 0) + 1 > 1 && fusionModel is null)
+            throw new InvalidOperationException("Seçili cihaz kombinasyonunun birlikte çalışma kalibrasyonu tamamlanmadı.");
         _psMoveGait = new(profile);
         _hmdFusionEnabled = HmdValidationCaptureService.LoadLatest()?.Passed == true;
-        _auxFusion = new SensorFusionEngine(phoneProfile: phoneProfile, boardProfile: boardProfile, allowBoardTurn: includeBoard);
+        _auxFusion = new SensorFusionEngine(phoneProfile: phoneProfile, boardProfile: boardProfile, allowBoardTurn: includeBoard,
+            phoneAgreementWeight: fusionModel?.PhoneAgreementWeight ?? .08, boardAgreementWeight: fusionModel?.BoardAgreementWeight ?? .12);
         _lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken); var token = _lifetime.Token;
         try
         {
@@ -45,7 +52,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
             _sources.Add(source); await source.StartAsync(token);
             var gameProfile = new GameMotionProfileStore().LoadActive();
             var selectedGame = new GameSelectionStore().Load();
-            var optimization = new GameSensorOptimizationStore().Load(selectedGame, "psmove-only");
+            var optimization = new GameSensorOptimizationStore().Load(selectedGame, selectedMotionProfile);
             gameProfile = gameProfile with { SpeedMultiplier = gameProfile.SpeedMultiplier * optimization.DistanceScale };
             _vrSession = new VrLocomotionSession(VrOutputSinkFactory.CreateActive(), gameProfile); await _vrSession.StartAsync(token);
             var logFolder = Path.Combine(NiiMotionPaths.Logs, "live"); Directory.CreateDirectory(logFolder); StorageRetention.EnforceDirectoryBudget(logFolder);
@@ -83,6 +90,8 @@ public sealed class LiveLocomotionService : IAsyncDisposable
             var now = Stopwatch.GetTimestamp(); GaitSnapshot gait; lock (_fusionLock) gait = _psMoveGait!.Update(now);
             var auxiliary = _auxFusion!.Update(now);
             var target = gait.TargetSpeed;
+            if (target > 0 && auxiliary.PhoneFresh && _profileFusionModel is { PhoneAgreementWeight: > 0 } model)
+                target *= 1 - model.PhoneAgreementWeight + model.PhoneAgreementWeight * Math.Clamp(auxiliary.PhoneAgreement, 0, 1);
             if (auxiliary.BoardFresh && !auxiliary.BoardContact) target = 0;
             if (auxiliary.TurnTarget != 0) target = 0;
             var snapshot = new FusionSnapshot(gait, gait.Confidence, target, auxiliary.PhoneFresh, auxiliary.BoardFresh, auxiliary.BoardContact, auxiliary.BoardTransferVelocity, auxiliary.TurnTarget, auxiliary.BoardCopX, auxiliary.BoardTotalKg);
@@ -111,7 +120,16 @@ public sealed class LiveLocomotionService : IAsyncDisposable
         var phoneProfile = File.Exists(phoneProfilePath) ? await PersonalPhoneMotion.LoadAsync(phoneProfilePath, cancellationToken) : null;
         var boardProfilePath = Path.Combine(NiiMotionPaths.Config, "personal-board-motion.json");
         var boardProfile = File.Exists(boardProfilePath) ? await PersonalBoardMotion.LoadAsync(boardProfilePath, cancellationToken) : null;
-        _fusion = new SensorFusionEngine(threshold, pacePrior: pacePrior, personalPace: personalPace, phoneProfile: phoneProfile, boardProfile: boardProfile, allowPhoneOnly: phoneOnly, allowBoardOnly: boardOnly);
+        var selectedMotionProfile = new ActiveMotionProfileStore().Load() ?? "joycon-only";
+        var fusionModel = new ProfileFusionModelStore().Load(selectedMotionProfile);
+        _profileFusionModel = fusionModel;
+        var fusionSensorCount = 1 + (includePsMove ? 1 : 0) + (includePhone ? 1 : 0) + (includeBoard ? 1 : 0);
+        if (!phoneOnly && !boardOnly && fusionSensorCount > 1 && fusionModel is null)
+            throw new InvalidOperationException("Seçili cihaz kombinasyonunun birlikte çalışma kalibrasyonu tamamlanmadı.");
+        if (phoneOnly && includeBoard && fusionModel is null)
+            throw new InvalidOperationException("Telefon ve Balance Board birlikte çalışma kalibrasyonu tamamlanmadı.");
+        _fusion = new SensorFusionEngine(threshold, pacePrior: pacePrior, personalPace: personalPace, phoneProfile: phoneProfile, boardProfile: boardProfile, allowPhoneOnly: phoneOnly, allowBoardOnly: boardOnly,
+            phoneAgreementWeight: fusionModel?.PhoneAgreementWeight ?? .08, boardAgreementWeight: fusionModel?.BoardAgreementWeight ?? .12);
         _hmdFusionEnabled = HmdValidationCaptureService.LoadLatest()?.Passed == true;
         if (includePsMove)
         {
@@ -119,7 +137,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
             if (!onboarding.IsReady) throw new InvalidOperationException(onboarding.Instruction);
             var moveProfile = JsonSerializer.Deserialize<PsMoveTrainingProfile>(await File.ReadAllTextAsync(NiiMotionPaths.PsMoveTrainingProfile, cancellationToken)) ?? throw new InvalidDataException("PS Move kişisel profili okunamadı.");
             _psMoveGait = new PsMoveGaitEngine(moveProfile);
-            _hybridGate = new HybridGaitAgreementGate();
+            _hybridGate = new HybridGaitAgreementGate(TimeSpan.FromMilliseconds(fusionModel?.DisagreementGraceMs ?? 360), fusionModel?.CadenceToleranceHz ?? 1.20);
         }
         _lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var token = _lifetime.Token;
@@ -150,7 +168,6 @@ public sealed class LiveLocomotionService : IAsyncDisposable
 
             var gameProfile = new GameMotionProfileStore().LoadActive();
             var selectedGame = new GameSelectionStore().Load();
-            var selectedMotionProfile = new ActiveMotionProfileStore().Load() ?? "joycon-only";
             var optimization = new GameSensorOptimizationStore().Load(selectedGame, selectedMotionProfile);
             gameProfile = gameProfile with { SpeedMultiplier = gameProfile.SpeedMultiplier * optimization.DistanceScale };
             _vrSession = new VrLocomotionSession(VrOutputSinkFactory.CreateActive(), gameProfile);
@@ -267,7 +284,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
         if (_vrSession is not null) { await _vrSession.DisposeAsync(); _vrSession = null; }
         foreach (var source in _sources.AsEnumerable().Reverse()) await source.DisposeAsync();
         _diagnosticWriter?.Flush(); _diagnosticWriter?.Dispose(); _diagnosticWriter = null;
-        _sources.Clear(); _fusion = null; _auxFusion = null; _psMoveGait = null; _hybridGate = null; _latestHmdPose = default; _hmdFusionEnabled = false; ModeDescription = "OFF";
+        _sources.Clear(); _fusion = null; _auxFusion = null; _psMoveGait = null; _hybridGate = null; _profileFusionModel = null; _latestHmdPose = default; _hmdFusionEnabled = false; ModeDescription = "OFF";
     }
 
     private static async Task<double> LoadThresholdAsync(string? path, CancellationToken cancellationToken)

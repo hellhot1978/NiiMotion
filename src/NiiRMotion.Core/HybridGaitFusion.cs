@@ -23,17 +23,18 @@ public static class HybridGaitFusion
     }
 }
 
-public sealed class HybridGaitAgreementGate(TimeSpan? disagreementGrace = null)
+public sealed class HybridGaitAgreementGate(TimeSpan? disagreementGrace = null, double cadenceToleranceHz = 1.20)
 {
     private readonly long _graceTicks = (long)((disagreementGrace ?? TimeSpan.FromMilliseconds(360)).TotalSeconds * System.Diagnostics.Stopwatch.Frequency);
     private bool _established;
     private long _lastAgreementTicks;
+    private readonly double _cadenceToleranceHz = Math.Clamp(cadenceToleranceHz, .35, 1.5);
 
     public FusionSnapshot Combine(FusionSnapshot primary, GaitSnapshot secondary, long nowTicks)
     {
         var primaryActive = primary.TargetSpeed > 0;
         var secondaryActive = secondary.TargetSpeed > 0;
-        var cadenceAgrees = Math.Abs(primary.Gait.CadenceHz - secondary.CadenceHz) <= 1.20;
+        var cadenceAgrees = Math.Abs(primary.Gait.CadenceHz - secondary.CadenceHz) <= _cadenceToleranceHz;
         if (primaryActive && secondaryActive && cadenceAgrees)
         {
             _established = true;

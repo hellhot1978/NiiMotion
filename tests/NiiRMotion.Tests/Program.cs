@@ -217,6 +217,7 @@ tests = [("Update download is hash verified before staging", UpdateDownloadVerif
 tests = [Sync("Installer preserves personal data and unregisters VR components", InstallerSafetyContract), .. tests];
 tests = [Sync("Release candidate pipeline is complete and remains manual", ReleaseCandidatePipelineContract), .. tests];
 tests = [Sync("Hardware validation uses the current combined locomotion engine", CombinedHardwareValidationContract), .. tests];
+tests = [("Every multi-device profile has a local fusion model contract", ProfileFusionModelContract), .. tests];
 tests = [Sync("VR panel commands are delivered once", VrPanelCommands), Sync("OpenXR wizard prioritizes common engine executables", OpenXrEngineDiscovery), .. tests];
 tests = [Sync("Static UI text has English localization coverage", StaticUiLocalizationCoverage), .. tests];
 tests = [Sync("Dynamic UI status messages have English localization coverage", DynamicUiLocalizationCoverage), .. tests];
@@ -658,6 +659,25 @@ static void CombinedHardwareValidationContract()
     foreach (var required in new[] { "SensorFusionEngine", "PsMoveGaitEngine", "HybridGaitAgreementGate", "hybridGate.Combine", "OwoTrackSensorSource", "IncludeFields = true", "personal-gait-pace.json", "personal-psmove-training.json" })
         Assert(validation.Contains(required, StringComparison.Ordinal), $"Hardware validation does not use the current combined path: {required}");
     Assert(!validation.Contains("gait-v1.json", StringComparison.Ordinal), "Hardware validation still depends on the legacy developer calibration.");
+}
+
+static async Task ProfileFusionModelContract()
+{
+    var root = Path.Combine(Path.GetTempPath(), "niimotion-profile-fusion-" + Guid.NewGuid().ToString("N"));
+    try
+    {
+        var store = new ProfileFusionModelStore(root);
+        var model = new ProfileFusionModel(1, "joycon-ps-move-telefon", [SensorFamily.JoyCon, SensorFamily.PsMove, SensorFamily.Phone], DateTimeOffset.UtcNow, 45000, .96, 1.2, 360, .08, 0, true, false);
+        await store.SaveAsync(model); var loaded = store.Load(model.ProfileId);
+        Assert(loaded is not null && loaded.Sensors.Count == 3 && loaded.RequireLegAgreement, "A multi-device fusion model must round-trip locally.");
+        var pipeline = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "NiiRMotion.Infrastructure", "OfflineCalibrationPipeline.cs"));
+        var runtime = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "NiiRMotion.Infrastructure", "LiveLocomotionService.cs"));
+        var app = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "NiiRMotion.App", "MainWindow.xaml.cs"));
+        Assert(pipeline.Contains("profile-manifest.json", StringComparison.Ordinal) && pipeline.Contains("BuildProfileFusionModels", StringComparison.Ordinal), "Profile captures must be analyzed into fusion models.");
+        Assert(runtime.Contains("ProfileFusionModelStore", StringComparison.Ordinal) && runtime.Contains("CadenceToleranceHz", StringComparison.Ordinal), "Runtime must load the selected profile fusion model.");
+        Assert(app.Contains("CombinedProfileCalibrationReadyAsync", StringComparison.Ordinal), "Game launch must gate missing multi-device calibration.");
+    }
+    finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
 }
 
 static void VrPanelCommands()

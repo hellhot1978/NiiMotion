@@ -12,7 +12,9 @@ public sealed record FusionSnapshot(
     double BoardTransferVelocity,
     double TurnTarget = 0,
     double BoardCopX = 0,
-    double BoardTotalKg = 0);
+    double BoardTotalKg = 0,
+    double PhoneAgreement = 0,
+    double PhonePace = 0);
 
 public sealed class SensorFusionEngine
 {
@@ -33,6 +35,8 @@ public sealed class SensorFusionEngine
     private readonly bool _allowPhoneOnly;
     private readonly bool _allowBoardOnly;
     private readonly bool _allowBoardTurn;
+    private readonly double _phoneAgreementWeight;
+    private readonly double _boardAgreementWeight;
     private int _boardSide;
     private long _lastBoardStepTicks;
     private long _lastBoardCandidateTicks;
@@ -45,7 +49,7 @@ public sealed class SensorFusionEngine
     private long _phoneMotionStartedTicks;
     private long _lastPhoneMotionTicks;
 
-    public SensorFusionEngine(double legStartThresholdDps = 56, TimeSpan? optionalFreshness = null, GaitPacePrior? pacePrior = null, PersonalGaitPace? personalPace = null, PersonalPhoneMotion? phoneProfile = null, PersonalBoardMotion? boardProfile = null, bool allowPhoneOnly = false, bool allowBoardOnly = false, bool allowBoardTurn = false)
+    public SensorFusionEngine(double legStartThresholdDps = 56, TimeSpan? optionalFreshness = null, GaitPacePrior? pacePrior = null, PersonalGaitPace? personalPace = null, PersonalPhoneMotion? phoneProfile = null, PersonalBoardMotion? boardProfile = null, bool allowPhoneOnly = false, bool allowBoardOnly = false, bool allowBoardTurn = false, double phoneAgreementWeight = .08, double boardAgreementWeight = .12)
     {
         _gait = new GaitEngine(legStartThresholdDps, pacePrior: pacePrior, personalPace: personalPace);
         _phoneProfile = phoneProfile;
@@ -53,6 +57,8 @@ public sealed class SensorFusionEngine
         _allowPhoneOnly = allowPhoneOnly;
         _allowBoardOnly = allowBoardOnly;
         _allowBoardTurn = allowBoardTurn;
+        _phoneAgreementWeight = Math.Clamp(phoneAgreementWeight, 0, .20);
+        _boardAgreementWeight = Math.Clamp(boardAgreementWeight, 0, .20);
         _optionalFreshTicks = (long)((optionalFreshness ?? TimeSpan.FromMilliseconds(350)).TotalSeconds * Stopwatch.Frequency);
     }
 
@@ -148,9 +154,9 @@ public sealed class SensorFusionEngine
         var boardFresh = IsFresh(_lastBoardTicks, nowTicks);
         var confidence = gait.Confidence;
 
-        if (phoneFresh) confidence *= 1 + 0.08 * _phoneAgreement;
+        if (phoneFresh) confidence *= 1 + _phoneAgreementWeight * _phoneAgreement;
         if (boardFresh) confidence *= _boardContact
-            ? 1 + Math.Min(0.12, Math.Abs(_boardTransferVelocity) * 0.03)
+            ? 1 + Math.Min(_boardAgreementWeight, Math.Abs(_boardTransferVelocity) * 0.03)
             : 0.65;
 
         confidence = Math.Clamp(confidence, 0, 1);
@@ -185,7 +191,7 @@ public sealed class SensorFusionEngine
         if (phoneFresh && _phoneProfile is not null && _phoneTurnRate >= 1.25) target = 0;
         var turnTarget = _allowBoardTurn && boardFresh && _boardContact ? _boardTurnTarget : 0;
         if (turnTarget != 0) target = 0;
-        return new(gait, confidence, target, phoneFresh, boardFresh, boardFresh && _boardContact, _boardTransferVelocity, turnTarget, _lastBoardCopX, _boardTotalKg);
+        return new(gait, confidence, target, phoneFresh, boardFresh, boardFresh && _boardContact, _boardTransferVelocity, turnTarget, _lastBoardCopX, _boardTotalKg, _phoneAgreement, _phonePace);
     }
 
     private bool IsFresh(long sampleTicks, long nowTicks) => sampleTicks > 0 && nowTicks >= sampleTicks && nowTicks - sampleTicks <= _optionalFreshTicks;

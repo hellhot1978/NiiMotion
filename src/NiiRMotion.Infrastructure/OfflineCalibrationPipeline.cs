@@ -39,11 +39,56 @@ public sealed class OfflineCalibrationPipeline
             await WriteAtomicAsync(NiiMotionPaths.PsMoveTrainingProfile, move, token);
             updated.Add("PS Move"); counts["PS Move"] = moveCount;
         }
+        foreach (var model in BuildProfileFusionModels())
+        {
+            await new ProfileFusionModelStore().SaveAsync(model, token);
+            updated.Add(model.ProfileId); counts[model.ProfileId] = model.AcceptedSamples;
+        }
 
         var result = new OfflineCalibrationResult(updated, counts, DateTimeOffset.UtcNow);
         await WriteAtomicAsync(Path.Combine(NiiMotionPaths.Config, "calibration-analysis.json"), result, token);
         return result;
     }
+
+    private static IEnumerable<ProfileFusionModel> BuildProfileFusionModels()
+    {
+        var root = Path.Combine(NiiMotionPaths.Data, "profile-calibration"); if (!Directory.Exists(root)) yield break;
+        foreach (var profileDirectory in Directory.EnumerateDirectories(root))
+        {
+            var phases = Directory.EnumerateFiles(profileDirectory, "profile-manifest.json", SearchOption.AllDirectories)
+                .Select(ReadProfilePhase).Where(x => x is not null).Select(x => x!).GroupBy(x => x.Phase).ToDictionary(x => x.Key, x => x.OrderByDescending(y => y.CompletedAtUtc).First());
+            if (!Enumerable.Range(1, 3).All(phases.ContainsKey)) continue;
+            var selected = Enumerable.Range(1, 3).Select(x => phases[x]).ToArray();
+            var sensors = selected.SelectMany(x => x.Sensors).Distinct().Order().ToArray(); if (sensors.Length < 2) continue;
+            var profileId = selected[0].ProfileId; if (selected.Any(x => x.ProfileId != profileId || !x.Sensors.Order().SequenceEqual(sensors))) continue;
+            var samples = selected.Sum(x => x.Samples); var quality = selected.Average(x => x.Quality);
+            yield return new(1, profileId, sensors, DateTimeOffset.UtcNow, samples, quality, 1.20, 360,
+                sensors.Contains(SensorFamily.Phone) ? .08 * quality : 0,
+                sensors.Contains(SensorFamily.BalanceBoard) ? .12 * quality : 0,
+                sensors.Contains(SensorFamily.JoyCon) && sensors.Contains(SensorFamily.PsMove),
+                sensors.Contains(SensorFamily.BalanceBoard));
+        }
+    }
+
+    private static ProfilePhase? ReadProfilePhase(string path)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(path)); var root = document.RootElement;
+            var profile = root.GetProperty("profile").GetString(); var phase = root.GetProperty("phase").GetInt32();
+            var sensors = root.GetProperty("sensors").EnumerateArray().Select(x => x.ValueKind == JsonValueKind.Number ? (SensorFamily)x.GetInt32() : Enum.Parse<SensorFamily>(x.GetString()!, true)).ToArray();
+            var results = root.GetProperty("results").EnumerateArray().ToArray(); var samples = results.Sum(x => x.GetProperty("TotalSamples").GetInt64());
+            var qualities = results.Select(x => ReadNestedQuality(x.GetProperty("Folder").GetString())).ToArray();
+            return profile is null ? null : new(profile, phase, sensors, samples, qualities.Length == 0 ? 0 : qualities.Average(), File.GetLastWriteTimeUtc(path));
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or KeyNotFoundException or InvalidOperationException) { return null; }
+    }
+    private static double ReadNestedQuality(string? folder)
+    {
+        try { using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(folder!, "manifest.json"))); return document.RootElement.GetProperty("quality").GetProperty("Score").GetDouble(); }
+        catch { return 0; }
+    }
+    private sealed record ProfilePhase(string ProfileId, int Phase, SensorFamily[] Sensors, long Samples, double Quality, DateTimeOffset CompletedAtUtc);
 
     private static Capture[] FindCompletedCaptures()
     {

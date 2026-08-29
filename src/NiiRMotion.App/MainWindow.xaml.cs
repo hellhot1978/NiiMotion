@@ -584,6 +584,7 @@ public partial class MainWindow : Window
             SetGameLaunchStage(game, GameLaunchStage.ValidatingCalibration, "Kişisel kalibrasyon doğrulanıyor…");
             var uncalibrated = await UncalibratedProfileSensorsAsync();
             if (uncalibrated.Count > 0) { UiLocalization.ShowMessage(this, $"Önce temel kalibrasyonu tamamla: {string.Join(", ", uncalibrated.Select(SensorDisplayName))}", "Kalibrasyon gerekli", MessageBoxButton.OK, MessageBoxImage.Warning); ToolsNavClick(this, new RoutedEventArgs()); return; }
+            if (!await CombinedProfileCalibrationReadyAsync()) { UiLocalization.ShowMessage(this, "Seçili cihazların birlikte çalışma kalibrasyonunu tamamla.", "Birlikte çalışma kalibrasyonu gerekli", MessageBoxButton.OK, MessageBoxImage.Warning); ToolsNavClick(this, new RoutedEventArgs()); return; }
             SetGameLaunchStage(game, GameLaunchStage.ValidatingSensors, "Gerekli sensörler canlı olarak kontrol ediliyor…");
             await ScanAsync(); var devices = (DevicesList.ItemsSource as IEnumerable<DeviceStatus>)?.ToArray() ?? []; var missing = PreflightBlockingDevices(devices);
             if (missing.Count > 0) { UiLocalization.ShowMessage(this, $"Oyun açılmadı. Önce bağla: {string.Join(", ", missing.Select(x => x.Name))}", "Cihazlar eksik", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
@@ -694,6 +695,38 @@ public partial class MainWindow : Window
         if (selected.Length == 0) devicePanel.Children.Add(new TextBlock { Text = UiLocalization.Text("Henüz hareket cihazı seçmedin. Sol menüden Cihazlarım'ı aç."), Foreground = Brush("#F1C566"), Margin = new Thickness(4, 18, 0, 22) });
         foreach (var sensor in selected) devicePanel.Children.Add(CreateCalibrationCard(sensor, progress.Devices.FirstOrDefault(x => x.Sensor == sensor)));
         root.Children.Add(devicePanel);
+
+        var multiProfiles = _profileRecommendations.Where(x => x.Profile.LocomotionAllowed)
+            .Select(x => x.Profile).Where(x => { var sensors = ProfileSensors(x).Distinct().ToArray(); return sensors.Length >= 2 && sensors.All(selected.Contains); })
+            .OrderBy(x => ProfileSensors(x).Count()).ThenBy(x => x.Name).ToArray();
+        if (multiProfiles.Length > 0)
+        {
+            var combined = new Border { Background = Brush("#0B141D"), BorderBrush = Brush("#285165"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(18, 14, 18, 14), Margin = new Thickness(0, 0, 0, 12) };
+            var combinedGrid = new Grid(); combinedGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(260) }); combinedGrid.ColumnDefinitions.Add(new ColumnDefinition());
+            var text = new StackPanel(); text.Children.Add(Label("BİRLİKTE ÇALIŞMA MODELLERİ", "#55DDB8", 9, FontWeights.Bold)); text.Children.Add(Label("Cihaz kombinasyonunu kalibre et", "#F4F7FA", 17, FontWeights.SemiBold, new Thickness(0, 5, 0, 3))); text.Children.Add(Label("Her çoklu profil kendi üç ortak fazını ve yerel uyum modelini kullanır.", "#94A1AD", 10, FontWeights.Normal)); combinedGrid.Children.Add(text);
+            var controls = new StackPanel { Margin = new Thickness(18, 0, 0, 0) }; Grid.SetColumn(controls, 1);
+            var selector = new ComboBox { ItemsSource = multiProfiles, DisplayMemberPath = "Name", Height = 36, SelectedItem = multiProfiles.FirstOrDefault(x => x.Id == _profile.Id) ?? multiProfiles[0] };
+            var state = Label("", "#F1C566", 9, FontWeights.SemiBold, new Thickness(0, 5, 0, 5));
+            var open = new Button { Content = "ORTAK KALİBRASYONU AÇ", Height = 38, Padding = new Thickness(14, 8, 14, 8) };
+            void RefreshCombinedChoice()
+            {
+                if (selector.SelectedItem is not MotionProfile profile) return; var sensors = ProfileSensors(profile).Distinct().ToArray();
+                var completed = progress.Profiles?.FirstOrDefault(x => x.ProfileId == profile.Id)?.CompletedPhases ?? 0;
+                var baseReady = sensors.All(x => progress.Devices.FirstOrDefault(p => p.Sensor == x)?.IsReady == true);
+                state.Text = completed >= 3 && new ProfileFusionModelStore().Load(profile.Id) is not null ? "✓ 3/3 · ORTAK MODEL HAZIR" : $"ORTAK FAZ  {completed}/3";
+                state.Foreground = Brush(completed >= 3 ? "#55DDB8" : "#F1C566"); open.IsEnabled = baseReady;
+                open.ToolTip = UiLocalization.Text(baseReady ? "Bu kombinasyonun ortak fazlarını aç" : "Önce bu cihazların temel kalibrasyonlarını tamamla");
+            }
+            selector.SelectionChanged += (_, _) => RefreshCombinedChoice();
+            open.Click += async (_, _) =>
+            {
+                if (selector.SelectedItem is not MotionProfile profile) return; var sensors = ProfileSensors(profile).Distinct().ToArray();
+                var resume = sensors.Contains(SensorFamily.Phone) && _phoneMonitor is not null; if (sensors.Contains(SensorFamily.Phone)) await StopPhoneMonitorAsync();
+                try { new ProfileCalibrationWindow(profile, sensors) { Owner = this }.ShowDialog(); }
+                finally { if (resume || ProfileUsesPhone()) try { await EnsurePhoneMonitorAsync(); } catch { } await BuildCalibrationCenterAsync(); }
+            };
+            controls.Children.Add(selector); controls.Children.Add(state); controls.Children.Add(open); RefreshCombinedChoice(); combinedGrid.Children.Add(controls); combined.Child = combinedGrid; root.Children.Add(combined);
+        }
 
         var hmdValidation = new Button
         {
@@ -1249,6 +1282,12 @@ public partial class MainWindow : Window
             ShowPage(ToolsPage, "Test ve Kalibrasyon", "Önce temel cihaz kalibrasyonlarını tamamla", ToolsNav);
             return;
         }
+        if (locomotionRequested && !await CombinedProfileCalibrationReadyAsync())
+        {
+            ReadinessTitle.Text = "BİRLİKTE ÇALIŞMA KALİBRASYONU GEREKİYOR";
+            ReadinessMessage.Text = "Seçili cihaz kombinasyonunun üç ortak fazını tamamla. SteamVR başlatılmadı.";
+            await BuildCalibrationCenterAsync(); ShowPage(ToolsPage, "Test ve Kalibrasyon", "Birlikte çalışma kalibrasyonunu tamamla", ToolsNav); return;
+        }
         if (locomotionRequested && _profile.Required.Contains(DeviceKind.PsMoveLeft))
         {
             var onboarding = await new PsMoveOnboardingService().GetStatusAsync();
@@ -1328,6 +1367,15 @@ public partial class MainWindow : Window
         return await new CalibrationModelReadinessService().FindUnavailableAsync(required, progress, repairFromLocalCaptures: true);
     }
 
+    private async Task<bool> CombinedProfileCalibrationReadyAsync()
+    {
+        var sensors = ProfileSensors(_profile).Distinct().ToArray(); if (sensors.Length < 2) return true;
+        var progress = await new UserSetupStore().LoadCalibrationAsync();
+        if (progress.Profiles?.FirstOrDefault(x => x.ProfileId == _profile.Id)?.IsReady != true) return false;
+        var store = new ProfileFusionModelStore(); if (store.Load(_profile.Id) is not null) return true;
+        await new OfflineCalibrationPipeline().ApplyAvailableAsync(); return store.Load(_profile.Id) is not null;
+    }
+
     private static string SensorDisplayName(SensorFamily sensor) => UiLocalization.Text(sensor switch { SensorFamily.JoyCon => "Joy-Con", SensorFamily.PsMove => "PS Move", SensorFamily.Phone => "Telefon", _ => "Balance Board" });
 
     private static async Task WaitForVirtualDesktopSessionAsync(TimeSpan timeout)
@@ -1381,7 +1429,7 @@ public partial class MainWindow : Window
         try { pipeReady = Directory.GetFiles(@"\\.\pipe\").Any(x => x.EndsWith("NiiRMotion.VrOutput.v1", StringComparison.OrdinalIgnoreCase)); } catch { }
         if (!pipeReady) return;
         var devices = (DevicesList.ItemsSource as IEnumerable<DeviceStatus>)?.ToArray() ?? [];
-        if (PreflightBlockingDevices(devices).Count > 0 || (await UncalibratedProfileSensorsAsync()).Count > 0) return;
+        if (PreflightBlockingDevices(devices).Count > 0 || (await UncalibratedProfileSensorsAsync()).Count > 0 || !await CombinedProfileCalibrationReadyAsync()) return;
         if (await StartLocomotionAsync())
         {
             ReadinessTitle.Text = "NİIMOTION OTOMATİK BAĞLANDI";
