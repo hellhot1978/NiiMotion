@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$Installer,
-    [switch]$KeepWorkspace
+    [switch]$KeepWorkspace,
+    [switch]$SkipUiRender
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,7 +20,7 @@ if (Test-Path -LiteralPath $workspace) {
 New-Item -ItemType Directory -Path $installDirectory, $isolatedProfile -Force | Out-Null
 
 function Invoke-CheckedProcess {
-    param([string]$FileName, [string]$Arguments, [hashtable]$Environment = @{})
+    param([string]$FileName, [string]$Arguments, [hashtable]$Environment = @{}, [int]$TimeoutSeconds = 120)
     $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
     $startInfo.FileName = $FileName
     $startInfo.Arguments = $Arguments
@@ -27,7 +28,10 @@ function Invoke-CheckedProcess {
     $startInfo.CreateNoWindow = $true
     foreach ($entry in $Environment.GetEnumerator()) { $startInfo.Environment[$entry.Key] = [string]$entry.Value }
     $process = [System.Diagnostics.Process]::Start($startInfo)
-    $process.WaitForExit()
+    if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+        try { $process.Kill() } catch { }
+        throw "Process timed out after $TimeoutSeconds seconds: $FileName"
+    }
     if ($process.ExitCode -ne 0) { throw "Process failed with exit code $($process.ExitCode): $FileName" }
 }
 
@@ -50,9 +54,11 @@ try {
         NIIRMOTION_UI_LANGUAGE = 'en'
     }
     foreach ($directory in @($environment.APPDATA, $environment.LOCALAPPDATA)) { New-Item -ItemType Directory -Path $directory -Force | Out-Null }
-    Invoke-CheckedProcess $app "--ui-language=en --window-size=1100x700 --ui-language-audit=`"$audit`" --screenshot=`"$screenshot`"" $environment
-    if (-not (Test-Path -LiteralPath $screenshot) -or (Get-Item -LiteralPath $screenshot).Length -lt 10000) { throw 'Installed application did not produce a valid first-launch render.' }
-    if (-not (Test-Path -LiteralPath $audit) -or -not (Get-Content -LiteralPath $audit -Raw).Contains('english=True')) { throw 'Installed application did not honor the English first-launch setting.' }
+    if (-not $SkipUiRender) {
+        Invoke-CheckedProcess $app "--ui-language=en --window-size=1100x700 --ui-language-audit=`"$audit`" --screenshot=`"$screenshot`"" $environment 30
+        if (-not (Test-Path -LiteralPath $screenshot) -or (Get-Item -LiteralPath $screenshot).Length -lt 10000) { throw 'Installed application did not produce a valid first-launch render.' }
+        if (-not (Test-Path -LiteralPath $audit) -or -not (Get-Content -LiteralPath $audit -Raw).Contains('english=True')) { throw 'Installed application did not honor the English first-launch setting.' }
+    }
 
     $sentinelDirectory = Join-Path $isolatedProfile 'Local\NiiMotion'
     New-Item -ItemType Directory -Path $sentinelDirectory -Force | Out-Null
@@ -63,7 +69,8 @@ try {
     if (Test-Path -LiteralPath $app) { throw 'Application executable remained after uninstall.' }
     if (-not (Test-Path -LiteralPath $sentinel)) { throw 'Uninstall removed user-owned data.' }
 
-    Write-Host 'Installer smoke verification passed: silent install, standalone launch, English render, uninstall and personal-data preservation.' -ForegroundColor Green
+    $scope = if ($SkipUiRender) { 'silent install, standalone files, uninstall and personal-data preservation; UI render explicitly skipped in headless environment' } else { 'silent install, standalone launch, English render, uninstall and personal-data preservation' }
+    Write-Host "Installer smoke verification passed: $scope." -ForegroundColor Green
 }
 finally {
     if (-not $KeepWorkspace -and (Test-Path -LiteralPath $workspace)) {

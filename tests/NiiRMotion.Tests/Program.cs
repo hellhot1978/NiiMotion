@@ -626,7 +626,7 @@ static void ReleaseCandidatePipelineContract()
     foreach (var required in new[]
     {
         "verify-release-readiness.ps1", "-Strict", "build-installer.ps1",
-        "verify-installer-smoke.ps1", "export-component-inventory.ps1",
+        "verify-installer-smoke.ps1", "-SkipUiRender", "export-component-inventory.ps1",
         "release-candidate.json", "hardwareAcceptance", "codeSigning", "not-run-headless-environment"
     })
         Assert(script.Contains(required, StringComparison.Ordinal), $"Release-candidate pipeline is missing: {required}");
@@ -638,6 +638,11 @@ static void ReleaseCandidatePipelineContract()
            workflow.Contains("-SkipUiSmoke", StringComparison.Ordinal) &&
            workflow.Contains("release-candidate.sha256", StringComparison.Ordinal),
         "Installer candidates must be deliberate, verified, and accompanied by inventory and integrity metadata.");
+
+    var smoke = File.ReadAllText(Path.Combine(root, "scripts", "verify-installer-smoke.ps1"));
+    Assert(smoke.Contains("WaitForExit($TimeoutSeconds * 1000)", StringComparison.Ordinal) &&
+           smoke.Contains("[switch]$SkipUiRender", StringComparison.Ordinal),
+        "Installer processes must be bounded and headless UI omission must be explicit.");
 }
 
 static void VrPanelCommands()

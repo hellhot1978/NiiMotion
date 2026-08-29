@@ -34,7 +34,9 @@ $expectedInstallerHash = ((Get-Content -LiteralPath $installerChecksum -Raw) -sp
 $actualInstallerHash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($expectedInstallerHash -ne $actualInstallerHash) { throw 'Installer checksum does not match the release binary.' }
 
-& powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'verify-installer-smoke.ps1') -Installer $installer
+$smokeArguments = @('-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'verify-installer-smoke.ps1'), '-Installer', $installer)
+if ($SkipUiSmoke) { $smokeArguments += '-SkipUiRender' }
+& powershell @smokeArguments
 if ($LASTEXITCODE -ne 0) { throw 'Installer lifecycle verification failed.' }
 
 New-Item -ItemType Directory -Path $releaseDirectory -Force | Out-Null

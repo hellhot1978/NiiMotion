@@ -48,4 +48,4 @@ powershell -ExecutionPolicy Bypass -File scripts/build-release-candidate.ps1
 
 It produces the installer checksum, `component-inventory.json`, and a commit-bound `release-candidate.json` plus its checksum. It deliberately records hardware acceptance and code signing as external gates; automation must not silently mark either one complete.
 
-The headless GitHub Windows workflow calls the same command with `-SkipUiSmoke` because hosted runners do not expose a reliable interactive WPF desktop. That omission is written into the candidate manifest and never reported as a visual pass; the local UI matrix remains mandatory before promotion.
+The headless GitHub Windows workflow calls the same command with `-SkipUiSmoke` because hosted runners do not expose a reliable interactive WPF desktop. It still verifies silent install, standalone files, uninstall and personal-data preservation. The UI omission is written into the candidate manifest and never reported as a visual pass; the local UI matrix remains mandatory before promotion. Every launched installer/application process has a bounded timeout so CI cannot hang indefinitely.
