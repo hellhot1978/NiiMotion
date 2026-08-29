@@ -519,22 +519,22 @@ public partial class MainWindow : Window
         var optimizationBody = new StackPanel();
         optimizationBody.Children.Add(Label("OYUN İÇİ HIZ UYUMU", "#55DDB8", 9, FontWeights.Bold));
         optimizationBody.Children.Add(Label($"Aktif yürüyüş profili: {_profile.Name}", "#DCEAF1", 10, FontWeights.SemiBold, new Thickness(0, 3, 0, 2)));
-        optimizationBody.Children.Add(Label("Oyundaki hareket mesafesi farklı geliyorsa kısa bir yürüyüşten sonra aşağıdan düzelt.", "#91A7B4", 9, FontWeights.Normal));
-        if (telemetryCapability.Mode == GameTelemetryMode.Guided)
+        optimizationBody.Children.Add(Label(telemetryCapability.Mode == GameTelemetryMode.Direct
+            ? "Otomatik oyun ölçümü açık. Sonuç sana yavaş veya hızlı gelirse aşağıdan elle düzeltebilirsin."
+            : "Oyundaki hareket mesafesi farklı geliyorsa kısa bir yürüyüşten sonra aşağıdan düzelt.", "#91A7B4", 9, FontWeights.Normal));
+        optimizationBody.Children.Add(Label($"Öğrenilmiş oyun hızı: {optimization.DistanceScale:0.00}×", "#55DDB8", 10, FontWeights.Bold, new Thickness(0, 6, 0, 0)));
+        optimizationBody.Children.Add(Label("Yaklaşık 10 doğal adım yürü. Oyundaki mesafe nasıl hissettirdi?", "#DCEAF1", 9, FontWeights.SemiBold, new Thickness(0, 9, 0, 5)));
+        var feedback = new UniformGrid { Columns = 3 };
+        Button FeedbackButton(string text, GamePaceFeedback answer)
         {
-            optimizationBody.Children.Add(Label("Yaklaşık 10 doğal adım yürü. Oyundaki mesafe nasıl hissettirdi?", "#DCEAF1", 9, FontWeights.SemiBold, new Thickness(0, 9, 0, 5)));
-            var feedback = new UniformGrid { Columns = 3 };
-            Button FeedbackButton(string text, GamePaceFeedback answer)
-            {
-                var button = new Button { Content = text, Foreground = Brush("#F4F7FA"), Background = Brush("#163044"), BorderBrush = Brush("#39718B"), BorderThickness = new Thickness(1), Padding = new Thickness(9, 7, 9, 7), Margin = new Thickness(0, 0, 6, 0), FontWeight = FontWeights.SemiBold };
-                button.Click += (_, _) => { optimizationStore.ApplyFeedback(game.Definition.Id, motionProfileId, answer); window.DialogResult = true; window.Close(); OpenGameTuningWindow(game); };
-                return button;
-            }
-            feedback.Children.Add(FeedbackButton("DAHA HIZLI OLMALI", GamePaceFeedback.TooSlow));
-            feedback.Children.Add(FeedbackButton("HIZ DOĞRU", GamePaceFeedback.Correct));
-            feedback.Children.Add(FeedbackButton("DAHA YAVAŞ OLMALI", GamePaceFeedback.TooFast));
-            optimizationBody.Children.Add(feedback);
+            var button = new Button { Content = text, Foreground = Brush("#F4F7FA"), Background = Brush("#163044"), BorderBrush = Brush("#39718B"), BorderThickness = new Thickness(1), Padding = new Thickness(9, 7, 9, 7), Margin = new Thickness(0, 0, 6, 0), FontWeight = FontWeights.SemiBold };
+            button.Click += (_, _) => { optimizationStore.ApplyFeedback(game.Definition.Id, motionProfileId, answer); window.DialogResult = true; window.Close(); OpenGameTuningWindow(game); };
+            return button;
         }
+        feedback.Children.Add(FeedbackButton("DAHA HIZLI OLMALI", GamePaceFeedback.TooSlow));
+        feedback.Children.Add(FeedbackButton("HIZ DOĞRU", GamePaceFeedback.Correct));
+        feedback.Children.Add(FeedbackButton("DAHA YAVAŞ OLMALI", GamePaceFeedback.TooFast));
+        optimizationBody.Children.Add(feedback);
         var optimizationActions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
         Button OptimizationButton(string text) => new() { Content = text, Foreground = Brush("#F4F7FA"), Background = Brush("#172A37"), BorderBrush = Brush("#315066"), BorderThickness = new Thickness(1), Padding = new Thickness(12, 7, 12, 7), FontWeight = FontWeights.SemiBold };
         var undoOptimization = OptimizationButton("SON HIZ AYARINI GERİ AL"); undoOptimization.IsEnabled = optimization.UpdatedAt != DateTimeOffset.MinValue;
