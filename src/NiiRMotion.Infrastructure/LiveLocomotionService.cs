@@ -15,6 +15,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
     private SensorFusionEngine? _fusion;
     private SensorFusionEngine? _auxFusion;
     private PsMoveGaitEngine? _psMoveGait;
+    private HybridGaitAgreementGate? _hybridGate;
     private StreamWriter? _diagnosticWriter;
     private HmdPoseSample _latestHmdPose;
     private bool _hmdFusionEnabled;
@@ -118,6 +119,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
             if (!onboarding.IsReady) throw new InvalidOperationException(onboarding.Instruction);
             var moveProfile = JsonSerializer.Deserialize<PsMoveTrainingProfile>(await File.ReadAllTextAsync(NiiMotionPaths.PsMoveTrainingProfile, cancellationToken)) ?? throw new InvalidDataException("PS Move kişisel profili okunamadı.");
             _psMoveGait = new PsMoveGaitEngine(moveProfile);
+            _hybridGate = new HybridGaitAgreementGate();
         }
         _lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var token = _lifetime.Token;
@@ -238,7 +240,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
                 if (_psMoveGait is not null)
                 {
                     var move = _psMoveGait.Update(now);
-                    snapshot = HybridGaitFusion.Combine(snapshot, move);
+                    snapshot = _hybridGate!.Combine(snapshot, move, now);
                 }
             }
             HmdFusionDecision hmdDecision; lock (_fusionLock) hmdDecision = HmdFusionPolicy.Apply(snapshot, _latestHmdPose, now, _hmdFusionEnabled); snapshot = hmdDecision.Snapshot;
@@ -265,7 +267,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
         if (_vrSession is not null) { await _vrSession.DisposeAsync(); _vrSession = null; }
         foreach (var source in _sources.AsEnumerable().Reverse()) await source.DisposeAsync();
         _diagnosticWriter?.Flush(); _diagnosticWriter?.Dispose(); _diagnosticWriter = null;
-        _sources.Clear(); _fusion = null; _auxFusion = null; _psMoveGait = null; _latestHmdPose = default; _hmdFusionEnabled = false; ModeDescription = "OFF";
+        _sources.Clear(); _fusion = null; _auxFusion = null; _psMoveGait = null; _hybridGate = null; _latestHmdPose = default; _hmdFusionEnabled = false; ModeDescription = "OFF";
     }
 
     private static async Task<double> LoadThresholdAsync(string? path, CancellationToken cancellationToken)

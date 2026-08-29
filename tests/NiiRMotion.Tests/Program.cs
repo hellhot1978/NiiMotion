@@ -194,6 +194,7 @@ if (args.Contains("--capture-phone", StringComparer.OrdinalIgnoreCase)) return a
 if (args.Contains("--owotrack-smoke", StringComparer.OrdinalIgnoreCase)) return await OwoTrackSmokeAsync();
 if (args.Contains("--gait-calibration", StringComparer.OrdinalIgnoreCase)) return await GaitCalibrationAsync();
 if (args.Contains("--motion-validation", StringComparer.OrdinalIgnoreCase)) return await MotionValidationAsync();
+if (args.Contains("--replay-motion-validation", StringComparer.OrdinalIgnoreCase)) return await ReplayMotionValidationAsync();
 if (args.Contains("--walk-tuning-capture", StringComparer.OrdinalIgnoreCase)) return await WalkTuningCaptureAsync();
 if (args.Contains("--leg-balance-capture", StringComparer.OrdinalIgnoreCase)) return await LegBalanceCaptureAsync();
 if (args.Contains("--vr-output-smoke", StringComparer.OrdinalIgnoreCase)) return await VrOutputSmokeAsync();
@@ -215,6 +216,7 @@ tests = [Sync("First-use preferences and guidance are deterministic", FirstUsePr
 tests = [("Update download is hash verified before staging", UpdateDownloadVerification), Sync("Release integrity detects tampering", ReleaseIntegrityVerification), .. tests];
 tests = [Sync("Installer preserves personal data and unregisters VR components", InstallerSafetyContract), .. tests];
 tests = [Sync("Release candidate pipeline is complete and remains manual", ReleaseCandidatePipelineContract), .. tests];
+tests = [Sync("Hardware validation uses the current combined locomotion engine", CombinedHardwareValidationContract), .. tests];
 tests = [Sync("VR panel commands are delivered once", VrPanelCommands), Sync("OpenXR wizard prioritizes common engine executables", OpenXrEngineDiscovery), .. tests];
 tests = [Sync("Static UI text has English localization coverage", StaticUiLocalizationCoverage), .. tests];
 tests = [Sync("Dynamic UI status messages have English localization coverage", DynamicUiLocalizationCoverage), .. tests];
@@ -646,6 +648,18 @@ static void ReleaseCandidatePipelineContract()
         "Installer processes must be bounded, headless UI omission explicit, and the owner's desktop shortcut isolated.");
 }
 
+static void CombinedHardwareValidationContract()
+{
+    var source = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "tests", "NiiRMotion.Tests", "Program.cs"));
+    var start = source.LastIndexOf("static async Task<int> MotionValidationAsync()", StringComparison.Ordinal);
+    var end = source.IndexOf("static async Task<int> VrOutputSmokeAsync()", start, StringComparison.Ordinal);
+    Assert(start >= 0 && end > start, "Combined hardware validation entry point is missing.");
+    var validation = source[start..end];
+    foreach (var required in new[] { "SensorFusionEngine", "PsMoveGaitEngine", "HybridGaitAgreementGate", "hybridGate.Combine", "OwoTrackSensorSource", "IncludeFields = true", "personal-gait-pace.json", "personal-psmove-training.json" })
+        Assert(validation.Contains(required, StringComparison.Ordinal), $"Hardware validation does not use the current combined path: {required}");
+    Assert(!validation.Contains("gait-v1.json", StringComparison.Ordinal), "Hardware validation still depends on the legacy developer calibration.");
+}
+
 static void VrPanelCommands()
 {
     if (!OperatingSystem.IsWindows()) return;
@@ -911,6 +925,11 @@ static void HybridLegAgreement()
     Assert(agreeing.TargetSpeed > disagreeing.TargetSpeed, "Two agreeing leg systems must outrank a single active system.");
     Assert(agreeing.GlobalConfidence > disagreeing.GlobalConfidence, "Agreement must increase hybrid confidence.");
     Assert(disagreeing.TargetSpeed > 0 && disagreeing.TargetSpeed < primary.TargetSpeed, "A single active system must degrade instead of causing an abrupt dropout.");
+    var gate = new HybridGaitAgreementGate(TimeSpan.FromMilliseconds(360));
+    Assert(gate.Combine(primary, gait with { State = GaitState.Idle, TargetSpeed = 0, Confidence = 0 }, 100).TargetSpeed == 0, "A combined profile must not start from only one leg-sensor family.");
+    Assert(gate.Combine(primary, gait with { TargetSpeed = .9, Confidence = .85 }, 200).TargetSpeed > 0, "Agreement must start combined locomotion.");
+    Assert(gate.Combine(primary, gait with { State = GaitState.Idle, TargetSpeed = 0, Confidence = 0 }, 200 + Stopwatch.Frequency / 10).TargetSpeed > 0, "A brief sensor disagreement must not create a visible cut-out.");
+    Assert(gate.Combine(primary, gait with { State = GaitState.Idle, TargetSpeed = 0, Confidence = 0 }, 200 + Stopwatch.Frequency).TargetSpeed == 0, "Sustained disagreement must stop combined locomotion.");
 }
 static async Task UnifiedSensorReplayOrder()
 {
@@ -1420,27 +1439,93 @@ static async Task<int> GaitCalibrationAsync()
 }
 static async Task<int> MotionValidationAsync()
 {
-    var path = Path.Combine(Environment.CurrentDirectory, "calibration", "gait-v1.json"); if (!File.Exists(path)) { Console.Error.WriteLine("VALIDATION_ERROR: calibration missing"); return 9; }
-    await using var input = File.OpenRead(path); var profile = await new CalibrationStore().LoadAsync(input); var devices = HidDeviceEnumerator.FindJoyCons().GroupBy(x => x.Side).Select(x => x.First()).ToArray();
-    var gait = new GaitEngine(profile.RecommendedLegThresholdDps); var sync = new object(); var phase = 0; var active = new int[4]; var steps = new long[4]; var labeled = new List<LabeledJoyConSample>(16000); using var lifetime = new CancellationTokenSource();
-    var readers = devices.Select(async device => { await using var source = new JoyConSensorSource(device); await source.StartAsync(lifetime.Token); var side = device.Side == JoyConSide.Left ? LegSide.Left : LegSide.Right; await foreach (var sample in source.Samples.ReadAllAsync(lifetime.Token)) lock (sync) { var p = phase; labeled.Add(new LabeledJoyConSample(p switch { 0 => "stand", 1 => "crouch", 2 => "walk", 3 => "stop", _ => "transition" }, side, sample)); gait.ObserveLeg(side, sample.AngularVelocityDps.Length(), sample.Timestamp.MonotonicTicks); var s = gait.Update(sample.Timestamp.MonotonicTicks); if (p >= 0) { if (s.State is GaitState.Walking or GaitState.FastWalk or GaitState.Running) active[p]++; steps[p] = s.StepCount; } } }).ToArray();
+    var config = NiiMotionPaths.Config;
+    var gaitPath = Path.Combine(config, "personal-gait-pace.json");
+    var movePath = Path.Combine(config, "personal-psmove-training.json");
+    var phonePath = Path.Combine(config, "personal-phone-motion.json");
+    if (!File.Exists(gaitPath) || !File.Exists(movePath) || !File.Exists(phonePath)) { Console.Error.WriteLine("VALIDATION_ERROR: combined personal models are missing"); return 9; }
+    var devices = HidDeviceEnumerator.FindJoyCons().GroupBy(x => x.Side).Select(x => x.First()).ToArray();
+    if (!devices.Any(x => x.Side == JoyConSide.Left) || !devices.Any(x => x.Side == JoyConSide.Right)) { Console.Error.WriteLine("VALIDATION_ERROR: both Joy-Cons are required"); return 9; }
+    var personal = await PersonalGaitPace.LoadAsync(gaitPath);
+    var phoneProfile = await PersonalPhoneMotion.LoadAsync(phonePath);
+    var moveProfile = JsonSerializer.Deserialize<PsMoveTrainingProfile>(await File.ReadAllTextAsync(movePath)) ?? throw new InvalidDataException("PS Move profile is empty.");
+    var pacePath = Path.Combine(NiiMotionPaths.Models, "deepgait-pace-v1.json");
+    var pace = File.Exists(pacePath) ? await GaitPacePrior.LoadAsync(pacePath) : null;
+    var fusion = new SensorFusionEngine(56, pacePrior: pace, personalPace: personal, phoneProfile: phoneProfile);
+    var moveGait = new PsMoveGaitEngine(moveProfile);
+    var sync = new object(); var phase = -1; var active = new int[4]; var phoneFresh = new int[4]; var steps = new long[4]; var frames = new List<object>(24000); using var lifetime = new CancellationTokenSource();
+    var hybridGate = new HybridGaitAgreementGate();
+    var joySources = devices.Select(x => (Device: x, Source: new JoyConSensorSource(x))).ToArray();
+    foreach (var item in joySources) await item.Source.StartAsync(lifetime.Token);
+    var moveSource = new PsMoveSensorSource(NiiMotionPaths.PsMoveAssignments, NiiMotionPaths.PsMoveFactoryCalibration); await moveSource.StartAsync(lifetime.Token);
+    var phoneSource = new OwoTrackSensorSource(); await phoneSource.StartAsync(lifetime.Token);
+    var readers = joySources.Select(async item => { var side = item.Device.Side == JoyConSide.Left ? LegSide.Left : LegSide.Right; await foreach (var sample in item.Source.Samples.ReadAllAsync(lifetime.Token)) lock (sync) { fusion.ObserveLeg(side, sample.AngularVelocityDps.Length(), sample.Timestamp.MonotonicTicks); frames.Add(new { Phase = phase, Sensor = "joycon", Side = side, Sample = sample }); } }).ToList();
+    readers.Add(Task.Run(async () => { await foreach (var sample in moveSource.Samples.ReadAllAsync(lifetime.Token)) lock (sync) { moveGait.Observe(sample); frames.Add(new { Phase = phase, Sensor = "psmove", Side = sample.Side, Sample = sample }); } }));
+    readers.Add(Task.Run(async () => { await foreach (var sample in phoneSource.Samples.ReadAllAsync(lifetime.Token)) { var body = PhoneMounting.ToBodyFrame(sample); lock (sync) { fusion.ObservePhoneMotion(body.AngularVelocityRadps.Length(), body.AccelerationMps2.Length(), sample.Timestamp.MonotonicTicks, body.VerticalTurnRadps); frames.Add(new { Phase = phase, Sensor = "phone", Side = "body", Sample = body }); } } }));
+    var evaluator = Task.Run(async () => { using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(10)); while (await timer.WaitForNextTickAsync(lifetime.Token)) lock (sync) { var now = Stopwatch.GetTimestamp(); var primary = fusion.Update(now); var secondary = moveGait.Update(now); var snapshot = hybridGate.Combine(primary, secondary, now); var p = phase; if (p >= 0) { if (snapshot.TargetSpeed > .01) active[p]++; if (snapshot.PhoneFresh) phoneFresh[p]++; steps[p] = snapshot.Gait.StepCount; frames.Add(new { Phase = p, Sensor = "decision", Ticks = now, snapshot.TargetSpeed, snapshot.GlobalConfidence, snapshot.PhoneFresh, snapshot.Gait, Primary = primary.Gait, Secondary = secondary }); } } });
+    Console.WriteLine("READY_STAND"); await Console.In.ReadLineAsync();
     if (OperatingSystem.IsWindows()) Console.Beep(700, 350);
-    Console.WriteLine("VALIDATE_STAND"); await Task.Delay(TimeSpan.FromSeconds(5));
+    Console.WriteLine("VALIDATE_STAND"); await Task.Delay(TimeSpan.FromSeconds(5)); phase = -1;
+    Console.WriteLine("READY_CROUCH_BEND"); await Console.In.ReadLineAsync();
     if (OperatingSystem.IsWindows()) { Console.Beep(500, 160); await Task.Delay(100); Console.Beep(500, 160); }
-    Console.WriteLine("VALIDATE_CROUCH_BEND"); phase = -1; await Task.Delay(TimeSpan.FromSeconds(2)); phase = 1; await Task.Delay(TimeSpan.FromSeconds(8));
+    Console.WriteLine("VALIDATE_CROUCH_BEND"); phase = 1; await Task.Delay(TimeSpan.FromSeconds(8)); phase = -1;
+    Console.WriteLine("READY_WALK"); await Console.In.ReadLineAsync();
     if (OperatingSystem.IsWindows()) Console.Beep(750, 300);
-    Console.WriteLine("VALIDATE_WALK"); phase = -1; await Task.Delay(TimeSpan.FromSeconds(2));
+    Console.WriteLine("VALIDATE_WALK");
     if (OperatingSystem.IsWindows()) { Console.Beep(1050, 160); await Task.Delay(100); Console.Beep(1050, 160); }
-    phase = 2; await Task.Delay(TimeSpan.FromSeconds(10));
+    phase = 2; await Task.Delay(TimeSpan.FromSeconds(10)); phase = -1;
+    Console.WriteLine("READY_STOP"); await Console.In.ReadLineAsync();
     if (OperatingSystem.IsWindows()) Console.Beep(450, 600);
-    Console.WriteLine("VALIDATE_STOP"); phase = -1; await Task.Delay(TimeSpan.FromSeconds(2)); phase = 3; await Task.Delay(TimeSpan.FromSeconds(5)); lifetime.Cancel();
+    Console.WriteLine("VALIDATE_STOP"); phase = 3; await Task.Delay(TimeSpan.FromSeconds(5)); lifetime.Cancel();
     if (OperatingSystem.IsWindows()) Console.Beep(850, 180);
-    try { await Task.WhenAll(readers); } catch (OperationCanceledException) { }
+    try { await Task.WhenAll(readers.Append(evaluator)); } catch (OperationCanceledException) { }
+    foreach (var item in joySources) await item.Source.DisposeAsync(); await moveSource.DisposeAsync(); await phoneSource.DisposeAsync();
     var recordingDirectory = Path.Combine(Environment.CurrentDirectory, "recordings"); Directory.CreateDirectory(recordingDirectory); var recordingPath = Path.Combine(recordingDirectory, "latest-labeled-validation.jsonl");
-    await using (var output = new StreamWriter(File.Create(recordingPath))) foreach (var item in labeled) await output.WriteLineAsync(JsonSerializer.Serialize(item));
-    Console.WriteLine($"VALIDATION_RECORDING path={recordingPath} samples={labeled.Count} bytes={new FileInfo(recordingPath).Length}");
-    Console.WriteLine($"VALIDATION_RESULT standActive={active[0]} crouchActive={active[1]} walkActive={active[2]} stopActive={active[3]} standSteps={steps[0]} crouchSteps={steps[1]} walkSteps={steps[2]} stopSteps={steps[3]}");
-    return active[0] == 0 && active[1] == 0 && active[2] > 0 && active[3] == 0 ? 0 : 10;
+    var jsonOptions = new JsonSerializerOptions { IncludeFields = true };
+    await using (var output = new StreamWriter(File.Create(recordingPath))) foreach (var item in frames) await output.WriteLineAsync(JsonSerializer.Serialize(item, jsonOptions));
+    Console.WriteLine($"VALIDATION_RECORDING path={recordingPath} samples={frames.Count} bytes={new FileInfo(recordingPath).Length}");
+    Console.WriteLine($"VALIDATION_RESULT standActive={active[0]} crouchActive={active[1]} walkActive={active[2]} stopActive={active[3]} standSteps={steps[0]} crouchSteps={steps[1]} walkSteps={steps[2]} stopSteps={steps[3]} phoneFreshWalk={phoneFresh[2]}");
+    return active[0] == 0 && active[1] <= 5 && active[2] >= 200 && active[3] == 0 && phoneFresh[2] >= 500 ? 0 : 10;
+}
+static async Task<int> ReplayMotionValidationAsync()
+{
+    var recordingPath = Path.Combine(Environment.CurrentDirectory, "recordings", "latest-labeled-validation.jsonl");
+    if (!File.Exists(recordingPath)) { Console.Error.WriteLine("REPLAY_ERROR: recording is missing"); return 12; }
+    var gaitPath = Path.Combine(NiiMotionPaths.Config, "personal-gait-pace.json");
+    var movePath = Path.Combine(NiiMotionPaths.Config, "personal-psmove-training.json");
+    var phonePath = Path.Combine(NiiMotionPaths.Config, "personal-phone-motion.json");
+    var personal = await PersonalGaitPace.LoadAsync(gaitPath);
+    var phoneProfile = await PersonalPhoneMotion.LoadAsync(phonePath);
+    var moveProfile = JsonSerializer.Deserialize<PsMoveTrainingProfile>(await File.ReadAllTextAsync(movePath)) ?? throw new InvalidDataException("PS Move profile is empty.");
+    var pacePath = Path.Combine(NiiMotionPaths.Models, "deepgait-pace-v1.json");
+    var pace = File.Exists(pacePath) ? await GaitPacePrior.LoadAsync(pacePath) : null;
+    var fusion = new SensorFusionEngine(56, pacePrior: pace, personalPace: personal, phoneProfile: phoneProfile);
+    var moveGait = new PsMoveGaitEngine(moveProfile); var gate = new HybridGaitAgreementGate();
+    var options = new JsonSerializerOptions { IncludeFields = true }; var active = new int[4]; var decisions = new int[4];
+    foreach (var line in File.ReadLines(recordingPath))
+    {
+        using var document = JsonDocument.Parse(line); var root = document.RootElement;
+        var phase = root.GetProperty("Phase").GetInt32(); var sensor = root.GetProperty("Sensor").GetString();
+        if (sensor == "joycon")
+        {
+            var sample = JsonSerializer.Deserialize<JoyConImuSample>(root.GetProperty("Sample"), options);
+            var side = root.GetProperty("Side").GetInt32() == 0 ? LegSide.Left : LegSide.Right;
+            fusion.ObserveLeg(side, sample.AngularVelocityDps.Length(), sample.Timestamp.MonotonicTicks);
+        }
+        else if (sensor == "psmove") moveGait.Observe(JsonSerializer.Deserialize<PsMoveImuSample>(root.GetProperty("Sample"), options));
+        else if (sensor == "phone")
+        {
+            var sample = JsonSerializer.Deserialize<PhoneImuSample>(root.GetProperty("Sample"), options);
+            fusion.ObservePhoneMotion(sample.AngularVelocityRadps.Length(), sample.AccelerationMps2.Length(), sample.Timestamp.MonotonicTicks, sample.AngularVelocityRadps.Y);
+        }
+        else if (sensor == "decision" && phase >= 0)
+        {
+            var ticks = root.GetProperty("Ticks").GetInt64(); var snapshot = gate.Combine(fusion.Update(ticks), moveGait.Update(ticks), ticks);
+            decisions[phase]++; if (snapshot.TargetSpeed > .01) active[phase]++;
+        }
+    }
+    Console.WriteLine($"REPLAY_RESULT standActive={active[0]}/{decisions[0]} crouchActive={active[1]}/{decisions[1]} walkActive={active[2]}/{decisions[2]} stopActive={active[3]}/{decisions[3]}");
+    return active[0] == 0 && active[1] <= 5 && active[2] >= 200 && active[3] == 0 ? 0 : 12;
 }
 static async Task<int> VrOutputSmokeAsync()
 {

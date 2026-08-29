@@ -15,6 +15,7 @@ public sealed class PsMoveGaitEngine(PsMoveTrainingProfile profile)
     private double _leftPlaneConfidence, _rightPlaneConfidence;
     private bool _leftStationary, _rightStationary;
     private long _leftSampleTicks, _rightSampleTicks, _bothStationarySince;
+    private long _bilateralBendStartedTicks;
 
     public bool Observe(PsMoveImuSample sample) => Observe(sample.Side, sample.AngularVelocityRadps, sample.AccelerationG, sample.Timestamp.MonotonicTicks);
 
@@ -44,6 +45,23 @@ public sealed class PsMoveGaitEngine(PsMoveTrainingProfile profile)
         ref var sz = ref (side == LegSide.Left ? ref _leftZ : ref _rightZ);
         sx = sx * .90 + x * .10; sy = sy * .90 + y * .10; sz = sz * .90 + z * .10;
         var ratio = sx / Math.Max(.01, sy);
+        var leftRatio = _leftX / Math.Max(.01, _leftY);
+        var rightRatio = _rightX / Math.Max(.01, _rightY);
+        var bothFresh = Math.Abs(_leftSampleTicks - _rightSampleTicks) < Stopwatch.Frequency * .08;
+        var bilateralBend = bothFresh && leftRatio >= 1.55 && rightRatio >= 1.55
+            && Math.Max(_leftX, _rightX) >= profile.GaitActivationThresholdRadps * .60;
+        if (bilateralBend)
+        {
+            _bilateralBendStartedTicks = _bilateralBendStartedTicks == 0 ? ticks : _bilateralBendStartedTicks;
+            if (ticks - _bilateralBendStartedTicks >= Stopwatch.Frequency * .12)
+            {
+                _leftPlaneConfidence *= .5;
+                _rightPlaneConfidence *= .5;
+                ResetEvidence();
+                return false;
+            }
+        }
+        else _bilateralBendStartedTicks = 0;
         // Owner recordings show walking in a balanced X/Y calf-rotation plane.
         // Turns are Y-dominant; bilateral bends are X-dominant.
         var rawGaitPlane = ratio is >= .58 and <= 1.35 && sz <= Math.Max(.18, sy * .78);
