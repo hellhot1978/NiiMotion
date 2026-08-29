@@ -1403,8 +1403,6 @@ public partial class MainWindow : Window
         if (_discovery.IsTestMode) { _demoPhase = 0; _demoSteps = 0; _demoTimer.Start(); SetStopControl(true); SetRunningVisuals("DEMO OUTPUT — GERÇEK VR'A GÖNDERİLMEZ"); ReadinessMessage.Text = "Demo oturumu çalışıyor. Telemetri simülasyondur; gerçek donanım doğrulaması değildir."; return true; }
         try
         {
-            var calibration = Path.Combine(NiiMotionPaths.Calibration, "gait-v1.json");
-            if (!File.Exists(calibration)) calibration = Path.Combine(Environment.CurrentDirectory, "calibration", "gait-v1.json");
             if (_systemMode.CurrentMode != SystemMode.NiiMotion) await _systemMode.ApplyAsync(SystemMode.NiiMotion);
             else _systemMode.EnsureGameOverrides(SystemMode.NiiMotion);
             var usesJoyCon = _profile.Required.Contains(DeviceKind.JoyConLeft);
@@ -1413,7 +1411,7 @@ public partial class MainWindow : Window
             var includeBoard = _profile.Required.Contains(DeviceKind.BalanceBoard);
             if (usesPsMove && !usesJoyCon) { if (includePhone) await StopPhoneMonitorAsync(); await _locomotion.StartPsMoveOnlyAsync(includePhone, includeBoard); SetStopControl(true); SetRunningVisuals(_locomotion.ModeDescription); ReadinessMessage.Text = "Hazır. PS Move tabanlı profil çalışıyor."; return true; }
             if (includePhone) await StopPhoneMonitorAsync();
-            await _locomotion.StartAsync(calibration, includePhone, phoneOnly: !usesJoyCon && !usesPsMove && includePhone, includeBoard: includeBoard, boardOnly: !usesJoyCon && !usesPsMove && includeBoard && !includePhone, includePsMove: usesPsMove); SetStopControl(true); SetRunningVisuals(_locomotion.ModeDescription); ReadinessMessage.Text = includeBoard ? "Board otomatik sıfırlandı. Üzerine çıkıp yerinde yürüyebilirsin." : "Hazır. Yerinde yürüyerek oyunda ilerleyebilirsin.";
+            await _locomotion.StartAsync(null, includePhone, phoneOnly: !usesJoyCon && !usesPsMove && includePhone, includeBoard: includeBoard, boardOnly: !usesJoyCon && !usesPsMove && includeBoard && !includePhone, includePsMove: usesPsMove); SetStopControl(true); SetRunningVisuals(_locomotion.ModeDescription); ReadinessMessage.Text = includeBoard ? "Board otomatik sıfırlandı. Üzerine çıkıp yerinde yürüyebilirsin." : "Hazır. Yerinde yürüyerek oyunda ilerleyebilirsin.";
             return true;
         }
         catch (Exception ex) { await _locomotion.StopAsync(); if (ProfileUsesPhone()) try { await EnsurePhoneMonitorAsync(); } catch { } SetStopControl(false); StartButton.IsEnabled = _readiness?.State != ReadinessState.NotReady; LocomotionState.Text = "OFF"; LocomotionState.Foreground = Brushes.LightPink; ReadinessMessage.Text = $"Locomotion başlatılamadı: {ex.Message}"; return false; }

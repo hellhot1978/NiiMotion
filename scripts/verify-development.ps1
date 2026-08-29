@@ -41,7 +41,7 @@ try {
 
         $required = @(
             'NiiRMotion.App.exe', 'coreclr.dll', 'hostfxr.dll',
-            'Models', 'Calibration',
+            'Models',
             'OpenVRDriver\driver.vrdrivermanifest', 'OpenVRDriver\bin\win64\driver_niirmotion.dll',
             'OpenXRLayer\niirmotion_openxr.json', 'OpenXRLayer\bin\win64\niirmotion_openxr.dll',
             'VrOverlay\NiiMotion.VrOverlay.exe', 'VrOverlay\openvr_api.dll', 'VrOverlay\niirmotion.vrmanifest'

@@ -15,14 +15,12 @@ public sealed class StandaloneReadinessService
     private readonly string _baseDirectory;
     private readonly string _root;
     private readonly string _models;
-    private readonly string _calibration;
 
-    public StandaloneReadinessService(string? baseDirectory = null, string? root = null, string? models = null, string? calibration = null)
+    public StandaloneReadinessService(string? baseDirectory = null, string? root = null, string? models = null)
     {
         _baseDirectory = baseDirectory ?? AppContext.BaseDirectory;
         _root = root ?? NiiMotionPaths.Root;
         _models = models ?? NiiMotionPaths.Models;
-        _calibration = calibration ?? NiiMotionPaths.Calibration;
     }
 
     public StandaloneReadinessReport Inspect()
@@ -31,7 +29,6 @@ public sealed class StandaloneReadinessService
         {
             Files("runtime", "Bağımsız .NET çalışma zamanı", true, "coreclr.dll", "hostfxr.dll"),
             JsonDirectory("models", "Yerel hareket modelleri", true, _models),
-            JsonDirectory("calibration", "Yerel kalibrasyon tanımları", true, _calibration),
             Files("openvr", "SteamVR analog hareket sürücüsü", true, Path.Combine("OpenVRDriver", "driver.vrdrivermanifest"), Path.Combine("OpenVRDriver", "bin", "win64", "driver_niirmotion.dll")),
             Files("openxr", "OpenXR hareket katmanı", true, Path.Combine("OpenXRLayer", "niirmotion_openxr.json"), Path.Combine("OpenXRLayer", "bin", "win64", "niirmotion_openxr.dll")),
             Files("overlay", "SteamVR içi NiiMotion paneli", true, Path.Combine("VrOverlay", "NiiMotion.VrOverlay.exe"), Path.Combine("VrOverlay", "openvr_api.dll"), Path.Combine("VrOverlay", "niirmotion.vrmanifest")),

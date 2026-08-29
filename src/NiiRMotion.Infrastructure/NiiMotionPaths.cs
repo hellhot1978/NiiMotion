@@ -10,7 +10,6 @@ public static class NiiMotionPaths
     public static string Data => Ensure("data");
     public static string Logs => Ensure("logs");
     public static string Models => ResolveBundled("Models", "models");
-    public static string Calibration => ResolveBundled("Calibration", "calibration");
     public static string UserGaitData => Ensure(Path.Combine("data", "user-gait"));
     public static string UserPhoneData => Ensure(Path.Combine("data", "user-phone"));
     public static string UserBoardData => Ensure(Path.Combine("data", "user-board"));

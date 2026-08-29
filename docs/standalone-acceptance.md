@@ -11,6 +11,7 @@ NiiMotion'ın çalışma zamanı, cihaz kurulumu, temel kalibrasyon analizi, ki�
 - Self-contained Windows paketi yerel .NET kurulumu istemez.
 - Kaynak kodunda OpenAI, Gemini/Google Generative Language, Anthropic veya Azure OpenAI çalışma zamanı çağrısı yoktur.
 - Joy-Con, PS Move, telefon ve Balance Board temel fazları yerel JSONL kayıtlarından kişisel modele dönüştürülür.
+- Eski `calibration/gait-v1.json` geliştiriciye ait kişisel kayıt dağıtım paketine girmez. Temiz kurulum, doğrulanmış faz kayıtlarından `config/personal-*.json` çalışma modellerini yerelde üretir; geçerli model oluşmadan oyun başlatma kapısı geçmez.
 - Kalibrasyon ilerlemesi tek başına yeterli değildir; kişisel model dosyası da okunabilir ve geçerli olmalıdır. Uygun yerel kayıt varsa oyun başlatma öncesinde yeniden üretilir.
 - Seçili oyun; adaptör, profil, kalibrasyon, canlı sensörler, Quest/Virtual Desktop ve SteamVR sırasıyla doğrulanmadan başlatılmaz.
 - Yeni SteamVR/OpenXR oyun adaptörleri yerel kurulum ve action/executable taramasıyla oluşturulur. Oyun dosyaları değiştirilmez.

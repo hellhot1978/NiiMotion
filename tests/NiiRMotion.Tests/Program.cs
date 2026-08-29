@@ -307,15 +307,15 @@ static void SafeProfileFallback()
 static void StandaloneReadiness()
 {
     var root = Path.Combine(Path.GetTempPath(), "niirmotion-standalone-" + Guid.NewGuid().ToString("N"));
-    var app = Path.Combine(root, "app"); var state = Path.Combine(root, "state"); var models = Path.Combine(app, "Models"); var calibration = Path.Combine(app, "Calibration");
+    var app = Path.Combine(root, "app"); var state = Path.Combine(root, "state"); var models = Path.Combine(app, "Models");
     try
     {
-        Directory.CreateDirectory(app); Directory.CreateDirectory(models); Directory.CreateDirectory(calibration);
-        var service = new StandaloneReadinessService(app, state, models, calibration);
+        Directory.CreateDirectory(app); Directory.CreateDirectory(models);
+        var service = new StandaloneReadinessService(app, state, models);
         var missing = service.Inspect(); Assert(!missing.IsReady, "An incomplete standalone package was reported ready.");
         foreach (var file in new[] { "coreclr.dll", "hostfxr.dll", Path.Combine("OpenVRDriver", "driver.vrdrivermanifest"), Path.Combine("OpenVRDriver", "bin", "win64", "driver_niirmotion.dll"), Path.Combine("OpenXRLayer", "niirmotion_openxr.json"), Path.Combine("OpenXRLayer", "bin", "win64", "niirmotion_openxr.dll"), Path.Combine("VrOverlay", "NiiMotion.VrOverlay.exe"), Path.Combine("VrOverlay", "openvr_api.dll"), Path.Combine("VrOverlay", "niirmotion.vrmanifest") })
         { var path = Path.Combine(app, file); Directory.CreateDirectory(Path.GetDirectoryName(path)!); File.WriteAllText(path, "test"); }
-        File.WriteAllText(Path.Combine(models, "model.json"), "{}"); File.WriteAllText(Path.Combine(calibration, "calibration.json"), "{}");
+        File.WriteAllText(Path.Combine(models, "model.json"), "{}");
         var ready = service.RepairLocalState(); Assert(ready.IsReady, "Complete local standalone prerequisites were not accepted.");
         Assert(Directory.Exists(Path.Combine(state, "config")) && Directory.Exists(Path.Combine(state, "data")) && Directory.Exists(Path.Combine(state, "logs")), "Local state repair did not create safe user directories.");
     }
@@ -344,7 +344,8 @@ static void StandaloneRuntimeContract()
     var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
     var appProject = File.ReadAllText(Path.Combine(root, "src", "NiiRMotion.App", "NiiRMotion.App.csproj"));
     Assert(appProject.Contains("<SelfContained>true</SelfContained>", StringComparison.Ordinal), "Windows application is not configured as self-contained.");
-    Assert(appProject.Contains("models\\*.json", StringComparison.OrdinalIgnoreCase) && appProject.Contains("calibration\\*.json", StringComparison.OrdinalIgnoreCase), "Local motion models or base calibration are missing from the package contract.");
+    Assert(appProject.Contains("models\\*.json", StringComparison.OrdinalIgnoreCase), "Local motion models are missing from the package contract.");
+    Assert(!appProject.Contains("calibration\\*.json", StringComparison.OrdinalIgnoreCase), "A user-specific calibration file must never be bundled into a public package.");
     var liveSource = File.ReadAllText(Path.Combine(root, "src", "NiiRMotion.Infrastructure", "LiveLocomotionService.cs"));
     Assert(liveSource.Contains("NiiMotionPaths.Models", StringComparison.Ordinal) && !liveSource.Contains(@"C:\NiirMotion", StringComparison.OrdinalIgnoreCase), "Live locomotion still depends on the development checkout.");
     var runtimeSources = Directory.EnumerateFiles(Path.Combine(root, "src"), "*.cs", SearchOption.AllDirectories).Select(File.ReadAllText);
