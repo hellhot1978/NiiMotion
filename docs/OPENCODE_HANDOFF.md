@@ -1,6 +1,6 @@
 # NiiMotion OpenCode devralma rehberi
 
-Güncelleme: 27 Ağustos 2026
+Güncelleme: 29 Ağustos 2026
 
 Depo: `C:\NiirMotion`
 
@@ -38,7 +38,7 @@ Kurucu yalnız sürüm adayı hazırlanırken üretilmelidir; günlük geliştir
 - Quest/Virtual Desktop → sistem modu → SteamVR → NiiMotion köprüsü → locomotion → oyun sırası zorunludur.
 - Başlangıç Rehberi yerel runtime bileşenlerini denetler. Tanılama bağlantı, model, paket ve son başlatma hatasını açıklar.
 - Runtime kaynaklarında OpenAI/Gemini/Anthropic/Azure OpenAI bağımlılığı yoktur.
-- Son otomatik taban: 108/108 test, Release build 0 uyarı/0 hata. İngilizce kaynak denetimi, yayın sözleşmesi ve UI smoke ayrı kapılardır.
+- Son otomatik taban: 111/111 test, Release build 0 uyarı/0 hata. İngilizce kaynak denetimi, yayın sözleşmesi ve UI smoke ayrı kapılardır.
 
 Son ilgili commitler:
 

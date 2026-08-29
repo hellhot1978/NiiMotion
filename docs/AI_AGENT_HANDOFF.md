@@ -1,6 +1,6 @@
 # NiiMotion model-independent AI handoff
 
-Updated: 27 August 2026
+Updated: 29 August 2026
 
 This is the canonical handoff entry point for Codex, OpenCode, Claude Code, Gemini CLI and other coding agents. Repository-wide rules remain authoritative in `AGENTS.md`.
 
@@ -21,18 +21,19 @@ This is the canonical handoff entry point for Codex, OpenCode, Claude Code, Gemi
 
 - Repository: `C:\NiirMotion`, branch `main`.
 - Windows WPF application: .NET 10, self-contained `win-x64`.
-- Automated regression: 108/108 passing after the model-independent handoff contract; the current command is always authoritative.
+- Automated regression: 111/111 passing; the current command is always authoritative.
 - Release build: zero warnings and zero errors.
 - English localization audit: zero uncovered unique UI strings.
 - UI smoke: four viewports, two Getting Started variants and ten dialog renders.
 - Release contracts: privacy, legal files, installer safety, update hashing, package integrity and disk budget are automated.
-- Current installable development build: `artifacts/installer/NiiMotion-Setup-0.6.0-x64.exe`; artifacts are generated and not source.
+- Current release-candidate target: `artifacts/installer/NiiMotion-Setup-0.6.1-x64.exe`; artifacts are generated and not source.
 - Runtime has no OpenAI, Gemini, Anthropic or cloud-inference dependency.
 
 ## Implemented product surface
 
 - Joy-Con, PS Move, owoTrack phone and Wii Balance Board discovery, calibration and individual/mixed profiles.
 - Three guided five-minute base phases per motion device, pause/retry/delete and offline personal-model generation.
+- Three guided two-minute combined phases per multi-device profile, pause/retake, local fusion-model generation, health diagnostics, versioned backup and rollback.
 - Versioned optional training recordings, segment repair, backup, rollback and explicit learned-data reset.
 - Fail-closed OpenVR analog driver, process-scoped OpenXR layer and SteamVR dashboard overlay.
 - Virtual Desktop-safe launch order that prevents a direct SteamVR path from reintroducing Oculus error 1114.

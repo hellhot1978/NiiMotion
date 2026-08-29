@@ -37,7 +37,7 @@
     <ApplicationIcon>Assets\niirmotion.ico</ApplicationIcon>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
-    <Version>0.6.0</Version>
+    <Version>0.6.1</Version>
     <SatelliteResourceLanguages>en;tr</SatelliteResourceLanguages>
   </PropertyGroup>
 

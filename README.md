@@ -8,7 +8,7 @@ NiiMotion kaynak kodu **PolyForm Noncommercial License 1.0.0** ile kaynak erişi
 
 ## Son kullanıcı kurulumu
 
-`NiiMotion-Setup-0.6.0-x64.exe` kurucusunu çalıştırın. Paket .NET kurulumu gerektirmez; masaüstü kısayolu, kaldırma kaydı, NiiMotion OpenVR sürücüsü ve OpenXR API katmanını içerir. İlk açılışta sahip olduğunuz cihazları seçin, **Test ve Kalibrasyon** sayfasında her cihazın üç temel fazını tamamlayın, ardından Genel Bakış'tan profil ve oyunu seçin.
+`NiiMotion-Setup-0.6.1-x64.exe` kurucusunu çalıştırın. Paket .NET kurulumu gerektirmez; masaüstü kısayolu, kaldırma kaydı, NiiMotion OpenVR sürücüsü ve OpenXR API katmanını içerir. İlk açılışta sahip olduğunuz cihazları seçin, **Test ve Kalibrasyon** sayfasında her cihazın üç temel fazını tamamlayın, ardından Genel Bakış'tan profil ve oyunu seçin.
 
 - [İlk kullanım](docs/first-run-guide-tr.md)
 - [Cihaz kurulumu](docs/device-setup-tr.md)

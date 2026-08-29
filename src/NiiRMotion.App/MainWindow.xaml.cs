@@ -708,6 +708,8 @@ public partial class MainWindow : Window
             var selector = new ComboBox { ItemsSource = multiProfiles, DisplayMemberPath = "Name", Height = 36, SelectedItem = multiProfiles.FirstOrDefault(x => x.Id == _profile.Id) ?? multiProfiles[0] };
             var state = Label("", "#F1C566", 9, FontWeights.SemiBold, new Thickness(0, 5, 0, 5));
             var open = new Button { Content = "ORTAK KALİBRASYONU AÇ", Height = 38, Padding = new Thickness(14, 8, 14, 8) };
+            var health = new Button { Content = "MODEL SAĞLIĞI", Height = 34, Padding = new Thickness(14, 7, 14, 7), Margin = new Thickness(0, 6, 0, 0) };
+            health.Click += (_, _) => new ProfileFusionHealthWindow(multiProfiles, progress) { Owner = this }.ShowDialog();
             void RefreshCombinedChoice()
             {
                 if (selector.SelectedItem is not MotionProfile profile) return; var sensors = ProfileSensors(profile).Distinct().ToArray();
@@ -725,7 +727,7 @@ public partial class MainWindow : Window
                 try { new ProfileCalibrationWindow(profile, sensors) { Owner = this }.ShowDialog(); }
                 finally { if (resume || ProfileUsesPhone()) try { await EnsurePhoneMonitorAsync(); } catch { } await BuildCalibrationCenterAsync(); }
             };
-            controls.Children.Add(selector); controls.Children.Add(state); controls.Children.Add(open); RefreshCombinedChoice(); combinedGrid.Children.Add(controls); combined.Child = combinedGrid; root.Children.Add(combined);
+            controls.Children.Add(selector); controls.Children.Add(state); controls.Children.Add(open); controls.Children.Add(health); RefreshCombinedChoice(); combinedGrid.Children.Add(controls); combined.Child = combinedGrid; root.Children.Add(combined);
         }
 
         var hmdValidation = new Button
@@ -817,7 +819,7 @@ public partial class MainWindow : Window
         return new Border { Child = panel, Background = Brush("#0B141D"), BorderBrush = Brush("#263946"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(18, 14, 18, 14), Margin = new Thickness(0, 0, 0, 14) };
     }
 
-    private static TextBlock Label(string text, string color, double size, FontWeight weight, Thickness? margin = null)
+    internal static TextBlock Label(string text, string color, double size, FontWeight weight, Thickness? margin = null)
     {
         var label = new TextBlock { Text = text, Foreground = Brush(color), FontSize = size, FontWeight = weight, Margin = margin ?? new Thickness(), TextWrapping = TextWrapping.Wrap };
         UiLocalization.ApplyLoaded(label);

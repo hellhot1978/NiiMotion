@@ -12,6 +12,8 @@
 
 Genel Bakış'ta **Profili değiştir** menüsünü aç. Normal VR, NiiMotion'ı tamamen kapatır. Diğer profiller yalnız gereken cihazlar hazırsa başlatılabilir. El takibi locomotion üretmez; Virtual Desktop kontrolcü emülasyonu için ayrı tercihtir.
 
+İki veya daha fazla hareket cihazı kullanan profiller için **Test ve Kalibrasyon → Birlikte Çalışma Modelleri** alanından kombinasyonu seç. Üç ortak fazın her biri iki dakika sürer. Fazlar duraklatılabilir, silinip yeniden alınabilir. Tamamlandığında yerel ortak model otomatik oluşturulur; **Model Sağlığı** ekranından kalite, örnek ve yedek durumu görülebilir.
+
 ## 4. VR'yi başlat
 
 Quest'i aç, Virtual Desktop'ın gerçekten VR oturumuna bağlanmasını bekle ve NiiMotion'da **VR'yi hazırla ve başlat** düğmesine bas. Uygulama sensörleri doğrular, NiiMotion sürücüsünü seçer ve SteamVR'ı son adımda açar. Metro Awakening gibi OpenXR oyunları özel adaptör doğrulanmadan otomatik eşlenmez.

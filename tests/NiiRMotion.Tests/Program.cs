@@ -670,6 +670,9 @@ static async Task ProfileFusionModelContract()
         var model = new ProfileFusionModel(1, "joycon-ps-move-telefon", [SensorFamily.JoyCon, SensorFamily.PsMove, SensorFamily.Phone], DateTimeOffset.UtcNow, 45000, .96, 1.2, 360, .08, 0, true, false);
         await store.SaveAsync(model); var loaded = store.Load(model.ProfileId);
         Assert(loaded is not null && loaded.Sensors.Count == 3 && loaded.RequireLegAgreement, "A multi-device fusion model must round-trip locally.");
+        await store.SaveAsync(model with { CaptureQuality = .72, AcceptedSamples = 32000 });
+        Assert(store.HistoryCount(model.ProfileId) == 1 && store.RestorePrevious(model.ProfileId), "Fusion model updates must be backed up and restorable.");
+        Assert(Math.Abs(store.Load(model.ProfileId)!.CaptureQuality - .96) < .001, "Fusion rollback must restore the prior model exactly.");
         var pipeline = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "NiiRMotion.Infrastructure", "OfflineCalibrationPipeline.cs"));
         var runtime = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "NiiRMotion.Infrastructure", "LiveLocomotionService.cs"));
         var app = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "NiiRMotion.App", "MainWindow.xaml.cs"));
@@ -678,6 +681,7 @@ static async Task ProfileFusionModelContract()
         Assert(runtime.Contains("ProfileFusionModelStore", StringComparison.Ordinal) && runtime.Contains("CadenceToleranceHz", StringComparison.Ordinal), "Runtime must load the selected profile fusion model.");
         Assert(app.Contains("CombinedProfileCalibrationReadyAsync", StringComparison.Ordinal), "Game launch must gate missing multi-device calibration.");
         Assert(combinedWindow.Contains("PhaseDuration = TimeSpan.FromMinutes(2)", StringComparison.Ordinal), "Combined phases must remain two minutes without shortening device base phases.");
+        Assert(combinedWindow.Contains("PauseClick", StringComparison.Ordinal) && combinedWindow.Contains("ResetPhaseClick", StringComparison.Ordinal) && combinedWindow.Contains("RestoreClick", StringComparison.Ordinal), "Combined calibration must support pause, retake and rollback.");
     }
     finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
 }
