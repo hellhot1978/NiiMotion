@@ -22,7 +22,7 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-      - uses: github/codeql-action/init@v3
+      - uses: github/codeql-action/init@v4
         with:
           languages: csharp
       - name: Restore
@@ -30,7 +30,7 @@ jobs:
       - name: Build and test through the canonical gate
         shell: powershell
         run: powershell -ExecutionPolicy Bypass -File scripts/verify-development.ps1
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/analyze@v4
 
   analyze-native-code:
     runs-on: windows-latest
@@ -38,7 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ilammy/msvc-dev-cmd@v1
-      - uses: github/codeql-action/init@v3
+      - uses: github/codeql-action/init@v4
         with:
           languages: cpp
       - name: Fetch pinned OpenVR SDK
@@ -47,4 +47,4 @@ jobs:
       - name: Build native runtime
         shell: powershell
         run: powershell -ExecutionPolicy Bypass -File scripts/build-native-codeql.ps1 -OpenVrSdkPath "$env:RUNNER_TEMP\openvr"
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/analyze@v4
