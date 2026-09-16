@@ -24,7 +24,7 @@ public static class PhonePresence
             endpoint = _endpoint;
             if (_lastSampleTicks == 0) return false;
             var age = Stopwatch.GetElapsedTime(_lastSampleTicks);
-            return age <= (maximumAge ?? TimeSpan.FromMilliseconds(850));
+            return age <= (maximumAge ?? TimeSpan.FromMilliseconds(2000));
         }
     }
 }

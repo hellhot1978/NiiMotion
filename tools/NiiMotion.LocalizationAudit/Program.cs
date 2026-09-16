@@ -52,6 +52,6 @@ static string Normalize(InterpolatedStringExpressionSyntax value)
 }
 
 static bool HasTurkish(string value) => Regex.IsMatch(value, "[çğıöşüÇĞİÖŞÜ]", RegexOptions.CultureInvariant)
-    || Regex.IsMatch(value, @"\b(?:bağlantı|cihaz|devam|durdur|faz|gerekli|hazır|kalibrasyon|kapat|kaydet|kayıt|oyun|önce|sağ|seç|sensör|sol|telefon|veri|yeniden|yürüyüş)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    || Regex.IsMatch(value, @"\b(?:bağlantı|cihaz|devam|durdur|faz|gerekli|hazır|kalibrasyon|kapat|kaydet|kayıt|oyun|önce|sağ|seç|sensör|sol|telefon|veri|yeniden|yürüyüş|başlat|bekleniyor|bağlı|eşleştir|profil|tamam|tamamlandı|yenile|sil|dene|ölç|kontrol)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
 internal sealed record Finding(string File, int Line, string Source, string Translation);

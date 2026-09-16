@@ -19,6 +19,8 @@ $requiredLegal = @(
 )
 $requiredLegal | ForEach-Object { Require-File $_ }
 
+$gitCmd = Get-Command git -ErrorAction SilentlyContinue
+if (-not $gitCmd) { throw 'Unable to inspect tracked files: git is not available in PATH.' }
 $tracked = @(& git -C $root ls-files)
 if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect tracked files.' }
 $privatePatterns = @(
@@ -29,7 +31,7 @@ $privatePatterns = @(
 )
 $private = $tracked | Where-Object {
     $candidate = $_
-    $privatePatterns | Where-Object { $candidate -match $_ } | Select-Object -First 1
+    $privatePatterns | Where-Object { $candidate -imatch $_ } | Select-Object -First 1
 }
 if ($private) { throw "User-owned or generated files are tracked: $($private -join ', ')" }
 

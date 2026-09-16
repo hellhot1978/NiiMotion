@@ -22,11 +22,11 @@ try {
     & $dotnet run --project tools\NiiMotion.LocalizationAudit\NiiMotion.LocalizationAudit.csproj -c Release -- $projectRoot
     if ($LASTEXITCODE -ne 0) { throw 'English localization audit failed.' }
 
-    & powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'verify-release-readiness.ps1')
+    & (Join-Path $PSScriptRoot 'verify-release-readiness.ps1')
     if ($LASTEXITCODE -ne 0) { throw 'Release readiness contracts failed.' }
 
     if ($UiSmoke) {
-        & powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'verify-ui.ps1')
+        & (Join-Path $PSScriptRoot 'verify-ui.ps1')
         if ($LASTEXITCODE -ne 0) { throw 'UI smoke verification failed.' }
     }
 
@@ -51,7 +51,7 @@ try {
         Write-Host "Standalone package verified: $output" -ForegroundColor Green
     }
 
-    $projectBytes = (Get-ChildItem $projectRoot -File -Recurse -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum
+    $projectBytes = (Get-ChildItem $projectRoot -File -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch '[\\/](\.git|\.dotnet|\.tools|artifacts|bin|obj)[\\/]' } | Measure-Object Length -Sum).Sum
     if ($projectBytes -gt 15GB) { throw "Project exceeds 15 GB: $([math]::Round($projectBytes / 1GB, 2)) GB" }
     Write-Host "NiiMotion verification passed. Project $([math]::Round($projectBytes / 1GB, 2)) GB; C: free $([math]::Round((Get-PSDrive C).Free / 1GB, 2)) GB." -ForegroundColor Green
 }

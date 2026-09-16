@@ -29,7 +29,7 @@ public sealed class SharedMemoryHmdPoseSource : IHmdPoseSource
             using var view = map.CreateViewAccessor(0, 64, MemoryMappedFileAccess.Read);
             if (!TryRead(view, out _, out var qpc, out tracked, out _, out _)) return false;
             var age = Stopwatch.GetTimestamp() - qpc;
-            return age >= 0 && age <= Stopwatch.Frequency;
+            return Math.Abs(age) <= Stopwatch.Frequency;
         }
         catch (FileNotFoundException) { return false; }
     }

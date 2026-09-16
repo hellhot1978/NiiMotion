@@ -405,6 +405,7 @@ public partial class MainWindow : Window
             : "Başlatma sırası: profil ve kalibrasyon → hareket cihazları → Quest / Virtual Desktop → SteamVR → oyun. Bir adım doğrulanmazsa oyun açılmaz.";
         var launchColor = previousLaunch?.Stage == GameLaunchStage.Failed ? "#FF8AA5" : previousLaunch?.Stage == GameLaunchStage.Running ? "#55DDB8" : "#93A7B3";
         var note = new Border { Background = Brush("#09121A"), BorderBrush = Brush("#1F303C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(7), Padding = new Thickness(14) }; _gameLaunchStatus = Label(launchText, launchColor, 10, FontWeights.Normal); note.Child = _gameLaunchStatus; GamesPanel.Children.Add(note);
+        UiLocalization.Apply(GamesPanel);
     }
 
     private static string LaunchStageLabel(GameLaunchStage stage) => stage switch
@@ -549,6 +550,7 @@ public partial class MainWindow : Window
         var reset = ActionButton("TÜM AYARLARI SIFIRLA", "#173044"); reset.BorderBrush = Brush("#37627A"); reset.Click += (_, _) => { if (UiLocalization.ShowMessage(window, "Bu oyunun kişisel hareket ayarları kaldırılıp güvenli varsayılanlara dönülsün mü?", "Ayarları sıfırla", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes) { store.Reset(game.Definition.Id); optimizationStore.Reset(game.Definition.Id, motionProfileId); window.DialogResult = true; window.Close(); BuildGamesPage(); } }; footer.Children.Add(reset);
         var cancel = ActionButton("VAZGEÇ", "#101923"); cancel.Click += (_, _) => window.Close(); Grid.SetColumn(cancel, 3); footer.Children.Add(cancel);
         var save = ActionButton("AYARLARI KAYDET", "#087DC4"); save.Click += (_, _) => { store.Save(profile with { SpeedMultiplier = speed.Value, MaximumOutput = maximum.Value, Deadzone = deadzone.Value, AccelerationPerSecond = acceleration.Value, DecelerationPerSecond = deceleration.Value }); window.DialogResult = true; window.Close(); BuildGamesPage(); }; Grid.SetColumn(save, 5); footer.Children.Add(save);
+        UiLocalization.Apply(root);
         window.Content = root; window.ShowDialog();
     }
 

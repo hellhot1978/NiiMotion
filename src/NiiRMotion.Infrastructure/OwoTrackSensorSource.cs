@@ -27,8 +27,9 @@ public sealed class OwoTrackSensorSource : ISensorSource<PhoneImuSample>
             {
                 var datagram = await _client!.ReceiveAsync(cancellationToken); if (_phone is not null && !datagram.RemoteEndPoint.Equals(_phone)) continue;
                 if (!OwoTrackPacketParser.TryParse(datagram.Buffer, out var packet)) continue;
-                if (packet.Type == OwoTrackPacketType.Handshake) { _phone = datagram.RemoteEndPoint; var hello = new byte[13]; hello[0] = 3; Encoding.ASCII.GetBytes("Hey OVR =D 5").CopyTo(hello, 1); await _client.SendAsync(hello, _phone, cancellationToken); continue; }
-                if (packet.Type == OwoTrackPacketType.PingPong) { await _client.SendAsync(datagram.Buffer, datagram.RemoteEndPoint, cancellationToken); continue; }
+                if (packet.Type == OwoTrackPacketType.Handshake) { _phone = datagram.RemoteEndPoint; var hello = new byte[13]; hello[0] = 3; Encoding.ASCII.GetBytes("Hey OVR =D 5").CopyTo(hello, 1); await _client.SendAsync(hello, _phone, cancellationToken); PhonePresence.Mark(datagram.RemoteEndPoint.ToString()); continue; }
+                if (packet.Type == OwoTrackPacketType.PingPong) { PhonePresence.Mark(datagram.RemoteEndPoint.ToString()); await _client.SendAsync(datagram.Buffer, datagram.RemoteEndPoint, cancellationToken); continue; }
+                if (packet.Type == OwoTrackPacketType.Heartbeat) { PhonePresence.Mark(datagram.RemoteEndPoint.ToString()); continue; }
                 _sequence.Observe(packet.Sequence);
                 if (packet.Type == OwoTrackPacketType.Acceleration) { _accel = packet.Vector * 9.80665f; continue; }
                 if (packet.Type == OwoTrackPacketType.Gyroscope) { _gyro = packet.Vector; continue; }

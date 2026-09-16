@@ -2,10 +2,25 @@ namespace NiiRMotion.Infrastructure;
 
 public static class NiiMotionPaths
 {
-    private static readonly string DevelopmentRoot = @"C:\NiirMotion";
+    private static readonly string DevelopmentRoot = FindDevelopmentRoot();
     public static string Root { get; } = Directory.Exists(Path.Combine(DevelopmentRoot, ".git"))
         ? DevelopmentRoot
         : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NiiMotion");
+
+    private static string FindDevelopmentRoot()
+    {
+        var probe = AppContext.BaseDirectory;
+        for (var i = 0; i < 6 && probe is not null; i++)
+        {
+            if (Directory.Exists(Path.Combine(probe, ".git"))) return probe;
+            var parent = Directory.GetParent(probe);
+            if (parent is null) break;
+            probe = parent.FullName;
+        }
+        var env = Environment.GetEnvironmentVariable("NIIRMOTION_ROOT");
+        if (!string.IsNullOrWhiteSpace(env) && Directory.Exists(env)) return env!;
+        return @"C:\NiirMotion";
+    }
     public static string Config => Ensure("config");
     public static string Data => Ensure("data");
     public static string Logs => Ensure("logs");

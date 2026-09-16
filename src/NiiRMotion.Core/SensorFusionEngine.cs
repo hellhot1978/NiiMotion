@@ -194,7 +194,7 @@ public sealed class SensorFusionEngine
         return new(gait, confidence, target, phoneFresh, boardFresh, boardFresh && _boardContact, _boardTransferVelocity, turnTarget, _lastBoardCopX, _boardTotalKg, _phoneAgreement, _phonePace);
     }
 
-    private bool IsFresh(long sampleTicks, long nowTicks) => sampleTicks > 0 && nowTicks >= sampleTicks && nowTicks - sampleTicks <= _optionalFreshTicks;
+    private bool IsFresh(long sampleTicks, long nowTicks) => sampleTicks > 0 && Math.Abs(nowTicks - sampleTicks) <= _optionalFreshTicks;
 }
 
 public sealed class VrLocomotionSession : IAsyncDisposable
