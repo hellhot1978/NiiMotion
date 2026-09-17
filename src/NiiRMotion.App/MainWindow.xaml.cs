@@ -583,10 +583,7 @@ public partial class MainWindow : Window
         }
         if (_gameNiiMotionEnabled)
         {
-            SetGameLaunchStage(game, GameLaunchStage.ValidatingCalibration, "Kişisel kalibrasyon doğrulanıyor…");
-            var uncalibrated = await UncalibratedProfileSensorsAsync();
-            if (uncalibrated.Count > 0) { UiLocalization.ShowMessage(this, $"Önce temel kalibrasyonu tamamla: {string.Join(", ", uncalibrated.Select(SensorDisplayName))}", "Kalibrasyon gerekli", MessageBoxButton.OK, MessageBoxImage.Warning); ToolsNavClick(this, new RoutedEventArgs()); return; }
-            if (!await CombinedProfileCalibrationReadyAsync()) { UiLocalization.ShowMessage(this, "Seçili cihazların birlikte çalışma kalibrasyonunu tamamla.", "Birlikte çalışma kalibrasyonu gerekli", MessageBoxButton.OK, MessageBoxImage.Warning); ToolsNavClick(this, new RoutedEventArgs()); return; }
+            SetGameLaunchStage(game, GameLaunchStage.ValidatingCalibration, "Kalibrasyon atlanıyor (genel profil kullanılıyor)…");
             SetGameLaunchStage(game, GameLaunchStage.ValidatingSensors, "Gerekli sensörler canlı olarak kontrol ediliyor…");
             await ScanAsync(); var devices = (DevicesList.ItemsSource as IEnumerable<DeviceStatus>)?.ToArray() ?? []; var missing = PreflightBlockingDevices(devices);
             if (missing.Count > 0) { UiLocalization.ShowMessage(this, $"Oyun açılmadı. Önce bağla: {string.Join(", ", missing.Select(x => x.Name))}", "Cihazlar eksik", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
@@ -1277,21 +1274,6 @@ public partial class MainWindow : Window
     private async void LaunchSteamVrClick(object sender, RoutedEventArgs e)
     {
         var locomotionRequested = _profile.LocomotionAllowed && !_launchNormalVrOverride;
-        var uncalibrated = await UncalibratedProfileSensorsAsync();
-        if (locomotionRequested && uncalibrated.Count > 0)
-        {
-            ReadinessTitle.Text = "TEMEL KALİBRASYON GEREKİYOR";
-            ReadinessMessage.Text = $"Önce tamamla: {string.Join(", ", uncalibrated.Select(SensorDisplayName))}. SteamVR başlatılmadı.";
-            await BuildCalibrationCenterAsync();
-            ShowPage(ToolsPage, "Test ve Kalibrasyon", "Önce temel cihaz kalibrasyonlarını tamamla", ToolsNav);
-            return;
-        }
-        if (locomotionRequested && !await CombinedProfileCalibrationReadyAsync())
-        {
-            ReadinessTitle.Text = "BİRLİKTE ÇALIŞMA KALİBRASYONU GEREKİYOR";
-            ReadinessMessage.Text = "Seçili cihaz kombinasyonunun üç ortak fazını tamamla. SteamVR başlatılmadı.";
-            await BuildCalibrationCenterAsync(); ShowPage(ToolsPage, "Test ve Kalibrasyon", "Birlikte çalışma kalibrasyonunu tamamla", ToolsNav); return;
-        }
         if (locomotionRequested && _profile.Required.Contains(DeviceKind.PsMoveLeft))
         {
             var onboarding = await new PsMoveOnboardingService().GetStatusAsync();
@@ -1433,7 +1415,7 @@ public partial class MainWindow : Window
         try { pipeReady = Directory.GetFiles(@"\\.\pipe\").Any(x => x.EndsWith("NiiRMotion.VrOutput.v1", StringComparison.OrdinalIgnoreCase)); } catch { }
         if (!pipeReady) return;
         var devices = (DevicesList.ItemsSource as IEnumerable<DeviceStatus>)?.ToArray() ?? [];
-        if (PreflightBlockingDevices(devices).Count > 0 || (await UncalibratedProfileSensorsAsync()).Count > 0 || !await CombinedProfileCalibrationReadyAsync()) return;
+        if (PreflightBlockingDevices(devices).Count > 0) return;
         if (await StartLocomotionAsync())
         {
             ReadinessTitle.Text = "NİIMOTION OTOMATİK BAĞLANDI";

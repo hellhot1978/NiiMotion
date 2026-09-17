@@ -93,8 +93,35 @@ public sealed class GuidedCalibrationRecorder
     private static async Task<Dictionary<string, int>> RecordPhoneAsync(string folder, Func<bool>? isPaused, CancellationToken token)
     {
         await using var source = new OwoTrackSensorSource(); await source.StartAsync(token);
-        var count = await RecordChannelAsync(source.Samples, Path.Combine(folder, "phone.jsonl"), isPaused, token);
-        return new() { ["phone"] = count };
+        using var disconnectCancel = CancellationTokenSource.CreateLinkedTokenSource(token);
+        var disconnectTask = MonitorPhoneDisconnectAsync(disconnectCancel.Token);
+        try
+        {
+            var count = await RecordChannelAsync(source.Samples, Path.Combine(folder, "phone.jsonl"), isPaused, disconnectCancel.Token);
+            return new() { ["phone"] = count };
+        }
+        finally
+        {
+            try { disconnectCancel.Cancel(); await disconnectTask; } catch { }
+        }
+    }
+
+    private static async Task MonitorPhoneDisconnectAsync(CancellationToken token)
+    {
+        var lastFresh = DateTime.UtcNow;
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+        try
+        {
+            while (!token.IsCancellationRequested)
+            {
+                await timer.WaitForNextTickAsync(token);
+                if (PhonePresence.TryGetFresh(out _))
+                    lastFresh = DateTime.UtcNow;
+                else if (DateTime.UtcNow - lastFresh > TimeSpan.FromSeconds(3))
+                    throw new InvalidOperationException("Telefon bağlantısı koptu. owoTrack'i yeniden başlatıp kalibrasyonu tekrarlayın.");
+            }
+        }
+        catch (OperationCanceledException) { }
     }
 
     private static async Task<Dictionary<string, int>> RecordBoardAsync(string folder, Func<bool>? isPaused, CancellationToken token)

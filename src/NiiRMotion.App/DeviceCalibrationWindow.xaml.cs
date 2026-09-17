@@ -21,6 +21,7 @@ public partial class DeviceCalibrationWindow : Window
     private GuidedCalibrationResult? _pendingResult;
     private IReadOnlyList<DeviceStatus> _lastDevices = [];
     private readonly DispatcherTimer _connectionTimer = new() { Interval = TimeSpan.FromSeconds(3) };
+    private OwoTrackSensorSource? _phoneListener;
 
     public DeviceCalibrationWindow(SensorFamily sensor)
     {
@@ -36,7 +37,7 @@ public partial class DeviceCalibrationWindow : Window
             UiLocalization.Apply(this);
         };
         _connectionTimer.Tick += async (_, _) => await RefreshLiveConnectionAsync();
-        Closed += (_, _) => _connectionTimer.Stop();
+        Closed += async (_, _) => { _connectionTimer.Stop(); await StopPhoneListenerAsync(); };
     }
 
     private void ConfigureVisuals()
@@ -68,9 +69,25 @@ public partial class DeviceCalibrationWindow : Window
         _progress = document.Devices.FirstOrDefault(x => x.Sensor == _sensor) ?? _progress;
         _pendingResult = _repairStore.Load(_sensor);
         if (_pendingResult is not null) { RepairSegmentButton.Visibility = Visibility.Visible; ShowPendingRepair(); }
+        if (_sensor == SensorFamily.Phone) await StartPhoneListenerAsync();
         await RefreshLiveConnectionAsync();
         _connectionTimer.Start();
         RefreshPhaseButtons();
+    }
+
+    private async Task StartPhoneListenerAsync()
+    {
+        if (_phoneListener is not null) return;
+        var listener = new OwoTrackSensorSource();
+        try { await listener.StartAsync(); _phoneListener = listener; }
+        catch { await listener.DisposeAsync(); }
+    }
+
+    private async Task StopPhoneListenerAsync()
+    {
+        var listener = _phoneListener;
+        _phoneListener = null;
+        if (listener is not null) await listener.DisposeAsync();
     }
 
     private async Task RefreshLiveConnectionAsync()
@@ -127,10 +144,10 @@ public partial class DeviceCalibrationWindow : Window
             }
             if (_sensor == SensorFamily.Phone)
             {
-                await using var phone = new OwoTrackSensorSource(); await phone.StartAsync();
+                if (_phoneListener is null) await StartPhoneListenerAsync();
                 var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(15);
-                while (DateTime.UtcNow < deadline && phone.PhoneEndpoint is null) await Task.Delay(100);
-                _connected = phone.PhoneEndpoint is not null;
+                while (DateTime.UtcNow < deadline && !PhonePresence.TryGetFresh(out _)) await Task.Delay(100);
+                _connected = PhonePresence.TryGetFresh(out _);
             }
             else
             {
@@ -164,6 +181,7 @@ public partial class DeviceCalibrationWindow : Window
         if (!_connected) { InstructionText.Text = "Önce bağlantıyı doğrula."; return; }
         if (phase != _progress.CompletedPhases + 1) { InstructionText.Text = "Fazları sırayla tamamla."; return; }
         _recording = true; RefreshPhaseButtons();
+        if (_sensor == SensorFamily.Phone) await StopPhoneListenerAsync();
         try
         {
             var capture = new GuidedCalibrationCaptureWindow(_sensor, phase, PhaseDuration) { Owner = this };
@@ -178,13 +196,14 @@ public partial class DeviceCalibrationWindow : Window
             else await CompleteCleanPhaseAsync(result);
         }
         catch (Exception ex) { InstructionText.Text = $"Faz tamamlanmadı: {ex.GetBaseException().Message}"; }
-        finally { _recording = false; PhaseProgress.Value = 0; TimerText.Text = "00:00 / 05:00"; RefreshPhaseButtons(); }
+        finally { _recording = false; PhaseProgress.Value = 0; TimerText.Text = "00:00 / 05:00"; RefreshPhaseButtons(); if (_sensor == SensorFamily.Phone) await StartPhoneListenerAsync(); }
     }
 
     private async void RepairSegmentClick(object sender, RoutedEventArgs e)
     {
         if (_recording || _pendingResult is null || _pendingResult.Quality.RedoSegments.FirstOrDefault() is not { } segment) return;
         _recording = true; RepairSegmentButton.IsEnabled = false; RefreshPhaseButtons();
+        if (_sensor == SensorFamily.Phone) await StopPhoneListenerAsync();
         var duration = TimeSpan.FromSeconds(segment.EndSeconds - segment.StartSeconds);
         InstructionText.Text = $"{segment.StartSeconds:0}-{segment.EndSeconds:0} saniyelik sorunlu bölüm yeniden kaydediliyor. Faz yönergesindeki hareketi sürdür.";
         PhaseProgress.Maximum = duration.TotalSeconds;
@@ -202,6 +221,7 @@ public partial class DeviceCalibrationWindow : Window
         {
             _recording = false; PhaseProgress.Maximum = 300; PhaseProgress.Value = 0; TimerText.Text = "00:00 / 05:00";
             RepairSegmentButton.IsEnabled = true; RefreshPhaseButtons();
+            if (_sensor == SensorFamily.Phone) await StartPhoneListenerAsync();
         }
     }
 

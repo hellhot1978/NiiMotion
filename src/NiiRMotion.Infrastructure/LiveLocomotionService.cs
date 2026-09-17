@@ -115,19 +115,15 @@ public sealed class LiveLocomotionService : IAsyncDisposable
         var paceModelPath = Path.Combine(NiiMotionPaths.Models, "deepgait-pace-v1.json");
         var pacePrior = File.Exists(paceModelPath) ? await GaitPacePrior.LoadAsync(paceModelPath, cancellationToken) : null;
         var personalPath = Path.Combine(NiiMotionPaths.Config, "personal-gait-pace.json");
-        var personalPace = File.Exists(personalPath) ? await PersonalGaitPace.LoadAsync(personalPath, cancellationToken) : null;
+        var personalPace = File.Exists(personalPath) ? await PersonalGaitPace.LoadAsync(personalPath, cancellationToken) : GenericGaitDefaults.DefaultJoyConPace;
         var phoneProfilePath = Path.Combine(NiiMotionPaths.Config, "personal-phone-motion.json");
-        var phoneProfile = File.Exists(phoneProfilePath) ? await PersonalPhoneMotion.LoadAsync(phoneProfilePath, cancellationToken) : null;
+        var phoneProfile = File.Exists(phoneProfilePath) ? await PersonalPhoneMotion.LoadAsync(phoneProfilePath, cancellationToken) : GenericGaitDefaults.DefaultPhoneMotion;
         var boardProfilePath = Path.Combine(NiiMotionPaths.Config, "personal-board-motion.json");
-        var boardProfile = File.Exists(boardProfilePath) ? await PersonalBoardMotion.LoadAsync(boardProfilePath, cancellationToken) : null;
+        var boardProfile = File.Exists(boardProfilePath) ? await PersonalBoardMotion.LoadAsync(boardProfilePath, cancellationToken) : GenericGaitDefaults.DefaultBoardMotion;
         var selectedMotionProfile = new ActiveMotionProfileStore().Load() ?? "joycon-only";
         var fusionModel = new ProfileFusionModelStore().Load(selectedMotionProfile);
         _profileFusionModel = fusionModel;
         var fusionSensorCount = 1 + (includePsMove ? 1 : 0) + (includePhone ? 1 : 0) + (includeBoard ? 1 : 0);
-        if (!phoneOnly && !boardOnly && fusionSensorCount > 1 && fusionModel is null)
-            throw new InvalidOperationException("Seçili cihaz kombinasyonunun birlikte çalışma kalibrasyonu tamamlanmadı.");
-        if (phoneOnly && includeBoard && fusionModel is null)
-            throw new InvalidOperationException("Telefon ve Balance Board birlikte çalışma kalibrasyonu tamamlanmadı.");
         _fusion = new SensorFusionEngine(threshold, pacePrior: pacePrior, personalPace: personalPace, phoneProfile: phoneProfile, boardProfile: boardProfile, allowPhoneOnly: phoneOnly, allowBoardOnly: boardOnly,
             phoneAgreementWeight: fusionModel?.PhoneAgreementWeight ?? .08, boardAgreementWeight: fusionModel?.BoardAgreementWeight ?? .12);
         _hmdFusionEnabled = HmdValidationCaptureService.LoadLatest()?.Passed == true;
