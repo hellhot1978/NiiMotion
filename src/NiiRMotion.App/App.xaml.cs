@@ -75,7 +75,7 @@ public partial class App : Application
         {
             var raw = guidedScreenshotArg[(guidedScreenshotArg.IndexOf('=') + 1)..].Split('|', 2);
             if (!Enum.TryParse<NiiRMotion.Core.SensorFamily>(raw[0], true, out var sensor)) sensor = NiiRMotion.Core.SensorFamily.JoyCon;
-            var guided = new GuidedCalibrationCaptureWindow(sensor, 1, TimeSpan.FromMinutes(5)); MainWindow = guided; guided.Show();
+            var guided = new GuidedCalibrationCaptureWindow(sensor, 1, TimeSpan.FromSeconds(90)); MainWindow = guided; guided.Show();
             SaveScreenshotAndExit(guided, raw.Length > 1 ? raw[1] : Path.Combine(NiiMotionPaths.Logs, "guided-calibration-preview.png")); return;
         }
         var boardLabScreenshotArg = e.Args.FirstOrDefault(x => x.StartsWith("--board-lab-screenshot=", StringComparison.OrdinalIgnoreCase));

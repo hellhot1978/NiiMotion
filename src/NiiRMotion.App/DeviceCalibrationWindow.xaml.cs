@@ -53,6 +53,8 @@ public partial class DeviceCalibrationWindow : Window
         DeviceImage.Source = new BitmapImage(new Uri($"pack://application:,,,/NiiRMotion.App;component/Assets/{icon}"));
         SoftwareHelpText.Text = SoftwareHelp();
         SetupHelpText.Text = SetupHelp();
+        var totalSeconds = PhaseDurations.Sum(d => (int)d.TotalSeconds);
+        PhaseSummaryText.Text = UiLocalization.Text($"3 faz · {PhaseDurations[0]:mm\\:ss} + {PhaseDurations[1]:mm\\:ss} + {PhaseDurations[2]:mm\\:ss} ({totalSeconds / 60}dk)");
         RePairButton.Visibility = _sensor == SensorFamily.PsMove ? Visibility.Visible : Visibility.Collapsed;
         ConnectionHelpButton.Visibility = _sensor == SensorFamily.PsMove ? Visibility.Collapsed : Visibility.Visible;
     }

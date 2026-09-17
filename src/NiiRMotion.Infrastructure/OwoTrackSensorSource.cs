@@ -11,13 +11,20 @@ namespace NiiRMotion.Infrastructure;
 public sealed class OwoTrackSensorSource : ISensorSource<PhoneImuSample>
 {
     private readonly int _port; private readonly BoundedSensorBuffer<PhoneImuSample> _buffer = new(512); private readonly SensorTimingDiagnostics _timing = new(); private readonly SequenceDiagnostics _sequence = new();
-    private UdpClient? _client; private CancellationTokenSource? _lifetime; private Task? _loop; private IPEndPoint? _phone; private Vector3 _accel; private Vector3 _gyro;
+    private UdpClient? _client; private CancellationTokenSource? _lifetime; private Task? _loop; private Task? _broadcast; private IPEndPoint? _phone; private Vector3 _accel; private Vector3 _gyro;
     public OwoTrackSensorSource(int port = PhoneSensorSource.DefaultPort) => _port = port;
     public string SourceId => "phone:owotrack"; public SensorMode Mode => SensorMode.Live; public ChannelReader<PhoneImuSample> Samples => _buffer.Reader;
     public SensorTimingSnapshot Timing => _timing.Snapshot(Stopwatch.GetTimestamp()); public long MissingPackets => _sequence.Missing; public long OutOfOrderPackets => _sequence.OutOfOrder; public IPEndPoint? PhoneEndpoint => _phone;
     public Task StartAsync(CancellationToken cancellationToken = default)
     {
-        _client = new UdpClient(new IPEndPoint(IPAddress.Any, _port)); _lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken); _loop = LoopAsync(_lifetime.Token); return Task.CompletedTask;
+        _client = new UdpClient(new IPEndPoint(IPAddress.Any, _port)); _client.EnableBroadcast = true; _lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken); _loop = LoopAsync(_lifetime.Token); _broadcast = BroadcastAsync(_lifetime.Token); return Task.CompletedTask;
+    }
+    private async Task BroadcastAsync(CancellationToken cancellationToken)
+    {
+        var hello = new byte[13]; hello[0] = 3; Encoding.ASCII.GetBytes("Hey OVR =D 5").CopyTo(hello, 1);
+        var endpoint = new IPEndPoint(IPAddress.Broadcast, _port);
+        try { while (!cancellationToken.IsCancellationRequested) { if (_phone is not null) break; try { await _client!.SendAsync(hello, endpoint, cancellationToken); } catch { } await Task.Delay(2000, cancellationToken); } }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
     }
     private async Task LoopAsync(CancellationToken cancellationToken)
     {
@@ -42,12 +49,5 @@ public sealed class OwoTrackSensorSource : ISensorSource<PhoneImuSample>
         catch (Exception ex) { _buffer.Complete(ex); return; }
         _buffer.Complete();
     }
-    public async ValueTask DisposeAsync()
-    {
-        _lifetime?.Cancel();
-        _client?.Dispose();
-        if (_loop is not null) try { await _loop; } catch (OperationCanceledException) { }
-        try { _buffer.Complete(); } catch (InvalidOperationException) { }
-        _lifetime?.Dispose();
-    }
+    public async ValueTask DisposeAsync() { _lifetime?.Cancel(); _client?.Dispose(); if (_loop is not null) try { await _loop; } catch (OperationCanceledException) { } if (_broadcast is not null) try { await _broadcast; } catch (OperationCanceledException) { } try { _buffer.Complete(); } catch (InvalidOperationException) { } _lifetime?.Dispose(); }
 }

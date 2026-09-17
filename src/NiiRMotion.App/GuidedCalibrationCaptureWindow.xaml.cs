@@ -10,7 +10,7 @@ public partial class GuidedCalibrationCaptureWindow : Window
     public GuidedCalibrationResult? Result { get; private set; }
     public GuidedCalibrationCaptureWindow(SensorFamily sensor, int phase, TimeSpan duration)
     {
-        _sensor = sensor; _phase = phase; _duration = duration; InitializeComponent(); HeaderText.Text = $"{Display(sensor)} · Faz {phase}"; OverallProgress.Maximum = duration.TotalSeconds; MoveLightPanel.Visibility = sensor == SensorFamily.PsMove ? Visibility.Visible : Visibility.Collapsed; UpdateGuidance();
+        _sensor = sensor; _phase = phase; _duration = duration; InitializeComponent(); HeaderText.Text = $"{Display(sensor)} · Faz {phase}"; OverallProgress.Maximum = duration.TotalSeconds; TotalDurationText.Text = duration.ToString(@"mm\:ss"); MoveLightPanel.Visibility = sensor == SensorFamily.PsMove ? Visibility.Visible : Visibility.Collapsed; UpdateGuidance();
         Loaded += async (_, _) => await BeginAsync(); Closing += (_, _) => { if (Result is null) _cancel.Cancel(); };
     }
     private async Task BeginAsync()
