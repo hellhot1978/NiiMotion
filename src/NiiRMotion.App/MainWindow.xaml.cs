@@ -695,7 +695,7 @@ public partial class MainWindow : Window
         var progress = await new UserSetupStore().LoadCalibrationAsync();
         var selected = _inventory.Sensors.OrderBy(x => x).ToArray();
 
-        root.Children.Add(SectionHeader("KALİBRASYON MERKEZİ", "Önce cihazlarını hazırla", "Her cihaz bağlantıdan sonra üç adet 5 dakikalık temel fazı tamamlar. Bu kayıtlar cihazı kullanıma açar."));
+        root.Children.Add(SectionHeader("KALİBRASYON MERKEZİ", "Önce cihazlarını hazırla", "Her cihaz bağlantıdan sonra üç adet kısa fazı tamamlar. Bu kayıtlar cihazı kullanıma açar."));
         var devicePanel = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) };
         if (selected.Length == 0) devicePanel.Children.Add(new TextBlock { Text = UiLocalization.Text("Henüz hareket cihazı seçmedin. Sol menüden Cihazlarım'ı aç."), Foreground = Brush("#F1C566"), Margin = new Thickness(4, 18, 0, 22) });
         foreach (var sensor in selected) devicePanel.Children.Add(CreateCalibrationCard(sensor, progress.Devices.FirstOrDefault(x => x.Sensor == sensor)));
@@ -763,7 +763,7 @@ public partial class MainWindow : Window
         var advanced = new Border { Background = Brush("#09121A"), BorderBrush = Brush("#1F303C"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(16, 14, 16, 14), Margin = new Thickness(0, 6, 0, 0) };
         var advancedGrid = new Grid(); advancedGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(245) }); advancedGrid.ColumnDefinitions.Add(new ColumnDefinition());
         var advancedText = new StackPanel(); advancedText.Children.Add(Label("İSTEĞE BAĞLI · EK KAYIT", "#8AA0AF", 9, FontWeights.Bold)); advancedText.Children.Add(Label("Modeli yeni kayıtlarla geliştir", "#F4F7FA", 17, FontWeights.SemiBold, new Thickness(0, 6, 0, 4)));
-        advancedText.Children.Add(Label("Temel fazlardan sonra tek cihaz veya istediğin kombinasyonla 5 dakikalık ek kayıt yap.", "#94A1AD", 10, FontWeights.Normal)); advancedGrid.Children.Add(advancedText);
+        advancedText.Children.Add(Label("Temel fazlardan sonra tek cihaz veya istediğin kombinasyonla ek kayıt yap.", "#94A1AD", 10, FontWeights.Normal)); advancedGrid.Children.Add(advancedText);
         var advancedChoices = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
         var combinations = _profileRecommendations
             .Where(x => x.Profile.LocomotionAllowed)
@@ -777,7 +777,7 @@ public partial class MainWindow : Window
         foreach (var combination in combinations)
         {
             var ready = combination.Sensors.All(x => progress.Devices.FirstOrDefault(p => p.Sensor == x)?.IsReady == true);
-            var choice = new Button { Content = UiLocalization.Text(string.Join(" + ", combination.Sensors.Select(SensorDisplayName))), IsEnabled = ready, ToolTip = UiLocalization.Text(ready ? "Bu kombinasyonla yeni 5 dakikalık kayıt ekle" : "Önce bu cihazların temel kalibrasyonlarını tamamla"), Margin = new Thickness(6, 3, 0, 3), Padding = new Thickness(13, 9, 13, 9) };
+            var choice = new Button { Content = UiLocalization.Text(string.Join(" + ", combination.Sensors.Select(SensorDisplayName))), IsEnabled = ready, ToolTip = UiLocalization.Text(ready ? "Bu kombinasyonla yeni kayıt ekle" : "Önce bu cihazların temel kalibrasyonlarını tamamla"), Margin = new Thickness(6, 3, 0, 3), Padding = new Thickness(13, 9, 13, 9) };
             var profile = combination.Profile; var sensors = combination.Sensors;
             choice.Click += (_, _) => OpenAdvancedTraining(profile, sensors); advancedChoices.Children.Add(choice);
         }
