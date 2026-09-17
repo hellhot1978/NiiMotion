@@ -375,7 +375,7 @@ public static class UiLocalization
             if (value.EndsWith(pair.Key, StringComparison.Ordinal))
                 return value[..^pair.Key.Length] + pair.Value;
         var phase = Regex.Match(value, @"^FAZ (\d+)(.*)$", RegexOptions.CultureInvariant);
-        if (phase.Success) return "PHASE " + phase.Groups[1].Value + phase.Groups[2].Value.Replace(" TAMAMLANDI", " COMPLETE").Replace("'Ü BAŞLAT · 5 DK", " · START · 5 MIN").Replace(" · 5 DK", " · 5 MIN").Replace("'Ü BAŞLAT · 2 DK", " · START · 2 MIN").Replace(" · 2 DK", " · 2 MIN");
+        if (phase.Success) return "PHASE " + phase.Groups[1].Value + phase.Groups[2].Value.Replace(" TAMAMLANDI", " COMPLETE").Replace("'Ü BAŞLAT · ", " · START · ").Replace(" · ", " · ");
 
         var result = value;
         foreach (var fragment in DynamicFragments)

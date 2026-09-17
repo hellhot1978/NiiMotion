@@ -286,7 +286,7 @@ public partial class DeviceCalibrationWindow : Window
         for (var i = 0; i < buttons.Length; i++)
         {
             var phase = i + 1; var done = _progress.CompletedPhases >= phase; var next = _connected && _progress.CompletedPhases + 1 == phase;
-            buttons[i].Content = done ? $"✓  FAZ {phase} TAMAMLANDI" : next ? $"▶  FAZ {phase}'Ü BAŞLAT · 5 DK" : $"○  FAZ {phase} · 5 DK";
+            var dur = PhaseDurations[i]; buttons[i].Content = done ? $"✓  FAZ {phase} TAMAMLANDI" : next ? $"▶  FAZ {phase}'Ü BAŞLAT · {dur:mm\\:ss}" : $"○  FAZ {phase} · {dur:mm\\:ss}";
             buttons[i].IsEnabled = !_recording && next;
             buttons[i].Background = MainWindow.Brush(done ? "#143A31" : next ? "#0F77B6" : "#101820");
             resetButtons[i].Visibility = done ? Visibility.Visible : Visibility.Hidden;
