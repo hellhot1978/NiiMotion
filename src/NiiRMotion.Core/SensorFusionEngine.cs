@@ -203,7 +203,7 @@ public sealed class VrLocomotionSession : IAsyncDisposable
     private readonly LocomotionSmoother _smoother = new();
     private readonly LocomotionSmoother _turnSmoother = new();
     private readonly GameMotionProfile _gameProfile;
-    private bool _started;
+    private int _started;
 
     public VrLocomotionSession(IAnalogLocomotionSink sink, GameMotionProfile? gameProfile = null)
     {
@@ -213,15 +213,14 @@ public sealed class VrLocomotionSession : IAsyncDisposable
 
     public async ValueTask StartAsync(CancellationToken cancellationToken = default)
     {
-        if (_started) return;
+        if (Interlocked.CompareExchange(ref _started, 1, 0) != 0) return;
         await _output.StartAsync(cancellationToken);
         _smoother.EmergencyZero();
-        _started = true;
     }
 
     public async ValueTask UpdateAsync(FusionSnapshot snapshot, TimeSpan delta, CancellationToken cancellationToken = default)
     {
-        if (!_started) throw new InvalidOperationException("Locomotion session is OFF.");
+        if (Interlocked.CompareExchange(ref _started, 0, 0) == 0) throw new InvalidOperationException("Locomotion session is OFF.");
         var rawTarget = snapshot.TargetSpeed * _gameProfile.SpeedMultiplier;
         var target = rawTarget <= _gameProfile.Deadzone ? 0 : Math.Clamp(rawTarget, 0, _gameProfile.MaximumOutput);
         var speed = _smoother.Update(target, delta, _gameProfile.AccelerationPerSecond, target == 0 ? _gameProfile.DecelerationPerSecond : _gameProfile.AccelerationPerSecond * .93);
@@ -233,8 +232,7 @@ public sealed class VrLocomotionSession : IAsyncDisposable
     {
         _smoother.EmergencyZero();
         _turnSmoother.EmergencyZero();
-        if (_started) await _output.StopAsync(cancellationToken);
-        _started = false;
+        if (Interlocked.CompareExchange(ref _started, 0, 1) == 1) await _output.StopAsync(cancellationToken);
     }
 
     public async ValueTask DisposeAsync() { await StopAsync(); await _output.DisposeAsync(); }

@@ -40,10 +40,22 @@ public sealed class SharedMemoryOpenXrOutputSink : IAnalogLocomotionSink
 
     private void Write(LocomotionVector value, bool enabled)
     {
-        var view = _view!; var odd = ++_sequence | 1UL; view.Write(8, odd);
-        view.Write(0, 0x3158524Eu); view.Write(4, 1u); view.Write(16, value.X); view.Write(20, value.Y); view.Write(24, enabled ? 1u : 0u);
-        view.Write(28, _executables.Length > 0 ? Fnv1a(_executables[0]) : 0u); view.Write(32, _executables.Length > 1 ? Fnv1a(_executables[1]) : 0u); view.Write(36, 0u); view.Write(40, (ulong)Environment.TickCount64);
-        view.Write(8, ++_sequence & ~1UL); view.Flush();
+        var view = _view!;
+        var odd = ++_sequence | 1UL;
+        view.Write(8, odd);
+        Thread.MemoryBarrier();
+        view.Write(0, 0x3158524Eu);
+        view.Write(4, 1u);
+        view.Write(16, value.X);
+        view.Write(20, value.Y);
+        view.Write(24, enabled ? 1u : 0u);
+        view.Write(28, _executables.Length > 0 ? Fnv1a(_executables[0]) : 0u);
+        view.Write(32, _executables.Length > 1 ? Fnv1a(_executables[1]) : 0u);
+        view.Write(36, 0u);
+        view.Write(40, (ulong)Environment.TickCount64);
+        Thread.MemoryBarrier();
+        view.Write(8, ++_sequence & ~1UL);
+        view.Flush();
     }
 
     public static uint Fnv1a(string value)

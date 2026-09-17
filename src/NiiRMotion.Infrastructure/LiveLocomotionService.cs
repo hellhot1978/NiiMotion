@@ -20,10 +20,12 @@ public sealed class LiveLocomotionService : IAsyncDisposable
     private StreamWriter? _diagnosticWriter;
     private HmdPoseSample _latestHmdPose;
     private bool _hmdFusionEnabled;
+    private long _lastBatteryCheckTicks;
 
     public bool IsRunning => _lifetime is { IsCancellationRequested: false };
     public string ModeDescription { get; private set; } = "OFF";
     public event EventHandler<string>? CriticalSensorLost;
+    public event EventHandler<string>? BatteryLowWarning;
     public event EventHandler<LocomotionTelemetrySample>? TelemetryUpdated;
     private long _lastTelemetryEventTicks;
 
@@ -92,20 +94,46 @@ public sealed class LiveLocomotionService : IAsyncDisposable
         var previous = Stopwatch.GetTimestamp(); using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(10));
         while (await timer.WaitForNextTickAsync(token))
         {
-            var now = Stopwatch.GetTimestamp(); GaitSnapshot gait; lock (_fusionLock) gait = _psMoveGait!.Update(now);
-            var auxiliary = _auxFusion!.Update(now);
-            var target = gait.TargetSpeed;
-            if (target > 0 && auxiliary.PhoneFresh && _profileFusionModel is { PhoneAgreementWeight: > 0 } model)
-                target *= 1 - model.PhoneAgreementWeight + model.PhoneAgreementWeight * Math.Clamp(auxiliary.PhoneAgreement, 0, 1);
-            if (auxiliary.BoardFresh && !auxiliary.BoardContact) target = 0;
-            if (auxiliary.TurnTarget != 0) target = 0;
-            var snapshot = new FusionSnapshot(gait, gait.Confidence, target, auxiliary.PhoneFresh, auxiliary.BoardFresh, auxiliary.BoardContact, auxiliary.BoardTransferVelocity, auxiliary.TurnTarget, auxiliary.BoardCopX, auxiliary.BoardTotalKg);
-            HmdFusionDecision hmdDecision; lock (_fusionLock) hmdDecision = HmdFusionPolicy.Apply(snapshot, _latestHmdPose, now, _hmdFusionEnabled); snapshot = hmdDecision.Snapshot; target = snapshot.TargetSpeed;
-            _diagnosticWriter?.WriteLine(string.Join(';', now, gait.State, target.ToString("0.000", CultureInfo.InvariantCulture), gait.Confidence.ToString("0.000", CultureInfo.InvariantCulture), gait.CadenceHz.ToString("0.000", CultureInfo.InvariantCulture), gait.StepCount, auxiliary.PhoneFresh, auxiliary.BoardFresh, auxiliary.BoardContact, auxiliary.TurnTarget.ToString("0.000", CultureInfo.InvariantCulture), hmdDecision.Fresh, hmdDecision.Turning, hmdDecision.SuppressedFalseForward));
-            PublishTelemetry(now, gait, target, auxiliary.TurnTarget);
-            var delta = TimeSpan.FromSeconds((now - previous) / (double)Stopwatch.Frequency); previous = now;
+            FusionSnapshot snapshot; TimeSpan delta;
+            lock (_fusionLock)
+            {
+                var now = Stopwatch.GetTimestamp();
+                var gait = _psMoveGait!.Update(now);
+                var auxiliary = _auxFusion!.Update(now);
+                var target = gait.TargetSpeed;
+                if (target > 0 && auxiliary.PhoneFresh && _profileFusionModel is { PhoneAgreementWeight: > 0 } model)
+                    target *= 1 - model.PhoneAgreementWeight + model.PhoneAgreementWeight * Math.Clamp(auxiliary.PhoneAgreement, 0, 1);
+                if (auxiliary.BoardFresh && !auxiliary.BoardContact) target = 0;
+                if (auxiliary.TurnTarget != 0) target = 0;
+                snapshot = new FusionSnapshot(gait, gait.Confidence, target, auxiliary.PhoneFresh, auxiliary.BoardFresh, auxiliary.BoardContact, auxiliary.BoardTransferVelocity, auxiliary.TurnTarget, auxiliary.BoardCopX, auxiliary.BoardTotalKg);
+                var hmdDecision = HmdFusionPolicy.Apply(snapshot, _latestHmdPose, now, _hmdFusionEnabled); snapshot = hmdDecision.Snapshot; target = snapshot.TargetSpeed;
+                _diagnosticWriter?.WriteLine(string.Join(';', now, gait.State, target.ToString("0.000", CultureInfo.InvariantCulture), gait.Confidence.ToString("0.000", CultureInfo.InvariantCulture), gait.CadenceHz.ToString("0.000", CultureInfo.InvariantCulture), gait.StepCount, auxiliary.PhoneFresh, auxiliary.BoardFresh, auxiliary.BoardContact, auxiliary.TurnTarget.ToString("0.000", CultureInfo.InvariantCulture), hmdDecision.Fresh, hmdDecision.Turning, hmdDecision.SuppressedFalseForward));
+                PublishTelemetry(now, gait, target, auxiliary.TurnTarget);
+                delta = TimeSpan.FromSeconds((now - previous) / (double)Stopwatch.Frequency); previous = now;
+            }
             await _vrSession!.UpdateAsync(snapshot, delta, token);
+            if (Stopwatch.GetTimestamp() - Interlocked.Read(ref _lastBatteryCheckTicks) > Stopwatch.Frequency * 30)
+            {
+                Interlocked.Exchange(ref _lastBatteryCheckTicks, Stopwatch.GetTimestamp());
+                _ = CheckPsMoveBatteryAsync(token);
+            }
         }
+    }
+
+    private async Task CheckPsMoveBatteryAsync(CancellationToken token)
+    {
+        try
+        {
+            var diagnostics = new PsMoveDiagnosticsService();
+            var batteries = await diagnostics.ReadBatteryStatusAsync(token);
+            foreach (var battery in batteries)
+            {
+                if (battery.Charging) continue;
+                if (battery.Percent is <= 10)
+                    BatteryLowWarning?.Invoke(this, $"PS Move pil seviyesi düşük: {battery.StableId} ({battery.Percent}%)");
+            }
+        }
+        catch { }
     }
 
     public async Task StartAsync(string? calibrationPath = null, bool includePhone = true, bool phoneOnly = false, bool includeBoard = false, bool boardOnly = false, bool includePsMove = false, CancellationToken cancellationToken = default)

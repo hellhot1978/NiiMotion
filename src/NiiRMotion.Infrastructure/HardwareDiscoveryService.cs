@@ -23,21 +23,28 @@ public sealed class HardwareDiscoveryService : IHardwareDiscoveryService
         var hasLiveHmdState = SharedMemoryHmdPoseSource.TryGetFreshTracking(out var liveHmdTracked);
         var headsetPresent = hasLiveHmdState ? liveHmdTracked : OpenVrHeadsetPresence.IsPresent();
         IReadOnlyList<JoyConDeviceDescriptor> joyCons;
-        try { joyCons = HidDeviceEnumerator.FindJoyCons(); } catch { joyCons = Array.Empty<JoyConDeviceDescriptor>(); }
+        try { joyCons = HidDeviceEnumerator.FindJoyCons(); }
+        catch (IOException) { joyCons = Array.Empty<JoyConDeviceDescriptor>(); }
+        catch (UnauthorizedAccessException) { joyCons = Array.Empty<JoyConDeviceDescriptor>(); }
         var leftJoyCon = joyCons.Any(x => x.Side == JoyConSide.Left);
         var rightJoyCon = joyCons.Any(x => x.Side == JoyConSide.Right);
         var moveIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        try { foreach (var probe in new PsMoveDiagnosticsService().Discover().Where(x => x.SensorReportsPossible && x.Device.StableId is not null)) moveIds.Add(probe.Device.StableId!); } catch { }
+        try { foreach (var probe in new PsMoveDiagnosticsService().Discover().Where(x => x.SensorReportsPossible && x.Device.StableId is not null)) moveIds.Add(probe.Device.StableId!); }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
         IReadOnlySet<string> presentBluetoothIds;
         try { presentBluetoothIds = HidDeviceEnumerator.FindPresentBluetoothAddresses(); }
-        catch { presentBluetoothIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase); }
+        catch (IOException) { presentBluetoothIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase); }
+        catch (UnauthorizedAccessException) { presentBluetoothIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase); }
         var moveAssignments = await new PsMoveAssignmentStore(NiiMotionPaths.PsMoveAssignments).LoadAsync(cancellationToken).ConfigureAwait(false);
         var leftMoveLive = moveAssignments is { IsComplete: true } && moveIds.Contains(moveAssignments.LeftStableId);
         var rightMoveLive = moveAssignments is { IsComplete: true } && moveIds.Contains(moveAssignments.RightStableId);
         var leftMovePaired = moveAssignments is { IsComplete: true } && presentBluetoothIds.Contains(moveAssignments.LeftStableId);
         var rightMovePaired = moveAssignments is { IsComplete: true } && presentBluetoothIds.Contains(moveAssignments.RightStableId);
         var balanceBoard = false;
-        try { balanceBoard = HidDeviceEnumerator.FindBalanceBoards().Count > 0; } catch { }
+        try { balanceBoard = HidDeviceEnumerator.FindBalanceBoards().Count > 0; }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
         var phoneConnected = PhonePresence.TryGetFresh(out var phoneEndpoint);
         IReadOnlyList<DeviceStatus> statuses =
         [
@@ -134,7 +141,24 @@ internal static class OpenVrHeadsetPresence
         {
             var logPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Steam", "logs", "vrserver.txt");
             if (!File.Exists(logPath)) return false;
-            var text = File.ReadAllText(logPath);
+            const int maxBytes = 65536;
+            var fileInfo = new FileInfo(logPath);
+            string text;
+            using (var fs = new FileStream(logPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                if (fileInfo.Length > maxBytes)
+                {
+                    fs.Seek(-maxBytes, SeekOrigin.End);
+                    var buffer = new byte[maxBytes];
+                    fs.Read(buffer, 0, maxBytes);
+                    text = System.Text.Encoding.UTF8.GetString(buffer);
+                }
+                else
+                {
+                    using var reader = new StreamReader(fs);
+                    text = reader.ReadToEnd();
+                }
+            }
             var lastFailure = Math.Max(
                 text.LastIndexOf("No connected devices found", StringComparison.OrdinalIgnoreCase),
                 text.LastIndexOf("Deactivated device shimmed with CHMDShimDriver", StringComparison.OrdinalIgnoreCase));

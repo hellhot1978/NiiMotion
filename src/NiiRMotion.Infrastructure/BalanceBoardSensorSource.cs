@@ -55,9 +55,6 @@ public sealed class BalanceBoardSensorSource : ISensorSource<BalanceBoardSample>
         var backRight = values.BottomRight / 4f;
         if (_tareCount < TareSamples)
         {
-            if (Math.Abs(frontLeft) + Math.Abs(frontRight) + Math.Abs(backLeft) + Math.Abs(backRight) < .01f) return;
-            // Never learn the user's body weight as the empty-board baseline.
-            // A loaded board must wait until the user steps off before taring.
             if (frontLeft + frontRight + backLeft + backRight > 15f) return;
             _tareFrontLeftValues.Add(frontLeft); _tareFrontRightValues.Add(frontRight); _tareBackLeftValues.Add(backLeft); _tareBackRightValues.Add(backRight);
             if (++_tareCount == TareSamples)

@@ -72,9 +72,11 @@ public sealed class JoyConSensorSource : ISensorSource<JoyConImuSample>
         var request = new byte[5]; BitConverter.TryWriteBytes(request, address); request[4] = length;
         await SendSubcommandAsync(0x10, request, cancellationToken);
         var response = new byte[Math.Max(49, (int)_capabilities.InputReportByteLength)];
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(5));
         while (true)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            timeout.Token.ThrowIfCancellationRequested();
             if (!ReadFile(_stream!.SafeFileHandle, response, (uint)response.Length, out var bytesRead, 0)) throw new Win32Exception(Marshal.GetLastWin32Error());
             if (bytesRead < 44 || response[0] != 0x21 || response[14] != 0x10) continue;
             if ((response[13] & 0x80) == 0) throw new InvalidOperationException("Joy-Con rejected SPI calibration read.");

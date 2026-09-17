@@ -906,35 +906,6 @@ public partial class MainWindow : Window
     {
         new PsMoveLabWindow { Owner = this }.ShowDialog();
         await ScanAsync();
-        return;
-#pragma warning disable CS0162
-        PsMoveIdentifyButton.IsEnabled = false;
-        CalibrationPsMoveStatus.Text = "Tanıtılıyor… sol kırmızı · sağ mavi";
-        CalibrationPsMoveStatus.Foreground = Brush("#F6C86B");
-        CalibrationLiveResult.Text = "PS Move renkleri 8 saniye gösteriliyor. Titreşim kapalıdır.";
-        try
-        {
-            var assignments = await new PsMoveAssignmentStore(NiiMotionPaths.PsMoveAssignments).LoadAsync();
-            if (assignments is not { IsComplete: true }) throw new InvalidOperationException("Önce PS Move sol/sağ atamasını tamamla.");
-            await new PsMoveDiagnosticsService().ShowAssignmentColorsAsync(assignments, TimeSpan.FromSeconds(8));
-            CalibrationPsMoveStatus.Text = "Sensörler ölçülüyor…";
-            var stored = await new PsMoveCalibrationStore(NiiMotionPaths.PsMoveFactoryCalibration).LoadAsync();
-            var health = await new PsMoveDiagnosticsService().CaptureCalibratedHealthAsync(stored, TimeSpan.FromSeconds(3));
-            if (health.Count != 2) throw new InvalidOperationException("İki kalibre edilmiş PS Move akışı bulunamadı.");
-            CalibrationPsMoveStatus.Text = "✓ İki Move bağlı · sensörler sağlıklı";
-            CalibrationPsMoveStatus.Foreground = Brush("#54D4A8");
-            CalibrationLiveResult.Text = "✓ PS Move doğrulandı · " + string.Join("   •   ", health.OrderBy(x => x.StableId).Select(x => $"{(x.StableId == assignments.LeftStableId ? "Sol" : "Sağ")}: {x.ReportRateHz:0.0} Hz · jitter {x.JitterMs:0.00} ms · kayıp {x.MissingReports} · ivme {x.MinimumAccelerationG:0.00}–{x.MaximumAccelerationG:0.00} g · batarya {BatteryText(x.Battery)}"));
-            CalibrationLiveResult.Foreground = Brush("#63DFBB");
-        }
-        catch (Exception ex)
-        {
-            CalibrationPsMoveStatus.Text = "✕ İki PS Move bağlı değil";
-            CalibrationPsMoveStatus.Foreground = Brush("#FF7F9B");
-            CalibrationLiveResult.Text = $"PS Move tanıtılamadı: {ex.Message}";
-            CalibrationLiveResult.Foreground = Brush("#FF9BA8");
-        }
-        finally { PsMoveIdentifyButton.IsEnabled = true; }
-#pragma warning restore CS0162
     }
 
     private static string BatteryText(byte value) => value switch

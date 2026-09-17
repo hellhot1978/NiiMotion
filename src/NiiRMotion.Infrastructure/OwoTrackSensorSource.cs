@@ -42,5 +42,12 @@ public sealed class OwoTrackSensorSource : ISensorSource<PhoneImuSample>
         catch (Exception ex) { _buffer.Complete(ex); return; }
         _buffer.Complete();
     }
-    public async ValueTask DisposeAsync() { _lifetime?.Cancel(); _client?.Dispose(); if (_loop is not null) try { await _loop; } catch (OperationCanceledException) { } _lifetime?.Dispose(); }
+    public async ValueTask DisposeAsync()
+    {
+        _lifetime?.Cancel();
+        _client?.Dispose();
+        if (_loop is not null) try { await _loop; } catch (OperationCanceledException) { }
+        try { _buffer.Complete(); } catch (InvalidOperationException) { }
+        _lifetime?.Dispose();
+    }
 }
