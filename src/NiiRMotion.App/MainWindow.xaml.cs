@@ -372,7 +372,13 @@ public partial class MainWindow : Window
         GamesPanel.Children.Add(SectionHeader("OYUN KÜTÜPHANESİ", "Oyunu seç ve güvenle başlat", "Yalnız doğrulanmış VR oyunları görünür. Kişisel yürüyüş modelin değişmez; oyun eşlemesi ayrı tutulur."));
         var available = new SteamGameCatalog().Detect().Where(x => x.IsInstalled && x.State == GameIntegrationState.Ready).ToArray();
         var selected = available.FirstOrDefault(x => x.Definition.Id == _selectedGameId) ?? available.FirstOrDefault();
-        if (selected is null) { GamesPanel.Children.Add(new Border { Child = Label("Henüz doğrulanmış ve kurulu bir VR oyunu bulunamadı. VR Oyunu Ekle ile yeni bir eşleme oluşturabilirsin.", "#F1C566", 12, FontWeights.SemiBold), Padding = new Thickness(18), Background = Brush("#151B1E"), CornerRadius = new CornerRadius(8) }); return; }
+        if (selected is null)
+        {
+            GamesPanel.Children.Add(new Border { Child = Label("Henüz doğrulanmış ve kurulu bir VR oyunu bulunamadı. VR Oyunu Ekle ile yeni bir eşleme oluşturabilirsin.", "#F1C566", 12, FontWeights.SemiBold), Padding = new Thickness(18), Background = Brush("#151B1E"), CornerRadius = new CornerRadius(8) });
+            var addEmpty = new Button { Content = "+ VR OYUNU EKLE", Padding = new Thickness(21, 10, 21, 10), MinWidth = 150, Margin = new Thickness(0, 14, 0, 0) }; addEmpty.Click += (_, _) => OpenGameAdapterWizard(); GamesPanel.Children.Add(addEmpty);
+            UiLocalization.Apply(GamesPanel);
+            return;
+        }
         _selectedGameId = selected.Definition.Id; new GameSelectionStore().Save(_selectedGameId);
 
         var selector = new Grid { Margin = new Thickness(0, 0, 0, 14) }; selector.ColumnDefinitions.Add(new ColumnDefinition()); selector.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) }); selector.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); selector.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) }); selector.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
