@@ -34,13 +34,11 @@ public sealed class LiveLocomotionService : IAsyncDisposable
         if (!onboarding.IsReady) throw new InvalidOperationException(onboarding.Instruction);
         var profile = JsonSerializer.Deserialize<PsMoveTrainingProfile>(await File.ReadAllTextAsync(NiiMotionPaths.PsMoveTrainingProfile, cancellationToken))
             ?? throw new InvalidDataException("PS Move kişisel profili okunamadı.");
-        var phoneProfile = File.Exists(Path.Combine(NiiMotionPaths.Config, "personal-phone-motion.json")) ? await PersonalPhoneMotion.LoadAsync(Path.Combine(NiiMotionPaths.Config, "personal-phone-motion.json"), cancellationToken) : null;
-        var boardProfile = File.Exists(Path.Combine(NiiMotionPaths.Config, "personal-board-motion.json")) ? await PersonalBoardMotion.LoadAsync(Path.Combine(NiiMotionPaths.Config, "personal-board-motion.json"), cancellationToken) : null;
+        var phoneProfile = File.Exists(Path.Combine(NiiMotionPaths.Config, "personal-phone-motion.json")) ? await PersonalPhoneMotion.LoadAsync(Path.Combine(NiiMotionPaths.Config, "personal-phone-motion.json"), cancellationToken) : GenericGaitDefaults.DefaultPhoneMotion;
+        var boardProfile = File.Exists(Path.Combine(NiiMotionPaths.Config, "personal-board-motion.json")) ? await PersonalBoardMotion.LoadAsync(Path.Combine(NiiMotionPaths.Config, "personal-board-motion.json"), cancellationToken) : GenericGaitDefaults.DefaultBoardMotion;
         var selectedMotionProfile = new ActiveMotionProfileStore().Load() ?? "psmove-only";
         var fusionModel = new ProfileFusionModelStore().Load(selectedMotionProfile);
         _profileFusionModel = fusionModel;
-        if ((includePhone ? 1 : 0) + (includeBoard ? 1 : 0) + 1 > 1 && fusionModel is null)
-            throw new InvalidOperationException("Seçili cihaz kombinasyonunun birlikte çalışma kalibrasyonu tamamlanmadı.");
         _psMoveGait = new(profile);
         _hmdFusionEnabled = HmdValidationCaptureService.LoadLatest()?.Passed == true;
         _auxFusion = new SensorFusionEngine(phoneProfile: phoneProfile, boardProfile: boardProfile, allowBoardTurn: includeBoard,

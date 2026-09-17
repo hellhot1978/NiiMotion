@@ -30,8 +30,8 @@ public static class GenericGaitDefaults
     // Balance Board için genel eşik ve kadans değerleri.
     // Kaynaklar: Gait120 pressure data, Tripod treadmill walking dataset.
     public static PersonalBoardMotion DefaultBoardMotion => new(
-        LeftStepThreshold: 2.5,
-        RightStepThreshold: 2.5,
+        LeftStepThreshold: -0.035,
+        RightStepThreshold: 0.035,
         SlowCadenceHz: 0.9,
         NaturalCadenceHz: 1.7,
         FastCadenceHz: 2.4,
