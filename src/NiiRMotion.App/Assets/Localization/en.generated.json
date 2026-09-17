@@ -683,5 +683,7 @@
   "Yürümeden sırayla bir bacağını kaldırıp bekle": "Lift one leg in turn and wait before walking",
   "Yürümeye başlayınca oyun hızının ne kadar çabuk yükseldiği.": "How quickly your game speed increases once you start walking.",
   "YÜRÜYÜŞ PROFİLİ  ·  {VALUE0}": "WALK PROFILE {VALUE0}",
-  "Zorunlu cihazlar, kişisel modeller ve yerel çalışma bileşenleri hazır.": "Mandatory devices, personal models and local work components are ready."
+  "Zorunlu cihazlar, kişisel modeller ve yerel çalışma bileşenleri hazır.": "Mandatory devices, personal models and local work components are ready.",
+  "Kalibrasyon atlanıyor (genel profil kullanılıyor)…": "Calibration skipped (using generic profile)…",
+  "Telefon bağlantısı koptu. owoTrack'i yeniden başlatıp kalibrasyonu tekrarlayın.": "Phone connection lost. Restart owoTrack and retry calibration."
 }
