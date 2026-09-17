@@ -27,6 +27,24 @@ public static class GenericGaitDefaults
         FastAccelP95: 1.8
     );
 
+    // PS Move (baldır/kalça yerleşimi) için genel yürüyüş profili.
+    // Kaynaklar: PS Move IMU studies, nonan gait algorithms.
+    // APDM AP-L5RM jiroskopu ~2000 dps hassasiyetle.
+    public static PsMoveTrainingProfile DefaultPsMoveProfile => new(
+        Version: 1,
+        CreatedAtUtc: DateTimeOffset.UtcNow,
+        Placement: SensorPlacement.CalfLowerLeg,
+        TotalSamples: 0,
+        DurationSeconds: 0,
+        RestReleaseThresholdRadps: 0.15,      // Duruş eşiği: minimal hareket
+        GaitActivationThresholdRadps: 0.6,    // Adım algılama eşiği
+        SlowAnchorRadps: 1.0,                 // Yavaş yürüyüş
+        NaturalAnchorRadps: 2.0,              // Doğal yürüyüş
+        FastAnchorRadps: 3.5,                 // Hızlı yürüyüş
+        NaturalLeftRightRatio: 1.0,           // Sol/sağ denge
+        Labels: new Dictionary<string, PsMoveMotionAnchor>()
+    );
+
     // Balance Board için genel eşik ve kadans değerleri.
     // Kaynaklar: Gait120 pressure data, Tripod treadmill walking dataset.
     public static PersonalBoardMotion DefaultBoardMotion => new(

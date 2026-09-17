@@ -32,8 +32,15 @@ public sealed class LiveLocomotionService : IAsyncDisposable
         if (IsRunning) return;
         var onboarding = await new PsMoveOnboardingService().GetStatusAsync(cancellationToken);
         if (!onboarding.IsReady) throw new InvalidOperationException(onboarding.Instruction);
-        var profile = JsonSerializer.Deserialize<PsMoveTrainingProfile>(await File.ReadAllTextAsync(NiiMotionPaths.PsMoveTrainingProfile, cancellationToken))
-            ?? throw new InvalidDataException("PS Move kişisel profili okunamadı.");
+        PsMoveTrainingProfile profile;
+        if (File.Exists(NiiMotionPaths.PsMoveTrainingProfile))
+        {
+            profile = JsonSerializer.Deserialize<PsMoveTrainingProfile>(await File.ReadAllTextAsync(NiiMotionPaths.PsMoveTrainingProfile, cancellationToken)) ?? GenericGaitDefaults.DefaultPsMoveProfile;
+        }
+        else
+        {
+            profile = GenericGaitDefaults.DefaultPsMoveProfile;
+        }
         var phoneProfile = File.Exists(Path.Combine(NiiMotionPaths.Config, "personal-phone-motion.json")) ? await PersonalPhoneMotion.LoadAsync(Path.Combine(NiiMotionPaths.Config, "personal-phone-motion.json"), cancellationToken) : GenericGaitDefaults.DefaultPhoneMotion;
         var boardProfile = File.Exists(Path.Combine(NiiMotionPaths.Config, "personal-board-motion.json")) ? await PersonalBoardMotion.LoadAsync(Path.Combine(NiiMotionPaths.Config, "personal-board-motion.json"), cancellationToken) : GenericGaitDefaults.DefaultBoardMotion;
         var selectedMotionProfile = new ActiveMotionProfileStore().Load() ?? "psmove-only";
@@ -129,7 +136,15 @@ public sealed class LiveLocomotionService : IAsyncDisposable
         {
             var onboarding = await new PsMoveOnboardingService().GetStatusAsync(cancellationToken);
             if (!onboarding.IsReady) throw new InvalidOperationException(onboarding.Instruction);
-            var moveProfile = JsonSerializer.Deserialize<PsMoveTrainingProfile>(await File.ReadAllTextAsync(NiiMotionPaths.PsMoveTrainingProfile, cancellationToken)) ?? throw new InvalidDataException("PS Move kişisel profili okunamadı.");
+            PsMoveTrainingProfile moveProfile;
+            if (File.Exists(NiiMotionPaths.PsMoveTrainingProfile))
+            {
+                moveProfile = JsonSerializer.Deserialize<PsMoveTrainingProfile>(await File.ReadAllTextAsync(NiiMotionPaths.PsMoveTrainingProfile, cancellationToken)) ?? GenericGaitDefaults.DefaultPsMoveProfile;
+            }
+            else
+            {
+                moveProfile = GenericGaitDefaults.DefaultPsMoveProfile;
+            }
             _psMoveGait = new PsMoveGaitEngine(moveProfile);
             _hybridGate = new HybridGaitAgreementGate(TimeSpan.FromMilliseconds(fusionModel?.DisagreementGraceMs ?? 360), fusionModel?.CadenceToleranceHz ?? 1.20);
         }
