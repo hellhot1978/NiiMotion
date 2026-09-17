@@ -10,7 +10,7 @@ namespace NiiRMotion.App;
 
 public partial class DeviceCalibrationWindow : Window
 {
-    private static readonly TimeSpan PhaseDuration = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan[] PhaseDurations = [TimeSpan.FromSeconds(90), TimeSpan.FromSeconds(90), TimeSpan.FromSeconds(120)];
     private readonly SensorFamily _sensor;
     private readonly UserSetupStore _store = new();
     private readonly PendingCalibrationRepairStore _repairStore = new();
@@ -184,7 +184,7 @@ public partial class DeviceCalibrationWindow : Window
         if (_sensor == SensorFamily.Phone) await StopPhoneListenerAsync();
         try
         {
-            var capture = new GuidedCalibrationCaptureWindow(_sensor, phase, PhaseDuration) { Owner = this };
+            var capture = new GuidedCalibrationCaptureWindow(_sensor, phase, PhaseDurations[phase - 1]) { Owner = this };
             if (capture.ShowDialog() != true || capture.Result is not { } result) { InstructionText.Text = "Faz iptal edildi; tamamlanmamış veri kullanılmadı."; return; }
             await UnifiedSensorSessionWriter.WriteAsync(result.Folder, "base-calibration", null, phase, [result]);
             if (!result.Quality.IsClean)
@@ -196,7 +196,7 @@ public partial class DeviceCalibrationWindow : Window
             else await CompleteCleanPhaseAsync(result);
         }
         catch (Exception ex) { InstructionText.Text = $"Faz tamamlanmadı: {ex.GetBaseException().Message}"; }
-        finally { _recording = false; PhaseProgress.Value = 0; TimerText.Text = "00:00 / 05:00"; RefreshPhaseButtons(); if (_sensor == SensorFamily.Phone) await StartPhoneListenerAsync(); }
+        finally { _recording = false; PhaseProgress.Value = 0; var dur = PhaseDurations[phase - 1]; TimerText.Text = $"00:00 / {dur:mm\\:ss}"; RefreshPhaseButtons(); if (_sensor == SensorFamily.Phone) await StartPhoneListenerAsync(); }
     }
 
     private async void RepairSegmentClick(object sender, RoutedEventArgs e)
@@ -219,7 +219,7 @@ public partial class DeviceCalibrationWindow : Window
         catch (Exception ex) { InstructionText.Text = "Bölüm yenilenemedi: " + ex.GetBaseException().Message; }
         finally
         {
-            _recording = false; PhaseProgress.Maximum = 300; PhaseProgress.Value = 0; TimerText.Text = "00:00 / 05:00";
+            _recording = false; var dur = PhaseDurations[_pendingResult?.Phase - 1 ?? 0]; PhaseProgress.Maximum = dur.TotalSeconds; PhaseProgress.Value = 0; TimerText.Text = $"00:00 / {dur:mm\\:ss}";
             RepairSegmentButton.IsEnabled = true; RefreshPhaseButtons();
             if (_sensor == SensorFamily.Phone) await StartPhoneListenerAsync();
         }

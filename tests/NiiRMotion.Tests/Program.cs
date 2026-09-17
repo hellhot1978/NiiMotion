@@ -689,7 +689,7 @@ static async Task ProfileFusionModelContract()
         Assert(pipeline.Contains("profile-manifest.json", StringComparison.Ordinal) && pipeline.Contains("BuildProfileFusionModels", StringComparison.Ordinal), "Profile captures must be analyzed into fusion models.");
         Assert(runtime.Contains("ProfileFusionModelStore", StringComparison.Ordinal) && runtime.Contains("CadenceToleranceHz", StringComparison.Ordinal), "Runtime must load the selected profile fusion model.");
         Assert(app.Contains("CombinedProfileCalibrationReadyAsync", StringComparison.Ordinal), "Game launch must gate missing multi-device calibration.");
-        Assert(combinedWindow.Contains("PhaseDuration = TimeSpan.FromMinutes(2)", StringComparison.Ordinal), "Combined phases must remain two minutes without shortening device base phases.");
+        Assert(combinedWindow.Contains("PhaseDurations", StringComparison.Ordinal), "Combined phases must use per-phase durations for optimized calibration.");
         Assert(combinedWindow.Contains("PauseClick", StringComparison.Ordinal) && combinedWindow.Contains("ResetPhaseClick", StringComparison.Ordinal) && combinedWindow.Contains("RestoreClick", StringComparison.Ordinal), "Combined calibration must support pause, retake and rollback.");
     }
     finally { if (Directory.Exists(root)) Directory.Delete(root, true); }

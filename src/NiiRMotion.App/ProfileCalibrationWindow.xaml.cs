@@ -8,7 +8,7 @@ namespace NiiRMotion.App;
 
 public partial class ProfileCalibrationWindow : Window
 {
-    private static readonly TimeSpan PhaseDuration = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan[] PhaseDurations = [TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(60)];
     private readonly MotionProfile _profile;
     private readonly SensorFamily[] _sensors;
     private readonly UserSetupStore _store = new();
@@ -28,11 +28,12 @@ public partial class ProfileCalibrationWindow : Window
         if (_recording || sender is not Button button || !int.TryParse(button.Tag?.ToString(), out var phase) || phase != _completed + 1) return;
         _recording = true; Refresh(); InstructionText.Text = Instruction(phase);
         var sessionRoot = Path.Combine(NiiMotionPaths.Data, "profile-calibration", _profile.Id, $"phase-{phase}-{DateTime.Now:yyyyMMdd-HHmmss}"); Directory.CreateDirectory(sessionRoot);
-        var progress = new Progress<TimeSpan>(elapsed => { Progress.Value = Math.Min(PhaseDuration.TotalSeconds, elapsed.TotalSeconds); Timer.Text = $"{elapsed:mm\\:ss} / 02:00"; });
+        var duration = PhaseDurations[phase - 1];
+        var progress = new Progress<TimeSpan>(elapsed => { Progress.Value = Math.Min(duration.TotalSeconds, elapsed.TotalSeconds); Timer.Text = $"{elapsed:mm\\:ss} / {duration:mm\\:ss}"; });
         try
         {
             using var linked = new CancellationTokenSource();
-            var tasks = _sensors.Select(sensor => new GuidedCalibrationRecorder().RecordAsync(sensor, phase, PhaseDuration, progress, "profile-walking-calibration", sessionRoot, linked.Token, () => _paused)).ToArray();
+            var tasks = _sensors.Select(sensor => new GuidedCalibrationRecorder().RecordAsync(sensor, phase, duration, progress, "profile-walking-calibration", sessionRoot, linked.Token, () => _paused)).ToArray();
             GuidedCalibrationResult[] results;
             try { results = await Task.WhenAll(tasks); }
             catch { linked.Cancel(); try { await Task.WhenAll(tasks); } catch { } throw; }
