@@ -150,8 +150,8 @@ internal static class OpenVrHeadsetPresence
                 {
                     fs.Seek(-maxBytes, SeekOrigin.End);
                     var buffer = new byte[maxBytes];
-                    fs.Read(buffer, 0, maxBytes);
-                    text = System.Text.Encoding.UTF8.GetString(buffer);
+                    var bytesRead = fs.Read(buffer, 0, maxBytes);
+                    text = System.Text.Encoding.UTF8.GetString(buffer, 0, bytesRead);
                 }
                 else
                 {

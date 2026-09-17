@@ -21,6 +21,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
     private HmdPoseSample _latestHmdPose;
     private bool _hmdFusionEnabled;
     private long _lastBatteryCheckTicks;
+    private int _batteryCheckRunning;
 
     public bool IsRunning => _lifetime is { IsCancellationRequested: false };
     public string ModeDescription { get; private set; } = "OFF";
@@ -115,7 +116,8 @@ public sealed class LiveLocomotionService : IAsyncDisposable
             if (Stopwatch.GetTimestamp() - Interlocked.Read(ref _lastBatteryCheckTicks) > Stopwatch.Frequency * 30)
             {
                 Interlocked.Exchange(ref _lastBatteryCheckTicks, Stopwatch.GetTimestamp());
-                _ = CheckPsMoveBatteryAsync(token);
+                if (Interlocked.CompareExchange(ref _batteryCheckRunning, 1, 0) == 0)
+                    _ = CheckPsMoveBatteryAsync(token);
             }
         }
     }
@@ -130,10 +132,11 @@ public sealed class LiveLocomotionService : IAsyncDisposable
             {
                 if (battery.Charging) continue;
                 if (battery.Percent is <= 10)
-                    BatteryLowWarning?.Invoke(this, $"PS Move pil seviyesi düşük: {battery.StableId} ({battery.Percent}%)");
+                    BatteryLowWarning?.Invoke(this, $"PS Move pil seviyesi dusuk: {battery.StableId} ({battery.Percent}%)");
             }
         }
         catch { }
+        finally { Interlocked.Exchange(ref _batteryCheckRunning, 0); }
     }
 
     public async Task StartAsync(string? calibrationPath = null, bool includePhone = true, bool phoneOnly = false, bool includeBoard = false, bool boardOnly = false, bool includePsMove = false, CancellationToken cancellationToken = default)
@@ -285,6 +288,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
     {
         var previous = Stopwatch.GetTimestamp();
         using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(10));
+        using var flushTimer = new PeriodicTimer(TimeSpan.FromMilliseconds(100));
         while (await timer.WaitForNextTickAsync(token))
         {
             var now = Stopwatch.GetTimestamp(); FusionSnapshot snapshot;
@@ -300,7 +304,8 @@ public sealed class LiveLocomotionService : IAsyncDisposable
             HmdFusionDecision hmdDecision; lock (_fusionLock) hmdDecision = HmdFusionPolicy.Apply(snapshot, _latestHmdPose, now, _hmdFusionEnabled); snapshot = hmdDecision.Snapshot;
             _diagnosticWriter?.WriteLine(string.Join(';', now, snapshot.Gait.State, snapshot.TargetSpeed.ToString("0.000", CultureInfo.InvariantCulture), snapshot.TurnTarget.ToString("0.000", CultureInfo.InvariantCulture), snapshot.GlobalConfidence.ToString("0.000", CultureInfo.InvariantCulture), snapshot.Gait.CadenceHz.ToString("0.000", CultureInfo.InvariantCulture), snapshot.Gait.StepCount, snapshot.PhoneFresh, snapshot.BoardContact, snapshot.BoardCopX.ToString("0.000", CultureInfo.InvariantCulture), snapshot.BoardTotalKg.ToString("0.0", CultureInfo.InvariantCulture), snapshot.BoardTransferVelocity.ToString("0.000", CultureInfo.InvariantCulture), hmdDecision.Fresh, hmdDecision.Turning, hmdDecision.SuppressedFalseForward));
             PublishTelemetry(now, snapshot.Gait, snapshot.TargetSpeed, snapshot.TurnTarget);
-            if (now % Stopwatch.Frequency < Stopwatch.Frequency / 100) _diagnosticWriter?.Flush();
+            if (await flushTimer.WaitForNextTickAsync(CancellationToken.None))
+                try { _diagnosticWriter?.Flush(); } catch { }
             var delta = TimeSpan.FromSeconds((now - previous) / (double)Stopwatch.Frequency); previous = now;
             await _vrSession!.UpdateAsync(snapshot, delta, token);
         }
@@ -321,7 +326,7 @@ public sealed class LiveLocomotionService : IAsyncDisposable
         if (_vrSession is not null) { await _vrSession.DisposeAsync(); _vrSession = null; }
         foreach (var source in _sources.AsEnumerable().Reverse()) await source.DisposeAsync();
         _diagnosticWriter?.Flush(); _diagnosticWriter?.Dispose(); _diagnosticWriter = null;
-        _sources.Clear(); _fusion = null; _auxFusion = null; _psMoveGait = null; _hybridGate = null; _profileFusionModel = null; _latestHmdPose = default; _hmdFusionEnabled = false; ModeDescription = "OFF";
+        _sources.Clear(); lock (_fusionLock) { _fusion = null; _auxFusion = null; } _psMoveGait = null; _hybridGate = null; _profileFusionModel = null; _latestHmdPose = default; _hmdFusionEnabled = false; ModeDescription = "OFF";
     }
 
     private static async Task<double> LoadThresholdAsync(string? path, CancellationToken cancellationToken)

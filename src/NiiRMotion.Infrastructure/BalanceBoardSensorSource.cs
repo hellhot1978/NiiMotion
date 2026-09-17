@@ -8,8 +8,11 @@ namespace NiiRMotion.Infrastructure;
 public sealed class BalanceBoardSensorSource : ISensorSource<BalanceBoardSample>
 {
     private const int TareSamples = 200;
+    private const int TareTimeoutSeconds = 15;
+    private const float TareWeightThreshold = 15f;
     private static readonly object ConnectionGate = new();
     private static Wiimote? SharedBoard;
+    private static int _subscriberCount;
     private readonly BoundedSensorBuffer<BalanceBoardSample> _buffer = new(256);
     private Wiimote? _board;
     private long _sequence;
@@ -26,28 +29,49 @@ public sealed class BalanceBoardSensorSource : ISensorSource<BalanceBoardSample>
     {
         if (_board is not null) throw new InvalidOperationException("Balance Board source already started.");
         cancellationToken.ThrowIfCancellationRequested();
+
+        Wiimote? boardToConnect = null;
         lock (ConnectionGate)
         {
             if (SharedBoard is null)
             {
                 SharedBoard = new Wiimote();
-                SharedBoard.Connect();
-                SharedBoard.SetLEDs(1);
+                boardToConnect = SharedBoard;
             }
             _board = SharedBoard;
+            Interlocked.Increment(ref _subscriberCount);
             _board.WiimoteChanged += OnChanged;
         }
-        var readyBy = DateTime.UtcNow + TimeSpan.FromSeconds(8);
+
+        if (boardToConnect is not null)
+        {
+            try
+            {
+                await Task.Run(() => boardToConnect.Connect(), cancellationToken);
+                boardToConnect.SetLEDs(1);
+            }
+            catch
+            {
+                lock (ConnectionGate)
+                {
+                    _board.WiimoteChanged -= OnChanged;
+                    _board = null;
+                    Interlocked.Decrement(ref _subscriberCount);
+                    SharedBoard = null;
+                }
+                throw;
+            }
+        }
+
+        var readyBy = DateTime.UtcNow + TimeSpan.FromSeconds(TareTimeoutSeconds);
         while (!IsTared && DateTime.UtcNow < readyBy)
             await Task.Delay(25, cancellationToken);
-        if (!IsTared) throw new InvalidOperationException("Balance Board sıfırlanamadı. Kart tamamen boşken Oyun Modunu yeniden başlat.");
+        if (!IsTared) throw new InvalidOperationException("Balance Board could not be tared. Make sure the board is completely empty and restart Game Mode.");
     }
 
     private void OnChanged(object? sender, WiimoteChangedEventArgs args)
     {
         if (args.WiimoteState.ExtensionType != ExtensionType.BalanceBoard) return;
-        // WiimoteLib exposes load-cell values at four times the physical kg
-        // scale and divides their sum by four for WeightKg.
         var values = args.WiimoteState.BalanceBoardState.SensorValuesKg;
         var frontLeft = values.TopLeft / 4f;
         var frontRight = values.TopRight / 4f;
@@ -55,7 +79,7 @@ public sealed class BalanceBoardSensorSource : ISensorSource<BalanceBoardSample>
         var backRight = values.BottomRight / 4f;
         if (_tareCount < TareSamples)
         {
-            if (frontLeft + frontRight + backLeft + backRight > 15f) return;
+            if (frontLeft + frontRight + backLeft + backRight > TareWeightThreshold) return;
             _tareFrontLeftValues.Add(frontLeft); _tareFrontRightValues.Add(frontRight); _tareBackLeftValues.Add(backLeft); _tareBackRightValues.Add(backRight);
             if (++_tareCount == TareSamples)
             {
@@ -71,9 +95,9 @@ public sealed class BalanceBoardSensorSource : ISensorSource<BalanceBoardSample>
 
     private static float Median(List<float> values)
     {
-        values.Sort();
-        var middle = values.Count / 2;
-        return values.Count % 2 == 0 ? (values[middle - 1] + values[middle]) / 2 : values[middle];
+        var sorted = values.OrderBy(x => x).ToList();
+        var middle = sorted.Count / 2;
+        return sorted.Count % 2 == 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
     }
 
     public ValueTask DisposeAsync()
@@ -82,6 +106,18 @@ public sealed class BalanceBoardSensorSource : ISensorSource<BalanceBoardSample>
         {
             _board.WiimoteChanged -= OnChanged;
             _board = null;
+            if (Interlocked.Decrement(ref _subscriberCount) <= 0)
+            {
+                lock (ConnectionGate)
+                {
+                    if (SharedBoard is not null)
+                    {
+                        try { SharedBoard.Disconnect(); } catch { }
+                        SharedBoard = null;
+                    }
+                    _subscriberCount = 0;
+                }
+            }
         }
         _buffer.Complete();
         return ValueTask.CompletedTask;

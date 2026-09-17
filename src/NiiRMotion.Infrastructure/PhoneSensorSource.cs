@@ -42,5 +42,5 @@ public sealed class PhoneSensorSource : ISensorSource<PhoneImuSample>
     {
         var a = System.Text.Encoding.UTF8.GetBytes(left); var b = System.Text.Encoding.UTF8.GetBytes(right); return System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(a, b);
     }
-    public async ValueTask DisposeAsync() { _lifetime?.Cancel(); _client?.Dispose(); if (_loop is not null) try { await _loop; } catch (OperationCanceledException) { } _lifetime?.Dispose(); }
+    public async ValueTask DisposeAsync() { _lifetime?.Cancel(); _client?.Dispose(); if (_loop is not null) try { await _loop; } catch (OperationCanceledException) { } try { _buffer.Complete(); } catch (InvalidOperationException) { } _lifetime?.Dispose(); }
 }

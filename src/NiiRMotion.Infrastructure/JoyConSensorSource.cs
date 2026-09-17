@@ -31,12 +31,13 @@ public sealed class JoyConSensorSource : ISensorSource<JoyConImuSample>
         _stream = new FileStream(_device.DevicePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite, 1, FileOptions.None);
         _capabilities = GetCapabilities(_stream.SafeFileHandle);
         FactoryCalibration = await ReadFactoryCalibrationAsync(cancellationToken);
-        await SendSubcommandAsync(0x40, new byte[] { 0x01 }, cancellationToken); // enable IMU
-        await Task.Delay(65, cancellationToken);
+        await SendSubcommandAsync(0x04, new byte[] { 0x01 }, cancellationToken); // enable IMU
+        await Task.Delay(100, cancellationToken);
         await SendSubcommandAsync(0x03, new byte[] { JoyConReportParser.StandardFullReportId }, cancellationToken); // standard full report mode
         _lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        _readLoop = Task.Run(() => ReadLoop(_lifetime.Token), CancellationToken.None);
-        _keepAliveLoop = Task.Run(() => KeepAliveLoopAsync(_lifetime.Token), CancellationToken.None);
+        var token = _lifetime.Token;
+        _readLoop = Task.Run(() => ReadLoop(token), token);
+        _keepAliveLoop = Task.Run(() => KeepAliveLoopAsync(token), token);
     }
 
     private async Task SendSubcommandAsync(byte subcommand, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
@@ -102,7 +103,7 @@ public sealed class JoyConSensorSource : ISensorSource<JoyConImuSample>
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
-        catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested) { }
+        catch (ObjectDisposedException) { }
         catch (Exception ex) { _buffer.Complete(ex); return; }
         _buffer.Complete();
     }

@@ -37,6 +37,8 @@ public sealed class PsMoveSensorSource(
     private async Task ReadSideWithReconnectAsync(string stableId, LegSide side, PsMoveZcm1FactoryCalibration calibration, CancellationToken cancellationToken)
     {
         var wasConnected = false;
+        var backoffMs = 750;
+        const int maxBackoffMs = 5000;
         while (!cancellationToken.IsCancellationRequested)
         {
             var probe = new PsMoveDiagnosticsService().Discover()
@@ -46,7 +48,8 @@ public sealed class PsMoveSensorSource(
             {
                 if (wasConnected) await NiiMotionEventLog.WriteAsync("psmove", "disconnected", $"{side} PS Move disconnected; locomotion evidence is now stale.", new { stableId }, cancellationToken);
                 wasConnected = false;
-                await Task.Delay(750, cancellationToken);
+                await Task.Delay(backoffMs, cancellationToken);
+                backoffMs = Math.Min(backoffMs * 2, maxBackoffMs);
                 continue;
             }
 
@@ -55,6 +58,7 @@ public sealed class PsMoveSensorSource(
                 await using var stream = new FileStream(probe.Device.DevicePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, probe.InputReportBytes, FileOptions.Asynchronous);
                 if (!wasConnected) await NiiMotionEventLog.WriteAsync("psmove", "connected", $"{side} PS Move connected.", new { stableId }, cancellationToken);
                 wasConnected = true;
+                backoffMs = 750;
                 await ReadLoopAsync(stream, stableId, side, calibration, cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { break; }
@@ -62,7 +66,8 @@ public sealed class PsMoveSensorSource(
             {
                 if (wasConnected) await NiiMotionEventLog.WriteAsync("psmove", "read-interrupted", $"{side} PS Move stream interrupted; automatic reconnect is active.", new { stableId, error = ex.GetBaseException().Message }, cancellationToken);
                 wasConnected = false;
-                await Task.Delay(750, cancellationToken);
+                await Task.Delay(backoffMs, cancellationToken);
+                backoffMs = Math.Min(backoffMs * 2, maxBackoffMs);
             }
         }
     }

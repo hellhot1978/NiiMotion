@@ -17,6 +17,15 @@ public static class PhonePresence
         }
     }
 
+    public static void Reset()
+    {
+        lock (Sync)
+        {
+            _lastSampleTicks = 0;
+            _endpoint = "";
+        }
+    }
+
     public static bool TryGetFresh(out string endpoint, TimeSpan? maximumAge = null)
     {
         lock (Sync)
@@ -24,7 +33,7 @@ public static class PhonePresence
             endpoint = _endpoint;
             if (_lastSampleTicks == 0) return false;
             var age = Stopwatch.GetElapsedTime(_lastSampleTicks);
-            return age <= (maximumAge ?? TimeSpan.FromMilliseconds(2000));
+            return age <= (maximumAge ?? TimeSpan.FromSeconds(4));
         }
     }
 }

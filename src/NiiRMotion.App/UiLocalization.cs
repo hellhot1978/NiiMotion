@@ -48,6 +48,7 @@ public static class UiLocalization
         ["▶  FAZ {VALUE0}'Ü BAŞLAT · {VALUE1}"]="▶ START PHASE {VALUE0} · {VALUE1}", ["○  FAZ {VALUE0} · {VALUE1}"]="○ PHASE {VALUE0} · {VALUE1}",
         ["Önce cihaz bağlantısını doğrula."]="Verify the device connection first.", ["VR ÇIKIŞI KAPALI"]="VR OUTPUT OFF", ["MOVE'LARI YENİDEN EŞLEŞTİR"]="PAIR MOVES AGAIN", ["SORUNLU BÖLÜMÜ YENİDEN KAYDET"]="RECORD THE PROBLEM SEGMENT AGAIN",
         ["Kalibrasyon tamamlandı · cihaz bağlı değil"]="Calibration complete · device not connected", ["Bağlı · kalibrasyon tamamlandı"]="Connected · calibration complete", ["Cihaz bağlı değil"]="Device not connected", ["Cihaz bağlı"]="Device connected",
+        ["Bağlı"]="Connected", ["Eksik"]="Missing", ["Kullanıma açık"]="Configured", ["Belirsiz"]="Unknown", ["dosya"]="files",
         ["ŞİMDİ YAP"]="DO THIS NOW", ["BU HAREKETİN KALAN SÜRESİ"]="TIME LEFT FOR THIS MOVEMENT", ["SONRAKİ HAREKET"]="NEXT MOVEMENT", ["Hazırlan"]="Get ready", ["Sensör akışı başlatılıyor…"]="Starting sensor stream…",
         ["DURAKLAT"]="PAUSE", ["SOL MOVE'U KIRMIZI YAK"]="LIGHT LEFT MOVE RED", ["SAĞ MOVE'U MAVİ YAK"]="LIGHT RIGHT MOVE BLUE", ["KAYIT HAZIRLANIYOR"]="PREPARING RECORDING",
         ["SABİT DUR"]="STAND STILL", ["YAVAŞ YÜRÜ"]="WALK SLOWLY", ["DOĞAL YÜRÜ"]="WALK NATURALLY", ["HIZLI YÜRÜ"]="WALK QUICKLY", ["DÖN"]="TURN", ["EĞİL"]="BEND", ["DENGE"]="BALANCE",
